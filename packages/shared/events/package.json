@@ -1,0 +1,14 @@
+{
+  "name": "@shared/events",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src",
+    "codegen": "echo 'Phase 0.3 implements TypeBox codegen'"
+  }
+}
