@@ -24,3 +24,8 @@ contracts/solana/target/
 
 # OS
 .DS_Store
+
+# Agent swarm traces (per-run, not source)
+PROGRESS-*.md
+VERIFIED-*.md
+SUMMARY-*.md
