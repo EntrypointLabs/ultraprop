@@ -1,12 +1,13 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
   "files": {
-    "ignore": [
-      "**/dist",
-      "**/.next",
-      "**/.turbo",
-      "**/target",
-      "**/node_modules"
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/.next",
+      "!**/.turbo",
+      "!**/target",
+      "!**/node_modules"
     ]
   },
   "formatter": {

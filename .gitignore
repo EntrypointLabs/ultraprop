@@ -10,6 +10,7 @@ dist/
 build/
 .turbo/
 .next/
+*.tsbuildinfo
 
 # Rust / Cargo
 target/
