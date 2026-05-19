@@ -1,0 +1,11 @@
+{
+  "name": "@app/admin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src"
+  }
+}
