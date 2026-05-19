@@ -1,1 +1,25 @@
 /.claude/*
+
+# Node / pnpm
+node_modules/
+pnpm-debug.log
+*.log
+
+# Build outputs
+dist/
+build/
+.turbo/
+.next/
+
+# Rust / Cargo
+target/
+
+# Chain-toolchain build dirs
+contracts/sui/build/
+contracts/solana/target/
+
+# Env / secrets
+.env*
+
+# OS
+.DS_Store
