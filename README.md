@@ -7,12 +7,27 @@ Full vision, success criteria, scope decisions, and roadmap live in [`docs/plans
 ## Quickstart
 
 ```bash
-pnpm install
-pnpm turbo build
-cargo build --workspace
+pnpm setup    # one-time: toolchain check, install, build shared layer, contracts if CLIs present
+pnpm dev      # run every workspace concurrently — open whichever localhost you care about
 ```
 
-Requires Node >=22 (LTS 24 recommended via `.nvmrc`), pnpm >=9, and Rust stable (channel pinned in `rust-toolchain.toml`). Chain-specific tooling (`sui`, `anchor`, `solana`) is needed only when working inside `contracts/`.
+Requires Node >=22 (LTS 24 recommended via `.nvmrc`), pnpm >=9, and Rust stable (channel pinned in `rust-toolchain.toml`). Chain-specific tooling (`sui`, `anchor`, `solana`) is needed only when working inside `contracts/`. Setup gracefully skips steps for CLIs you don't have installed — install them when you want to work on that workspace.
+
+### Root scripts
+
+| Script | What it does |
+|---|---|
+| `pnpm setup` | Toolchain check → `pnpm install` → build `@shared/*` TS packages → `cargo build --workspace` (if cargo) → `sui move build` (if sui CLI) |
+| `pnpm dev` | Runs `predev` (re-runs setup if deps/shared packages missing), then `turbo run dev` (5 TS workspaces in watch mode) + `cargo watch` for the Rust workspace, streams merged with `[ts]` / `[rust]` prefixes |
+| `pnpm build` | `turbo run build` — production builds with topological ordering |
+| `pnpm typecheck` | `turbo run typecheck` across all TS workspaces |
+| `pnpm lint` | `turbo run lint` + root-level `biome check .` |
+| `pnpm test` | `turbo run test` + `cargo test --workspace` |
+| `pnpm format` | `biome format --write .` |
+| `pnpm check:toolchain` | Reports which optional CLIs are missing |
+| `pnpm build:rust` | `cargo build --workspace` only |
+| `pnpm build:contracts` | `sui move build` + (later) `anchor build` |
+| `pnpm clean` | Removes `node_modules`, `dist`, `.turbo`, `.next`, `target`, `*.tsbuildinfo` everywhere |
 
 ## Workspace Layout
 
