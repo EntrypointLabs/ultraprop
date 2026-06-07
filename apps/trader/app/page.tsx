@@ -1,5 +1,5 @@
-import { MarketsScreen } from "@/components/markets/MarketsScreen";
+import { HomeScreen } from "@/components/home/HomeScreen";
 
-export default function MarketsPage() {
-  return <MarketsScreen />;
+export default function HomePage() {
+  return <HomeScreen />;
 }
