@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "installCommand": "pnpm install --config.strict-dep-builds=false",
   "buildCommand": "pnpm --filter @app/trader build",
   "outputDirectory": "apps/trader/.next"
 }
