@@ -47,7 +47,7 @@ export function Tr({
   return (
     <tr
       className={cn(
-        "border-b border-border-soft transition-colors hover:bg-surface-2",
+        "border-b border-border-soft transition-[background-color] duration-150 ease-out hover:bg-surface-2",
         className,
       )}
       {...props}
@@ -75,7 +75,7 @@ export function Th({
   if (sortable) {
     return (
       <th
-        className={cn("h-10 px-3 font-medium", align, className)}
+        className={cn("h-11 px-4 font-medium", align, className)}
         aria-sort={
           sortDir === "asc"
             ? "ascending"
@@ -95,18 +95,18 @@ export function Th({
         >
           <span>{children}</span>
           {sortDir === "asc" ? (
-            <ChevronUp className="h-3 w-3 text-violet" />
+            <ChevronUp className="h-3 w-3 text-violet" aria-hidden="true" />
           ) : sortDir === "desc" ? (
-            <ChevronDown className="h-3 w-3 text-violet" />
+            <ChevronDown className="h-3 w-3 text-violet" aria-hidden="true" />
           ) : (
-            <ChevronDown className="h-3 w-3 opacity-30" />
+            <ChevronDown className="h-3 w-3 opacity-30" aria-hidden="true" />
           )}
         </button>
       </th>
     );
   }
   return (
-    <th className={cn("h-10 px-3 font-medium", align, className)} {...props}>
+    <th className={cn("h-11 px-4 font-medium", align, className)} {...props}>
       {children}
     </th>
   );
@@ -120,7 +120,7 @@ export function Td({ className, numeric, ...props }: TdProps) {
   return (
     <td
       className={cn(
-        "h-11 px-3 align-middle",
+        "h-12 px-4 align-middle",
         numeric ? "tabular text-right" : "text-left",
         className,
       )}

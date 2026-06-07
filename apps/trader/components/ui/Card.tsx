@@ -23,7 +23,7 @@ export const CardHeader = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "flex items-center justify-between gap-2 border-b border-border-soft px-4 py-3",
+      "flex items-center justify-between gap-2 border-b border-border-soft px-5 py-4",
       className,
     )}
     {...props}
@@ -50,6 +50,6 @@ export const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-4", className)} {...props} />
+  <div ref={ref} className={cn("p-5", className)} {...props} />
 ));
 CardContent.displayName = "CardContent";

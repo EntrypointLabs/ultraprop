@@ -73,7 +73,8 @@ export function Modal({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      aria-label={typeof title === "string" ? title : undefined}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 overscroll-contain"
     >
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -88,7 +89,7 @@ export function Modal({
         )}
       >
         {(title || !hideClose) && (
-          <div className="flex items-center justify-between border-b border-border-soft px-5 py-4">
+          <div className="flex items-center justify-between border-b border-border-soft px-6 py-5">
             <h2 className="text-lg font-semibold text-text">{title}</h2>
             {!hideClose && (
               <button
@@ -97,14 +98,14 @@ export function Modal({
                 aria-label="Close"
                 className="rounded-sm p-1 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             )}
           </div>
         )}
-        <div className="px-5 py-4">{children}</div>
+        <div className="px-6 py-5">{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-2 border-t border-border-soft px-5 py-4">
+          <div className="flex items-center justify-end gap-2 border-t border-border-soft px-6 py-5">
             {footer}
           </div>
         )}

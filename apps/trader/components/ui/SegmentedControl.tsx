@@ -85,7 +85,7 @@ export function Toggle({
         disabled={disabled}
         onClick={() => onCheckedChange(!checked)}
         className={cn(
-          "relative h-5 w-9 shrink-0 rounded-full transition-colors",
+          "relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-violet focus-visible:outline-offset-2",
           checked ? "bg-violet" : "bg-surface-3",
         )}
       >
