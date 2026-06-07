@@ -30,3 +30,5 @@ PROGRESS-*.md
 VERIFIED-*.md
 SUMMARY-*.md
 .gstack/
+.agents/
+.trae/
