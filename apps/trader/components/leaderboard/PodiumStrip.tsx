@@ -86,7 +86,7 @@ export function PodiumStrip({ top3, axis }: PodiumStripProps) {
               key={entry.wallet}
               href={`/profile/${entry.wallet}`}
               className={cn(
-                "group relative flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border p-4 transition-colors hover:bg-surface-2",
+                "lift group relative flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border p-4 hover:bg-surface-2",
                 medal.bg,
                 medal.border,
                 isFirst && "ring-1 ring-warn/30",

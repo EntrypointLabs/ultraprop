@@ -11,7 +11,6 @@ import {
   CardLabel,
   SegmentedControl,
   Skeleton,
-  StatTile,
 } from "@/components/ui";
 import { useCohortStats, useLeaderboard } from "@/lib/mock/hooks";
 import type { LeaderboardAxis, LeaderboardWindow } from "@/lib/mock/types";
@@ -39,11 +38,11 @@ export default function LeaderboardPage() {
   const top3 = entries.slice(0, 3);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       {/* ── Page header ── */}
       <div className="mb-6 flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-text">
+          <h1 className="text-balance text-2xl font-semibold tracking-tight text-text">
             Leaderboard
           </h1>
           <span className="rounded-sm bg-warn/15 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warn">
@@ -52,35 +51,10 @@ export default function LeaderboardPage() {
         </div>
         <p className="text-sm text-text-muted">
           {cohort.members} traders · {cohort.activeEvaluations} active ·{" "}
-          {formatPct(cohort.passRate * 100, { sign: false, decimals: 0 })}{" "}
-          cohort pass rate
+          {cohort.totalPasses} passes ·{" "}
+          {formatPct(cohort.passRate * 100, { sign: false, decimals: 0 })} pass
+          rate · median {formatPct(cohort.medianPasserReturnPct, { sign: true })}
         </p>
-      </div>
-
-      {/* ── Cohort stat tiles ── */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile
-          label="Members"
-          value={<span className="tabular">{cohort.members}</span>}
-        />
-        <StatTile
-          label="Active Evals"
-          value={<span className="tabular">{cohort.activeEvaluations}</span>}
-        />
-        <StatTile
-          label="Total Passes"
-          value={<span className="tabular">{cohort.totalPasses}</span>}
-        />
-        <StatTile
-          label="Pass Rate"
-          value={
-            <span className="tabular text-up">
-              {formatPct(cohort.passRate * 100, { sign: false, decimals: 0 })}
-            </span>
-          }
-          delta={`Median return ${formatPct(cohort.medianPasserReturnPct, { sign: true })}`}
-          deltaTone="up"
-        />
       </div>
 
       {/* ── Controls ── */}
