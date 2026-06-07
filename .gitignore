@@ -32,3 +32,5 @@ SUMMARY-*.md
 .gstack/
 .agents/
 .trae/
+
+.impeccable/
