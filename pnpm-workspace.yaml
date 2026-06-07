@@ -3,6 +3,8 @@ packages:
   - "services/api-gateway"
   - "packages/shared/events"
   - "packages/shared/contracts-abi"
+onlyBuiltDependencies:
+  - sharp
 # Rust crates (services/risk-engine, packages/shared/slippage) are intentionally
 # excluded — the root Cargo workspace owns them. Including a Rust crate dir under
 # a pnpm glob makes pnpm warn on every install because there is no package.json.
