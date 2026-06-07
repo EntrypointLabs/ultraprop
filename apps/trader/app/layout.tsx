@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Hanken_Grotesk, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "@/app/globals.css";
 import {
   Footer,
@@ -12,10 +12,17 @@ import {
   TopNav,
 } from "@/components/shell";
 
-const inter = Inter({
+const sans = Hanken_Grotesk({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-sans-face",
   weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const display = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display-face",
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
@@ -43,14 +50,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`dark ${inter.variable} ${mono.variable}`}>
+    <html
+      lang="en"
+      className={`dark ${sans.variable} ${display.variable} ${mono.variable}`}
+    >
       <body className="flex min-h-dvh flex-col bg-bg text-text antialiased">
         <Providers>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:text-text focus:outline-2 focus:outline-violet"
+          >
+            Skip to main content
+          </a>
           <StoreHydration />
           <PixelTopBorder />
           <TopNav />
           <StaleFeedBanner />
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="flex-1">{children}</main>
           <Footer />
           <OnboardingModal />
           <LoginModal />

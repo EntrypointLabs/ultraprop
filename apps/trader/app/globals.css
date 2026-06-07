@@ -50,12 +50,44 @@
   --text-display: 3.429rem; /* 48 — restrained hero ceiling */
 
   /* fonts (vars set by next/font in layout) */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Anthropic Sans", var(--font-sans-face), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-face), var(--font-sans-face), system-ui, sans-serif;
   --font-mono: var(--font-mono-face), ui-monospace, "SFMono-Regular", monospace;
 }
 
 :root {
   color-scheme: dark;
+}
+
+/* Anthropic Sans — body face. Drop the .woff2 files into apps/trader/public/fonts/
+   to activate; until present it falls back to the next/font face in --font-sans. */
+@font-face {
+  font-family: "Anthropic Sans";
+  src: url("/fonts/anthropic-sans-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Anthropic Sans";
+  src: url("/fonts/anthropic-sans-medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Anthropic Sans";
+  src: url("/fonts/anthropic-sans-semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Anthropic Sans";
+  src: url("/fonts/anthropic-sans-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 html {
@@ -71,6 +103,25 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text);
   min-height: 100dvh;
+}
+
+/* Display face on top-level page headings — carries the brand's character
+   where it counts, without turning every label into display type. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* prevent double-tap zoom delay on interactive elements */
+button,
+a,
+[role="button"],
+[role="tab"],
+[role="switch"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* tabular mono numerics helper */
@@ -189,6 +240,21 @@ body {
 }
 .live-pulse {
   animation: live-pulse 1.8s ease-in-out infinite;
+}
+
+/* Reusable lift utility for interactive cards */
+.lift {
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    background-color 180ms ease-out;
+}
+.lift:hover {
+  transform: translateY(-2px);
+}
+.lift:active {
+  transform: translateY(0px);
 }
 
 @media (prefers-reduced-motion: reduce) {
