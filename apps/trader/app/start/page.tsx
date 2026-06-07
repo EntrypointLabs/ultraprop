@@ -1,0 +1,113 @@
+import { TierGrid } from "@/components/tiers";
+import { StartPageClient } from "@/components/tiers/StartPageClient";
+import { Badge } from "@/components/ui";
+
+export const metadata = {
+  title: "Start Evaluation — Entrypoint",
+  description:
+    "Pick a tier and open your evaluation. Trade BTC/ETH/SOL in simulation against live market prices with automatic rule enforcement.",
+};
+
+export default function StartPage() {
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      {/* Hero intro */}
+      <div className="mb-10">
+        <div className="flex items-center gap-2 mb-3">
+          <Badge variant="genesis">v1 Genesis cohort</Badge>
+          <Badge variant="outline">Closed beta</Badge>
+        </div>
+
+        <h1 className="text-4xl font-bold tracking-tight text-text mb-3">
+          Start your evaluation
+        </h1>
+
+        <p className="text-base text-text-muted max-w-2xl leading-relaxed">
+          Trade BTC, ETH, and SOL in simulation against live market prices.
+          Every rule is enforced automatically in real time — drawdown, daily
+          loss, profit target — and emits verifiable pass/fail events. Pass an
+          evaluation to level your non-transferable Genesis credential: proof of
+          trading skill earned in the closed beta.
+        </p>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <FactChip label="Assets" value="BTC / ETH / SOL" />
+          <FactChip label="Settlement" value="Simulation" />
+          <FactChip label="Fill model" value="Market mid + slippage + 2 bps" />
+          <FactChip label="Daily reset" value="00:00 UTC" />
+        </div>
+      </div>
+
+      {/* Divergence halt notice — client-driven */}
+      <StartPageClient />
+
+      {/* Tier cards */}
+      <section aria-label="Tier selection">
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="text-lg font-semibold text-text">Choose a tier</h2>
+          <span className="text-xs text-text-faint tabular">
+            Starter → Basic → Pro
+          </span>
+        </div>
+
+        <TierGrid />
+      </section>
+
+      {/* Footer note */}
+      <div className="mt-8 rounded-[var(--radius)] bg-surface border border-border-soft px-5 py-4">
+        <h3 className="text-sm font-semibold text-text mb-2">How it works</h3>
+        <ol className="space-y-2 text-sm text-text-muted">
+          <li className="flex gap-3">
+            <span className="tabular font-mono text-violet font-semibold shrink-0">
+              01
+            </span>
+            <span>
+              Sign in — your account must be on the closed-beta allowlist.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="tabular font-mono text-violet font-semibold shrink-0">
+              02
+            </span>
+            <span>
+              Pick a tier. Starter is open to all allowlisted traders. Basic and
+              Pro unlock progressively as you pass each level.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="tabular font-mono text-violet font-semibold shrink-0">
+              03
+            </span>
+            <span>
+              Trade BTC/ETH/SOL in simulation against live market prices. Every fill is
+              shown pre-submit with market mid, slippage, and the +2 bps house
+              tilt — no hidden math.
+            </span>
+          </li>
+          <li className="flex gap-3">
+            <span className="tabular font-mono text-violet font-semibold shrink-0">
+              04
+            </span>
+            <span>
+              Hit the profit target before breaching the drawdown or daily-loss
+              rules. A Passed event is emitted and your Genesis credential is
+              permanently recorded.
+            </span>
+          </li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+function FactChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-sm bg-surface border border-border px-3 py-1.5">
+      <span className="text-xs text-text-muted uppercase tracking-wide">
+        {label}
+      </span>
+      <span className="text-xs text-text-faint">·</span>
+      <span className="tabular text-xs font-medium text-text">{value}</span>
+    </div>
+  );
+}
