@@ -16,7 +16,7 @@ export function CohortHero() {
           </Badge>
           <h1
             className={cn(
-              "text-4xl font-bold leading-none tracking-tight text-brand-ink sm:text-5xl lg:text-6xl",
+              "text-balance text-4xl font-bold leading-none tracking-tight text-brand-ink sm:text-5xl lg:text-6xl",
             )}
           >
             GENESIS COHORT

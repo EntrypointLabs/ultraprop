@@ -151,7 +151,7 @@ export function LoginModal() {
             aria-label="Close"
             className="rounded-sm p-1 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
@@ -264,8 +264,9 @@ export function LoginModal() {
                 type="email"
                 inputMode="email"
                 autoComplete="email"
+                spellCheck={false}
                 autoFocus
-                placeholder="you@email.com"
+                placeholder="you@email.com…"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -309,7 +310,10 @@ export function LoginModal() {
             </p>
             <Input
               mono
+              type="text"
               inputMode="numeric"
+              autoComplete="one-time-code"
+              spellCheck={false}
               autoFocus
               maxLength={6}
               placeholder="······"

@@ -43,7 +43,7 @@ export function StartPageClient() {
       {/* Divergence halt notice */}
       {halted && (
         <div className="flex items-start gap-3 rounded-[var(--radius)] border border-warn/30 bg-warn/8 px-5 py-3">
-          <AlertTriangle className="h-4 w-4 text-warn shrink-0 mt-0.5" />
+          <AlertTriangle className="h-4 w-4 text-warn shrink-0 mt-0.5" aria-hidden="true" />
           <div>
             <p className="text-sm font-medium text-warn">Trading paused</p>
             <p className="text-xs text-text-muted mt-0.5">

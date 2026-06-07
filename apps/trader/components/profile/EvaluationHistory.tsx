@@ -80,7 +80,7 @@ function EvaluationRow({ eval_, index }: EvaluationRowProps) {
   const suiExplorerUrl = `https://suiexplorer.com/address/${eval_.vaultId}?network=mainnet`;
 
   return (
-    <div className="flex flex-col gap-3 py-4 border-b border-border-soft last:border-0 sm:flex-row sm:items-center sm:gap-4">
+    <div className="flex flex-col gap-3 py-4 border-b border-border-soft last:border-0 sm:flex-row sm:items-center sm:gap-4 -mx-4 px-4 rounded-[var(--radius)] transition-[background-color] duration-150 ease-out hover:bg-surface-2/50">
       {/* Index */}
       <div className="tabular text-xs text-text-faint w-5 shrink-0">
         #{index + 1}

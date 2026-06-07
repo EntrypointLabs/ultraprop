@@ -8,9 +8,9 @@ export const metadata = {
 
 export default function MarketsPage() {
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-10 sm:px-6">
       <header className="space-y-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight text-text">
+        <h1 className="text-balance text-2xl font-semibold tracking-tight text-text">
           Markets
         </h1>
         <p className="max-w-prose text-pretty text-sm leading-relaxed text-text-muted">

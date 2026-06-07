@@ -1,6 +1,6 @@
 "use client";
 
-import { ConnectionDot, Countdown, StatTile } from "@/components/ui";
+import { ConnectionDot, StatTile } from "@/components/ui";
 import { useCohortStats, useConnection } from "@/lib/mock/hooks";
 import { formatPct } from "@/lib/utils";
 
@@ -9,7 +9,7 @@ export function CohortStatsStrip() {
   const connStatus = useConnection();
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-text-muted">
           Cohort Health — Live
@@ -44,14 +44,14 @@ export function CohortStatsStrip() {
         />
         <StatTile
           label="Weekly Reset"
-          value={<Countdown target={stats.weekResetsAt} format="hms" />}
+          value={<span className="text-base">Mon 00:00 UTC</span>}
           delta="stats window refreshes"
           deltaTone="muted"
         />
       </div>
 
-      <div className="rounded-[var(--radius)] border border-border bg-surface px-4 py-3">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+      <div className="rounded-[var(--radius)] border border-border-soft bg-surface px-5 py-4">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
           <div>
             <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
               Median Passer Return

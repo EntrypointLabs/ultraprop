@@ -20,7 +20,7 @@ export function WaitlistState() {
         <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
           <Badge variant="genesis">Invite only</Badge>
 
-          <h2 className="text-xl font-semibold text-text">
+          <h2 className="text-balance text-xl font-semibold text-text">
             Closed beta — invite required
           </h2>
 

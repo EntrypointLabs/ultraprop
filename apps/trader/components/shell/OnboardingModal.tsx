@@ -27,7 +27,7 @@ export function OnboardingModal() {
       <PixelBanner height={120} className="mb-5">
         <span className="text-2xl font-bold tracking-tight">GENESIS</span>
       </PixelBanner>
-      <h2 className="text-xl font-semibold text-text">Welcome to {BRAND}</h2>
+      <h2 className="text-balance text-xl font-semibold text-text">Welcome to {BRAND}</h2>
       <p className="mt-2 text-sm text-text-muted">
         A proprietary trading firm. Trade BTC, ETH and SOL in simulation
         against live market prices, with the fill math shown before you submit.

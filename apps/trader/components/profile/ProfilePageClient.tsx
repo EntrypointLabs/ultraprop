@@ -21,7 +21,7 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
   const totalTrades = profile.evaluations.length * TRADES_PER_EVAL;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 space-y-6">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 space-y-6">
       {/* Header */}
       <ProfileHeader profile={profile} wallet={wallet} />
 

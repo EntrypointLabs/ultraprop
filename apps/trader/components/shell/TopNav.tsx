@@ -40,7 +40,7 @@ export function TopNav() {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
+                  "rounded-sm px-3 py-1.5 text-sm font-medium transition-[color,background-color] duration-150 ease-out hover:bg-surface-2",
                   active ? "text-text" : "text-text-muted hover:text-text",
                 )}
               >
@@ -56,7 +56,7 @@ export function TopNav() {
             onClick={resetOnboarding}
             className="hidden items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 py-1 text-xs text-text-muted transition-colors hover:text-text sm:inline-flex"
           >
-            <HelpCircle className="h-3.5 w-3.5" />
+            <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
             How it works?
           </button>
 
@@ -65,7 +65,7 @@ export function TopNav() {
             aria-label="Points"
             className="rounded-sm p-2 text-text-muted transition-colors hover:bg-surface-2 hover:text-brand"
           >
-            <Gift className="h-4 w-4" />
+            <Gift className="h-4 w-4" aria-hidden="true" />
           </Link>
 
           <button
@@ -75,7 +75,7 @@ export function TopNav() {
             <span className="tabular">
               {formatUsd(session.balanceUsd, { decimals: 0 })}
             </span>
-            <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+            <ChevronDown className="h-3.5 w-3.5 text-text-muted" aria-hidden="true" />
           </button>
 
           {!hydrated ? (
@@ -97,7 +97,7 @@ export function TopNav() {
                 aria-label="Profile"
                 className="rounded-sm p-2 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
               >
-                <User className="h-4 w-4" />
+                <User className="h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
           ) : (

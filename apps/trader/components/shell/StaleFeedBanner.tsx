@@ -28,7 +28,7 @@ export function StaleFeedBanner() {
       role="alert"
       className="sticky top-14 z-30 flex items-center justify-center gap-2 border-b border-warn/40 bg-warn/15 px-4 py-2 text-sm text-warn"
     >
-      <AlertTriangle className="h-4 w-4 shrink-0" />
+      <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span>{HALT_COPY}</span>
       <button
         type="button"

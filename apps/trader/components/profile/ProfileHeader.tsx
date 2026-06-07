@@ -22,7 +22,7 @@ function SuiExplorerLink({ address }: { address: string }) {
       aria-label="Verify on the public ledger"
     >
       <span>Verify</span>
-      <ExternalLink size={12} />
+      <ExternalLink size={12} aria-hidden="true" />
     </a>
   );
 }
@@ -72,14 +72,15 @@ export function ProfileHeader({ profile, wallet }: ProfileHeaderProps) {
               {shortAddress(wallet, 8, 6)}
             </span>
             <button
+              type="button"
               onClick={handleCopy}
               className="text-text-faint hover:text-text-muted transition-colors"
               aria-label="Copy address"
             >
               {copied ? (
-                <Check size={12} className="text-up" />
+                <Check size={12} className="text-up" aria-hidden="true" />
               ) : (
-                <Copy size={12} />
+                <Copy size={12} aria-hidden="true" />
               )}
             </button>
             <SuiExplorerLink address={wallet} />
@@ -99,14 +100,15 @@ export function ProfileHeader({ profile, wallet }: ProfileHeaderProps) {
       {/* Right: actions */}
       <div className="flex items-center gap-2 shrink-0">
         <button
+          type="button"
           onClick={handleShare}
           className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface-2 px-3 py-1.5 text-xs text-text-muted hover:text-text hover:bg-surface-3 transition-colors"
           aria-label="Share profile"
         >
           {shared ? (
-            <Check size={12} className="text-up" />
+            <Check size={12} className="text-up" aria-hidden="true" />
           ) : (
-            <Share2 size={12} />
+            <Share2 size={12} aria-hidden="true" />
           )}
           <span>{shared ? "Copied link" : "Share"}</span>
         </button>

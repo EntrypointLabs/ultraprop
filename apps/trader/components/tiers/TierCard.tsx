@@ -95,13 +95,13 @@ export function TierCard({
         }
       }}
       className={cn(
-        "relative flex flex-col rounded-[var(--radius-lg)] border bg-surface transition-all duration-150 ease-out cursor-pointer focus-visible:outline-2 focus-visible:outline-violet focus-visible:outline-offset-2",
+        "lift relative flex flex-col rounded-[var(--radius-lg)] border bg-surface cursor-pointer focus-visible:outline-2 focus-visible:outline-violet focus-visible:outline-offset-2",
         selected
           ? cn(
               "border-2 shadow-lg shadow-black/30",
               TIER_BORDER_SELECTED[tier.id],
             )
-          : "border-border hover:border-border-soft hover:bg-surface-2/50",
+          : "border-border hover:border-border hover:bg-surface-2/50",
         isLocked && "opacity-60",
       )}
     >
@@ -116,7 +116,7 @@ export function TierCard({
       {/* Selected ring indicator */}
       {selected && !isLocked && (
         <div className="absolute top-3 right-3 z-10">
-          <CheckCircle className="h-4 w-4 text-violet" />
+          <CheckCircle className="h-4 w-4 text-violet" aria-hidden="true" />
         </div>
       )}
 
@@ -131,7 +131,7 @@ export function TierCard({
           </div>
         </div>
 
-        <h2 className="text-2xl font-bold text-text tracking-tight mt-3">
+        <h2 className="text-balance text-2xl font-bold text-text tracking-tight mt-3">
           {tier.name}
         </h2>
         <p className="text-sm text-text-muted mt-1 leading-relaxed">
@@ -180,7 +180,7 @@ export function TierCard({
         {/* CTA */}
         {isLocked ? (
           <div className="flex items-center gap-2 rounded-[var(--radius)] bg-surface-3 px-4 py-3 text-sm text-text-muted">
-            <Lock className="h-4 w-4 shrink-0 text-text-faint" />
+            <Lock className="h-4 w-4 shrink-0 text-text-faint" aria-hidden="true" />
             <span>
               Pass <span className="font-medium text-text">{prevTier}</span> to
               unlock
