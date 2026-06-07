@@ -29,12 +29,12 @@ export function ShareCard({ vault, sbt, className }: ShareCardProps) {
   const levelName = LEVEL_NAMES[sbt.level] ?? tierName;
 
   const shareText = [
-    `Passed ${tierName} evaluation on Entrypoint.`,
+    `Passed ${tierName} evaluation on Ultraprop.`,
     `Return: +${returnPct.toFixed(2)}%  |  Credential: ${levelName} (v1 Genesis)`,
     nextTier ? `Next: ${nextTier} evaluation.` : "Max tier achieved.",
     "",
     "Institutional prop firm evaluation — closed beta.",
-    "https://entrypoint.trade",
+    "https://ultraprop.xyz",
   ].join("\n");
 
   const handleCopy = () => {
@@ -54,7 +54,7 @@ export function ShareCard({ vault, sbt, className }: ShareCardProps) {
         {/* pixel banner header */}
         <div className="pixel-banner h-10 flex items-center px-4 gap-2">
           <span className="text-brand-ink font-bold text-sm tracking-wide">
-            ENTRYPOINT
+            ULTRAPROP
           </span>
           <span className="ml-auto text-brand-ink/70 text-xs font-mono tabular">
             v1 Genesis
@@ -91,7 +91,7 @@ export function ShareCard({ vault, sbt, className }: ShareCardProps) {
           </div>
 
           <p className="mt-3 text-xs text-text-faint">
-            Verifiable, non-transferable proof of trading skill · entrypoint.trade
+            Verifiable, non-transferable proof of trading skill · ultraprop.xyz
           </p>
         </div>
       </div>

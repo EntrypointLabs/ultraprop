@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/Modal";
 import { PixelBanner } from "@/components/ui/PixelBanner";
 import { useMockStore } from "@/lib/mock/store";
 
-const BRAND = "Entrypoint";
+const BRAND = "Ultraprop";
 
 export function OnboardingModal() {
   const hydrated = useMockStore((s) => s.hydrated);

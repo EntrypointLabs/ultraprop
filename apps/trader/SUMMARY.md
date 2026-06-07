@@ -1,4 +1,4 @@
-# Entrypoint Trader App — Build Summary
+# Ultraprop Trader App — Build Summary
 
 The crypto-native prop-firm trader app: a dark-only, Sui-native evaluation cockpit where traders
 prove themselves on shadow capital, climb a tier ladder, and earn a non-transferable Genesis SBT.

@@ -15,7 +15,7 @@ export function WhatIsTheCohort() {
       <div className="prose-custom space-y-4 text-sm leading-relaxed text-text-muted max-w-3xl">
         <p>
           The v1 Genesis cohort is the first group of traders invited into the
-          closed beta of Entrypoint — a proprietary trading firm that runs
+          closed beta of Ultraprop, a proprietary trading firm that runs
           evaluations with automatic rule enforcement. Cohort members select an
           evaluation tier and trade in simulation using BTC, ETH, and SOL
           against live market prices. The evaluation contract records every

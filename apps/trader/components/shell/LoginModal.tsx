@@ -140,7 +140,7 @@ export function LoginModal() {
             <Logo />
             <div className="leading-tight">
               <h2 className="text-base font-semibold text-text">
-                Sign in to Entrypoint
+                Sign in to Ultraprop
               </h2>
               <p className="text-xs text-text-muted">Closed beta · invite only</p>
             </div>

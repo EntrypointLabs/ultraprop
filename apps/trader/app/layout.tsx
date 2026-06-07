@@ -27,7 +27,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Entrypoint — crypto-native prop firm",
+  title: "Ultraprop · proprietary trading firm",
   description:
     "A proprietary trading firm. Trade BTC, ETH and SOL in simulation against live market prices, with the fill math shown before every order.",
 };

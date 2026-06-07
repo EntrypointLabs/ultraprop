@@ -37,7 +37,7 @@ export function WaitlistState() {
             <ul className="space-y-1.5 text-sm text-text-muted">
               <li className="flex gap-2">
                 <span className="text-violet shrink-0">→</span>
-                Follow Entrypoint on X for cohort announcements
+                Follow Ultraprop on X for cohort announcements
               </li>
               <li className="flex gap-2">
                 <span className="text-violet shrink-0">→</span>

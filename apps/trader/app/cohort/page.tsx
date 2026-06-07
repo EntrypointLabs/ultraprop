@@ -9,7 +9,7 @@ import {
 } from "@/components/cohort";
 
 export const metadata = {
-  title: "v1 Genesis Cohort — Entrypoint",
+  title: "v1 Genesis Cohort · Ultraprop",
   description:
     "The first group of traders to earn a verifiable credential by passing live-price evaluations.",
 };

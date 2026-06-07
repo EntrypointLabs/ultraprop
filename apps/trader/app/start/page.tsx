@@ -3,7 +3,7 @@ import { StartPageClient } from "@/components/tiers/StartPageClient";
 import { Badge } from "@/components/ui";
 
 export const metadata = {
-  title: "Start Evaluation — Entrypoint",
+  title: "Start an evaluation · Ultraprop",
   description:
     "Pick a tier and open your evaluation. Trade BTC/ETH/SOL in simulation against live market prices with automatic rule enforcement.",
 };
