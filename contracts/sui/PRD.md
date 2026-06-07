@@ -71,7 +71,7 @@ The platform consists of two interconnected environments and a set of supporting
 
 ### 4.1 The Testnet Arena (evaluation phase)
 
-A sandbox environment running on the testnet of Sui and Solana, where traders prove their skill before getting real capital. Key properties:
+A sandbox environment running on the Sui testnet, where traders prove their skill before getting real capital. Key properties:
 
 - **Paid entry:** Traders pay $100 (or tiered amounts based on the funded account size they're targeting) to access the arena. Payment is made on mainnet in stablecoins (USDC primarily, USDT and DAI also accepted).
 - **Real testnet trading:** Traders use the same protocol integrations they'll use in the funded phase, just pointed at testnet contracts. This means their experience in the evaluation is identical to their experience funded.
@@ -221,12 +221,12 @@ The platform itself doesn't run an exchange. Traders execute through integrated 
 
 | Category | What we need from the partner | Example partners |
 | --- | --- | --- |
-| **Spot DEXes** | Programmable swap routing, deep liquidity, sub-account or vault support so the platform's smart contract can execute on the trader's behalf within risk limits. | Jupiter, Raydium, Cetus, Aftermath, 7K Protocol |
-| **Perpetuals** | Sub-account or isolated margin support, programmatic position management, real-time P&L feeds, programmatic liquidation alerts. | Drift, Hyperliquid, Bluefin, Suilend Perps, Mango, Zeta |
-| **Prediction Markets** | Market discovery API, position tracking, settlement notification. | Polymarket (if portable), Drift BET, native Sui/Solana prediction markets as they launch |
-| **Lending (for vault yield)** | Permissionless deposit / withdraw, audited contracts, clear yield tracking. | Suilend, Scallop, NAVI, Kamino, Solend, MarginFi |
+| **Spot DEXes** | Programmable swap routing, deep liquidity, sub-account or vault support so the platform's smart contract can execute on the trader's behalf within risk limits. | Cetus, Aftermath, Turbos, Kriya, 7K Protocol |
+| **Perpetuals** | Sub-account or isolated margin support, programmatic position management, real-time P&L feeds, programmatic liquidation alerts. | Bluefin, Suilend Perps |
+| **Prediction Markets** | Market discovery API, position tracking, settlement notification. | Polymarket (if portable), native Sui prediction markets as they launch |
+| **Lending (for vault yield)** | Permissionless deposit / withdraw, audited contracts, clear yield tracking. | Suilend, Scallop, NAVI |
 | **Stablecoin rails** | Reliable bridging, on/off-ramp for evaluation fees and payouts. | Wormhole, Circle CCTP, deBridge, Mayan |
-| **Identity / SBT** | Issue and read trader reputation credentials. | Sui's native object model; Solana Attestation Service, Verax, Light Protocol compressed NFTs |
+| **Identity / SBT** | Issue and read trader reputation credentials. | Sui's native object model |
 
 ### 8.2 Integration model
 
@@ -240,10 +240,10 @@ For each integration, the platform needs three things:
 
 v1 launches with the minimum viable integration set:
 
-- One major spot DEX on each chain (Jupiter on Solana, Cetus on Sui).
-- One major perps venue on each chain (Drift on Solana, Bluefin on Sui).
-- One major lending protocol on each chain for vault yield.
-- Wormhole or CCTP for cross-chain stablecoin movement.
+- One major spot DEX on Sui (Cetus via the 7K Protocol aggregator).
+- One major perps venue on Sui (Bluefin).
+- One major lending protocol on Sui for vault yield.
+- Wormhole or CCTP for stablecoin movement.
 
 Prediction markets and airdrop hunting categories launch in v2.
 
@@ -254,7 +254,7 @@ Prediction markets and airdrop hunting categories launch in v2.
 ### 9.1 Onboarding flow
 
 1. Land on marketing site. See clear breakdown of tiers, evaluation rules, profit splits. Track record statistics shown live on-chain.
-2. Connect wallet (Phantom, Backpack, Solflare for Solana; Sui Wallet, Suiet, Surf for Sui).
+2. Connect wallet (Sui Wallet, Suiet, or compatible Sui wallet).
 3. Pick tier and challenge type. See full ruleset, projected timeline, fee breakdown.
 4. Pay evaluation fee in USDC (or supported stablecoin).
 5. Receive evaluation account credentials. Land in the Trading Dashboard.
@@ -360,7 +360,7 @@ Things the operator can change for individual traders without touching code:
 
 ## 11. Technical Architecture (High-Level)
 
-Implementation specifics for Sui (Move) and Solana (Rust / Anchor) are deferred to a separate technical spec. At the PRD level, the architecture has five layers:
+Implementation specifics for Sui (Move) are deferred to a separate technical spec. At the PRD level, the architecture has five layers:
 
 ### 11.1 Smart contract layer
 
@@ -380,7 +380,7 @@ Indexes all platform on-chain activity into a queryable database (PostgreSQL pri
 
 ### 11.4 Frontend layer
 
-- **Trader app:** Next.js / React. Wallet adapter for both Sui and Solana. Real-time updates via WebSocket subscriptions to the indexer.
+- **Trader app:** Next.js / React. Sui wallet adapter via @mysten/dapp-kit. Real-time updates via WebSocket subscriptions to the indexer.
 - **Admin app:** Separate Next.js / React app, gated behind operator authentication. Heavier on data tables, charts, modeling tools.
 
 ### 11.5 Integration layer
@@ -395,7 +395,7 @@ The platform's profitability depends on keeping operating costs low relative to 
 
 ### 12.1 Chain selection
 
-Both Sui and Solana were chosen specifically because transaction costs are negligible — sub-cent per transaction. This matters because:
+Sui was chosen specifically because transaction costs are negligible — sub-cent per transaction. This matters because:
 
 - Funded accounts may execute hundreds of trades per month. On Ethereum mainnet, this would be cost-prohibitive.
 - Risk enforcement may require frequent contract-level state updates. Cheap fees mean we can enforce rules in real time without amortizing checks.
@@ -403,14 +403,14 @@ Both Sui and Solana were chosen specifically because transaction costs are negli
 
 ### 12.2 Smart contract design
 
-- Use chain-native primitives where possible. Sui's object model and Solana's account model both naturally support per-account isolation, which is exactly what funded accounts need.
+- Use Sui's native object model, which naturally supports per-account isolation — exactly what funded accounts need.
 - Avoid unnecessary on-chain computation. Trade execution must be on-chain (for transparency), but analytics and reporting are off-chain (the indexer).
-- Batch operations where possible — e.g., process all biweekly payouts in a single transaction per chain, not one per trader.
+- Batch operations where possible — e.g., process all biweekly payouts in a single transaction, not one per trader.
 
 ### 12.3 Infrastructure
 
-- **RPC:** Use a paid RPC provider (Helius for Solana, Suiscan for Sui) for production reliability. Estimated cost: $500–$2,000/month for a platform with 1,000 active accounts.
-- **Indexer:** Self-hosted on a single beefy VM initially. Migrate to a managed service (e.g., Triton or Quicknode indexing) only if the volume justifies it.
+- **RPC:** Use a paid Sui RPC provider (Shinami primary, Triton/QuickNode failover) for production reliability. Estimated cost: $500–$2,000/month for a platform with 1,000 active accounts.
+- **Indexer:** Self-hosted on a single beefy VM initially. Migrate to a managed service (e.g., Triton or QuickNode indexing) only if the volume justifies it.
 - **Frontend hosting:** Vercel for trader app and admin app. Edge functions for low-latency data fetching.
 - **Backend:** A single Rust service for the risk engine, deployed on a managed container platform (Fly.io, Railway). Horizontal scaling only when needed.
 - **Database:** Managed PostgreSQL (Neon or Supabase) for v1, dedicated cluster when row counts cross 10M.
@@ -419,7 +419,7 @@ Both Sui and Solana were chosen specifically because transaction costs are negli
 
 v1 should ship with a team of three to four people:
 
-- One smart contract engineer (Sui Move + Solana Anchor).
+- One smart contract engineer (Sui Move).
 - One full-stack / frontend engineer (you).
 - One operations / risk lead (initially can be founder).
 - One growth / marketing lead (post-launch).
@@ -440,7 +440,7 @@ The largest cost on the balance sheet is the capital reserve required to cover f
 
 ### 13.1 Phase 0 — Foundations (4 to 6 weeks)
 
-- Smart contract scaffolding on both chains.
+- Smart contract scaffolding on Sui.
 - Off-chain risk engine prototype.
 - Trader auth and basic dashboard shell.
 - Admin dashboard shell.
@@ -449,7 +449,7 @@ The largest cost on the balance sheet is the capital reserve required to cover f
 ### 13.2 Phase 1 — Closed Beta (4 weeks)
 
 - Launch evaluation flow on testnet with one trading category (spot) and one tier (Starter).
-- Invite 50 to 100 traders from your existing networks (Octant, Bungee, study groups, Solana dev circles).
+- Invite 50 to 100 traders from your existing networks (Octant, Bungee, study groups, existing crypto trading communities).
 - No real capital deployed yet — funded accounts are also testnet during beta. Beta participants receive a discount on their first real evaluation.
 - Iterate on the evaluation rules, dashboard UX, risk engine.
 
@@ -471,7 +471,7 @@ The largest cost on the balance sheet is the capital reserve required to cover f
 
 - DAO governance for evaluation rules, tier parameters, vault deployment.
 - Public LP vault — outside investors can supply capital to the funded vault and earn a share of platform revenue.
-- Cross-chain expansion (Hyperliquid L1, Monad, Berachain, etc., based on liquidity).
+- Protocol expansion (Hyperliquid L1, Monad, Berachain, etc., based on liquidity and product readiness).
 - Trader-as-fund model — top funded traders can take outside allocations from copy-traders.
 
 ---
@@ -496,7 +496,7 @@ These are decisions that need resolution before v1 ships but aren't blocking the
 
 1. **Refund policy on system errors.** If a partner venue has downtime and that downtime causes a trader to violate a rule, do we refund? Lean: yes, but case-by-case, with a documented criteria.
 2. **Multi-account policy.** Can a single trader hold multiple funded accounts at different tiers? Probably yes (it's how web2 prop firms operate), but needs concrete rules.
-3. **Currency of evaluation fees.** Default to USDC. Should we accept native tokens (SUI, SOL) at a small discount to encourage chain alignment?
+3. **Currency of evaluation fees.** Default to USDC. Should we accept SUI at a small discount to encourage on-chain alignment?
 4. **Affiliate / referral program.** Traditional prop firms get a huge chunk of growth from affiliate trading influencers. Need to design a referral structure that's profitable and doesn't cannibalize evaluation revenue.
 5. **Token.** Should the platform have a token? Strong arguments both ways. A token enables LP vault, governance, and incentives — but adds regulatory complexity and dilutes founder economics. Default position: launch without one, add one in Phase 4 if the model justifies it.
 6. **Insurance.** Do we offer an insurance fund for funded traders if the platform itself fails? Probably yes at higher tiers, funded by a small premium on evaluation fees.
