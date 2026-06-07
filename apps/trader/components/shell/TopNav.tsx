@@ -11,7 +11,7 @@ import { useMockStore } from "@/lib/mock/store";
 import { cn, formatUsd, shortAddress } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { href: "/", label: "Markets" },
+  { href: "/markets", label: "Markets" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/points", label: "Points" },
   { href: "/docs", label: "Docs" },
