@@ -2,7 +2,6 @@
 
 import { ArrowLeft, ArrowRight, Loader2, Wallet, X } from "lucide-react";
 import * as React from "react";
-import { Logo } from "@/components/shell/Logo";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -11,10 +10,11 @@ import { cn } from "@/lib/utils";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-type Step = "methods" | "otp";
+type Step = "methods" | "email" | "otp";
+type Mode = "signup" | "login";
 
 /* -------------------------------------------------------------------------- */
-/* Brand glyphs (inline so we don't depend on brand-icon packages)             */
+/* Brand glyphs                                                                 */
 /* -------------------------------------------------------------------------- */
 
 function GoogleGlyph() {
@@ -48,33 +48,23 @@ function AppleGlyph() {
   );
 }
 
-function XGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-3.5 w-3.5"
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.45-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77Z" />
-    </svg>
-  );
-}
-
 function MethodButton({
   children,
   glyph,
   onClick,
   disabled,
+  ref,
 }: {
   children: React.ReactNode;
   glyph: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  ref?: React.Ref<HTMLButtonElement>;
 }) {
   return (
     <button
       type="button"
+      ref={ref}
       onClick={onClick}
       disabled={disabled}
       className={cn(
@@ -98,26 +88,37 @@ export function LoginModal() {
   const signIn = useMockStore((s) => s.signIn);
 
   const [step, setStep] = React.useState<Step>("methods");
+  const [mode, setMode] = React.useState<Mode>("signup");
   const [email, setEmail] = React.useState("");
   const [code, setCode] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+
+  const firstButtonRef = React.useRef<HTMLButtonElement>(null);
 
   // Fresh state every time the modal opens.
   React.useEffect(() => {
     if (open) {
       setStep("methods");
+      setMode("signup");
       setEmail("");
       setCode("");
       setBusy(false);
     }
   }, [open]);
 
+  // Focus the first action when the methods screen is visible.
+  React.useEffect(() => {
+    if (open && step === "methods") {
+      firstButtonRef.current?.focus();
+    }
+  }, [open, step]);
+
   const emailValid = EMAIL_RE.test(email.trim());
 
   function sendCode() {
     if (!emailValid || busy) return;
     setBusy(true);
-    // Privy emails a one-time code; simulate the round-trip.
+    // Simulate Privy emailing the one-time code.
     setTimeout(() => {
       setBusy(false);
       setStep("otp");
@@ -127,24 +128,23 @@ export function LoginModal() {
   function complete() {
     if (busy) return;
     setBusy(true);
-    // Privy verifies + provisions the embedded Sui wallet; simulate it.
+    // Simulate Privy verifying the code and provisioning the account.
     setTimeout(() => signIn(), 650);
   }
+
+  const heading = mode === "signup" ? "Create your account" : "Welcome back";
+  const subheading =
+    mode === "signup"
+      ? "Join the v1 Genesis cohort. It takes a minute."
+      : "Sign in to continue your evaluation.";
+  const emailButtonLabel =
+    mode === "signup" ? "Sign up with Email" : "Continue with Email";
 
   return (
     <Modal open={open} onClose={close} hideClose className="max-w-[400px]">
       <div className="flex flex-col">
-        {/* Header */}
-        <div className="mb-5 flex items-start justify-between">
-          <div className="flex items-center gap-2.5">
-            <Logo />
-            <div className="leading-tight">
-              <h2 className="text-base font-semibold text-text">
-                Sign in to Ultraprop
-              </h2>
-              <p className="text-xs text-text-muted">Closed beta · invite only</p>
-            </div>
-          </div>
+        {/* Close button */}
+        <div className="mb-6 flex justify-end">
           <button
             type="button"
             onClick={close}
@@ -155,9 +155,97 @@ export function LoginModal() {
           </button>
         </div>
 
-        {step === "methods" ? (
+        {/* Heading */}
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-text">{heading}</h2>
+          <p className="mt-1 text-sm text-text-muted">{subheading}</p>
+        </div>
+
+        {step === "methods" && (
           <>
-            {/* Email */}
+            {/* Primary auth options */}
+            <div className="flex flex-col gap-2.5">
+              <MethodButton
+                ref={firstButtonRef}
+                glyph={<GoogleGlyph />}
+                onClick={complete}
+                disabled={busy}
+              >
+                Continue with Google
+              </MethodButton>
+              <MethodButton
+                glyph={<AppleGlyph />}
+                onClick={complete}
+                disabled={busy}
+              >
+                Continue with Apple
+              </MethodButton>
+              <MethodButton
+                glyph={
+                  <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden>
+                    <path d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z" />
+                    <path d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z" />
+                  </svg>
+                }
+                onClick={() => setStep("email")}
+                disabled={busy}
+              >
+                {emailButtonLabel}
+              </MethodButton>
+            </div>
+
+            {/* Wallet option (de-emphasized) */}
+            <div className="my-4 flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-text-faint">or</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <MethodButton
+              glyph={<Wallet className="h-4 w-4 text-violet" />}
+              onClick={complete}
+              disabled={busy}
+            >
+              <span className="text-text-muted">Continue with a wallet</span>
+            </MethodButton>
+
+            {/* Legal */}
+            <p className="mt-5 text-center text-[11px] text-text-faint">
+              By continuing, you agree to the{" "}
+              <span className="text-text-muted">Terms</span> and{" "}
+              <span className="text-text-muted">Privacy Policy</span>.
+            </p>
+
+            {/* Mode toggle */}
+            <p className="mt-3 text-center text-xs text-text-muted">
+              {mode === "signup" ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="font-medium text-indigo-400 transition-colors hover:text-indigo-300"
+                  >
+                    Log in
+                  </button>
+                </>
+              ) : (
+                <>
+                  New here?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setMode("signup")}
+                    className="font-medium text-indigo-400 transition-colors hover:text-indigo-300"
+                  >
+                    Create an account
+                  </button>
+                </>
+              )}
+            </p>
+          </>
+        )}
+
+        {step === "email" && (
+          <>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -176,6 +264,7 @@ export function LoginModal() {
                 type="email"
                 inputMode="email"
                 autoComplete="email"
+                autoFocus
                 placeholder="you@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -195,52 +284,21 @@ export function LoginModal() {
                 )}
               </Button>
             </form>
-
-            {/* Divider */}
-            <div className="my-4 flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-text-faint">or</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-
-            {/* Social + wallet */}
-            <div className="flex flex-col gap-2">
-              <MethodButton
-                glyph={<GoogleGlyph />}
-                onClick={complete}
-                disabled={busy}
-              >
-                Continue with Google
-              </MethodButton>
-              <MethodButton
-                glyph={<AppleGlyph />}
-                onClick={complete}
-                disabled={busy}
-              >
-                Continue with Apple
-              </MethodButton>
-              <MethodButton
-                glyph={<XGlyph />}
-                onClick={complete}
-                disabled={busy}
-              >
-                Continue with X
-              </MethodButton>
-              <MethodButton
-                glyph={<Wallet className="h-4 w-4 text-violet" />}
-                onClick={complete}
-                disabled={busy}
-              >
-                Continue with a wallet
-              </MethodButton>
-            </div>
-          </>
-        ) : (
-          /* OTP step */
-          <div className="flex flex-col gap-3">
             <button
               type="button"
               onClick={() => setStep("methods")}
+              className="mt-3 flex w-fit items-center gap-1 text-xs text-text-muted transition-colors hover:text-text"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back
+            </button>
+          </>
+        )}
+
+        {step === "otp" && (
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => setStep("email")}
               className="flex w-fit items-center gap-1 text-xs text-text-muted transition-colors hover:text-text"
             >
               <ArrowLeft className="h-3.5 w-3.5" /> Back
@@ -272,7 +330,7 @@ export function LoginModal() {
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                "Verify & continue"
+                "Verify and continue"
               )}
             </Button>
             <button
@@ -285,7 +343,7 @@ export function LoginModal() {
           </div>
         )}
 
-        {/* Footer */}
+        {/* Privy footnote */}
         <p className="mt-5 text-center text-[11px] text-text-faint">
           Protected by <span className="text-text-muted">Privy</span> · a
           secure account is created for you
