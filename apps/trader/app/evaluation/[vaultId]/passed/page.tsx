@@ -36,7 +36,7 @@ function PassedContent({ vaultId }: { vaultId: string }) {
       particleCount: 45,
       spread: 60,
       origin: { y: 0.5 },
-      colors: ["#6a6ae0", "#34d399", "#a1a1aa"],
+      colors: ["#e5484d", "#34d399", "#a1a1aa"],
       startVelocity: 30,
       gravity: 1,
       ticks: 160,

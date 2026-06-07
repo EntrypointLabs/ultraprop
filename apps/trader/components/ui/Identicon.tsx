@@ -8,7 +8,7 @@ export interface IdenticonProps {
 }
 
 const PALETTE = [
-  "#6a6ae0",
+  "#e5484d",
   "#7c83c9",
   "#34D399",
   "#38BDF8",

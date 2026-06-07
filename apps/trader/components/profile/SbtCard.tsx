@@ -45,14 +45,14 @@ const LEVEL_META: Record<
   },
   2: {
     label: "Basic",
-    color: "#6a6ae0",
+    color: "#e5484d",
     bgClass: "bg-violet/10",
     borderClass: "border-violet/30",
     glowClass: "",
   },
   3: {
     label: "Pro",
-    color: "#8b8bf0",
+    color: "#f0686c",
     bgClass: "bg-brand/10",
     borderClass: "border-brand/40",
     glowClass: "",

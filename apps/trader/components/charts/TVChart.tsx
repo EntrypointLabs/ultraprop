@@ -50,7 +50,7 @@ export interface TVChartProps {
 const GRID = "#1c1c22";
 const AXIS = "#2a2a30";
 const TEXT = "#6b6b73";
-const ACCENT = "#6a6ae0";
+const ACCENT = "#e5484d";
 
 const toTime = (ms: number) => Math.floor(ms / 1000) as UTCTimestamp;
 
@@ -176,8 +176,8 @@ export function TVChart({
           }
           const as = chart.addSeries(AreaSeries, {
             lineColor: color,
-            topColor: s.topColor ?? "rgba(106,106,224,0.28)",
-            bottomColor: s.bottomColor ?? "rgba(106,106,224,0.01)",
+            topColor: s.topColor ?? "rgba(229,72,77,0.26)",
+            bottomColor: s.bottomColor ?? "rgba(229,72,77,0.01)",
             lineWidth: s.lineWidth ?? 2,
             priceLineVisible: true,
             priceLineStyle: 2,

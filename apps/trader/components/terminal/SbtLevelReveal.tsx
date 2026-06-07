@@ -19,12 +19,12 @@ const LEVEL_COLORS: Record<
 > = {
   1: {
     ring: "border-brand",
-    glow: "shadow-[0_0_32px_rgba(106,106,224,0.25)]",
+    glow: "shadow-[0_0_32px_rgba(229,72,77,0.25)]",
     label: "text-brand",
   },
   2: {
     ring: "border-violet",
-    glow: "shadow-[0_0_32px_rgba(109,93,252,0.3)]",
+    glow: "shadow-[0_0_32px_rgba(240,104,108,0.3)]",
     label: "text-violet",
   },
   3: {

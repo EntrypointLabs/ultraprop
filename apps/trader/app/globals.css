@@ -14,11 +14,12 @@
   --color-text-muted: #a1a1aa;
   --color-text-faint: #6b6b73;
 
-  /* accent + action — single restrained indigo; brand aliases the action color */
-  --color-brand: #6a6ae0;
+  /* accent + action — single confident red; brand aliases the action color.
+     Distinct from the softer P&L loss-red (--color-down) so brand never reads as "loss". */
+  --color-brand: #e5484d;
   --color-brand-ink: #ffffff;
-  --color-violet: #6a6ae0;
-  --color-violet-hover: #595ace;
+  --color-violet: #e5484d;
+  --color-violet-hover: #d6383e;
 
   /* P&L + state */
   --color-up: #34d399;
