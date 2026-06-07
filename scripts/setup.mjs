@@ -73,11 +73,4 @@ step("sui move build (contracts/sui)", () => {
   run("sui", ["move", "build"], { cwd: resolve(ROOT, "contracts/sui") });
 });
 
-step("anchor build (contracts/solana)", () => {
-  if (!has("anchor")) return "skipped";
-  // Anchor currently has zero programs; this is a connectivity check.
-  // run("anchor", ["build"], { cwd: resolve(ROOT, "contracts/solana") });
-  return "skipped";
-});
-
 console.log(`\n${GREEN}setup complete${RESET}. Run ${BOLD}pnpm dev${RESET} to start every workspace.`);

@@ -17,7 +17,6 @@ target/
 
 # Chain-toolchain build dirs
 contracts/sui/build/
-contracts/solana/target/
 
 # Env / secrets
 .env*
