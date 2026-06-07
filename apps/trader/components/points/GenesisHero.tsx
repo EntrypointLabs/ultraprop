@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, Countdown, StatTile } from "@/components/ui";
+import { Badge, StatTile } from "@/components/ui";
 import { DEMO_WALLET } from "@/lib/mock/fixtures";
 import { useCohortStats, useSbt } from "@/lib/mock/hooks";
 import { formatPct, formatUsd } from "@/lib/utils";
@@ -24,10 +24,7 @@ export function GenesisHero() {
 
   return (
     <section className="relative overflow-hidden rounded-lg border border-border bg-surface">
-      {/* Decorative pixel strip inside hero */}
-      <div className="pixel-banner h-8 w-full opacity-60" aria-hidden="true" />
-
-      <div className="px-6 pb-6 pt-5">
+      <div className="px-6 pb-6 pt-6">
         {/* Tag row */}
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <Badge variant="genesis">GENESIS</Badge>
@@ -38,30 +35,15 @@ export function GenesisHero() {
         </div>
 
         {/* Display header */}
-        <div className="mb-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1
-            className="text-4xl font-bold uppercase tracking-tight text-text sm:text-5xl md:text-6xl"
-            style={{ WebkitTextStroke: "1px var(--color-text-faint)" }}
-          >
-            GENESIS
-          </h1>
-          <h1
-            className="text-4xl font-bold uppercase tracking-tight text-text-faint sm:text-5xl md:text-6xl"
-            style={{ WebkitTextStroke: "1px var(--color-border)" }}
-          >
-            COHORT
-          </h1>
-        </div>
+        <h1 className="mb-1.5 text-4xl font-bold tracking-tight sm:text-5xl">
+          <span className="text-brand">Genesis</span>{" "}
+          <span className="text-text">Cohort</span>
+        </h1>
 
         {/* Week label */}
-        <p className="mb-6 text-sm text-text-muted tabular">
-          Week {weekNum} &nbsp;·&nbsp; {weekStart} – {weekEnd}, 2025
-          &nbsp;·&nbsp; resets in{" "}
-          <Countdown
-            target={cohort.weekResetsAt}
-            format="hms"
-            className="text-text"
-          />
+        <p className="mb-6 text-sm tabular text-text-muted">
+          Week {weekNum} &nbsp;·&nbsp; {weekStart} – {weekEnd} &nbsp;·&nbsp;
+          resets Monday 00:00 UTC
         </p>
 
         {/* Stat tiles grid */}

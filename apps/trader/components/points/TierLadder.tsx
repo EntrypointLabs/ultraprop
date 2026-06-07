@@ -43,10 +43,10 @@ export function TierLadder() {
             <div
               key={tier.id}
               className={cn(
-                "relative rounded-lg border bg-surface p-4 transition-colors",
+                "relative rounded-lg border bg-surface p-4 transition-[border-color,background-color,opacity]",
                 passed && "border-up/40 bg-up/5",
                 isActive && !passed && "border-violet/60",
-                !passed && !isActive && "border-border opacity-70",
+                !passed && !isActive && "border-border",
               )}
             >
               {/* Header */}
@@ -101,7 +101,7 @@ export function TierLadder() {
                       key={item}
                       className="flex items-start gap-1.5 text-xs text-text-muted"
                     >
-                      <span className="mt-0.5 text-brand">▸</span>
+                      <span className="mt-0.5 text-text-faint">▸</span>
                       {item}
                     </li>
                   ))}
@@ -117,7 +117,7 @@ export function TierLadder() {
                   </div>
                   <div className="h-1 overflow-hidden rounded-full bg-surface-3">
                     <div
-                      className="h-full rounded-full bg-violet transition-all"
+                      className="h-full rounded-full bg-violet transition-[width]"
                       style={{ width: "35%" }}
                     />
                   </div>

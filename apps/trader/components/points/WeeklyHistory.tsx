@@ -99,7 +99,9 @@ export function WeeklyHistory() {
                   </span>
                 </Td>
                 <Td>
-                  <span className="text-xs text-text-muted">{row.dates}</span>
+                  <span className="whitespace-nowrap text-xs text-text-muted">
+                    {row.dates}
+                  </span>
                 </Td>
                 <Td numeric>
                   <span className="tabular">{row.members}</span>
