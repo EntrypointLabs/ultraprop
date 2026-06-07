@@ -21,10 +21,10 @@ must_haves:
   truths:
     - "Monorepo builds green across pnpm + Cargo workspaces."
     - "TypeBox event schema codegens TS types and Rust structs; CI fails on drift."
-    - "Sui native MultiSig and Squads multisig each control a test deploy key."
+    - "Sui native MultiSig controls a test deploy key."
     - "Hetzner CCX VM runs Postgres 16 + TimescaleDB 2.15+ + Docker Compose stack."
     - "Pyth Hermes WS subscription returns BTC/ETH/SOL price ticks live."
-    - "Versions for sui CLI, anchor, solana CLI, Next.js, Pyth are verified against live release notes (not training data)."
+    - "Versions for sui CLI, Next.js, Pyth are verified against live release notes (not training data)."
   artifacts:
     - "packages/shared/events/schema.ts (TypeBox source of truth)"
     - "packages/shared/events/codegen/{ts,rust}/ (generated types)"
@@ -40,7 +40,7 @@ must_haves:
 ---
 
 <objective>
-Establish the monorepo skeleton, cross-chain event schema with codegen + CI parity gate, multisig upgrade authorities on both chains, Hetzner+Postgres+TimescaleDB stack, and verify all version pins against live docs. Clears the verification debt the research flagged (SUMMARY §8) before any contract code lands. Satisfies REQ-08 (event schema parity via codegen + CI gate) and REQ-09 (multisig upgrade authority on both chains from day 1).
+Establish the monorepo skeleton, event schema with codegen + CI gate, Sui native MultiSig upgrade authority, Hetzner+Postgres+TimescaleDB stack, and verify all version pins against live docs. Clears the verification debt the research flagged (SUMMARY §8) before any contract code lands. Satisfies REQ-08 (event schema codegen + CI gate) and REQ-09 (multisig upgrade authority on Sui from day 1).
 </objective>
 
 <context>
@@ -66,14 +66,14 @@ Establish the monorepo skeleton, cross-chain event schema with codegen + CI pari
     Pattern: pin every tool in a tracked file; record verification date + URL.
   </context>
   <action>
-    1. With live web access, verify and pin: `sui --version` (mainnet branch); `anchor --version` (latest stable, likely 0.30.x or 0.31.x); `solana --version` (Agave 1.18.x or 2.x); Node 22 LTS; pnpm 9.x; Rust stable 1.79+; Next.js 15 or 16 if stable >2 months; Pyth Hermes endpoint; Switchboard On-Demand coverage for SOL/ETH/BTC on Sui mainnet; Helius plan with Yellowstone access.
+    1. With live web access, verify and pin: `sui --version` (mainnet branch); Node 22 LTS; pnpm 9.x; Rust stable 1.79+; Next.js 15 or 16 if stable >2 months; Pyth Hermes endpoint; Switchboard On-Demand coverage for SOL/ETH/BTC on Sui mainnet.
     2. Write `VERSIONS.md` capturing each pin with verification date + source URL.
     3. Pin Rust toolchain in `rust-toolchain.toml`; pin Node version in `.nvmrc`; pin pnpm in `package.json` engines field.
     **Avoid:** copying versions from STACK.md without re-verifying — STACK.md is explicitly training-data-only.
   </action>
-  <verify>cat VERSIONS.md | grep -c 'verified-as-of' && sui --version && anchor --version && solana --version</verify>
+  <verify>cat VERSIONS.md | grep -c 'verified-as-of' && sui --version</verify>
   <done>
-    - [ ] VERSIONS.md exists with verified-as-of dates for all 8 pinned items
+    - [ ] VERSIONS.md exists with verified-as-of dates for all pinned items
     - [ ] All CLI tools install and report expected versions on a fresh machine
   </done>
   <rollback>git checkout -- rust-toolchain.toml .nvmrc VERSIONS.md</rollback>
@@ -90,7 +90,6 @@ Establish the monorepo skeleton, cross-chain event schema with codegen + CI pari
     tsconfig.base.json
     .github/workflows/ci.yml
     contracts/sui/.gitkeep
-    contracts/solana/.gitkeep
     services/risk-engine/.gitkeep
     services/api-gateway/.gitkeep
     apps/trader/.gitkeep
@@ -104,11 +103,11 @@ Establish the monorepo skeleton, cross-chain event schema with codegen + CI pari
     Pattern: see STATE.md "File layout to establish"; xpm sibling repo layout for Turborepo convention.
   </context>
   <action>
-    1. Initialize root with `pnpm init`; add `pnpm-workspace.yaml` listing `apps/*`, `services/*`, `packages/*`, `contracts/sui`, `contracts/solana`.
+    1. Initialize root with `pnpm init`; add `pnpm-workspace.yaml` listing `apps/*`, `services/*`, `packages/*`, `contracts/sui`.
     2. Add `turbo.json` with task graph: `build`, `lint`, `test`, `typecheck`. Rust crates orchestrated via `pnpm run build:rust` calling `cargo build --workspace`.
     3. Add root `Cargo.toml` workspace with `services/*` and `packages/shared/slippage` (Rust crate for the off-chain reference impl) as members.
     4. Configure Biome at root (`biome.json`) — formatter + linter for all TS.
-    5. Add GitHub Actions CI workflow `.github/workflows/ci.yml` with jobs: `contracts-sui`, `contracts-solana`, `services`, `frontend`. Cache cargo + pnpm.
+    5. Add GitHub Actions CI workflow `.github/workflows/ci.yml` with jobs: `contracts-sui`, `services`, `frontend`. Cache cargo + pnpm.
     **Avoid:** running `pnpm i` until shared packages have actual `package.json` files; avoid Nx, Lerna; avoid wiring Rust crates as TS workspace members.
   </action>
   <verify>pnpm install && pnpm turbo build --dry-run && cargo build --workspace --no-run</verify>
@@ -133,15 +132,15 @@ Establish the monorepo skeleton, cross-chain event schema with codegen + CI pari
     .github/workflows/event-parity.yml
   </files>
   <context>
-    Why: REQ-08 — the cross-chain seam is this schema. Per PITFALLS 2.11, schema drift between Sui Move events and Anchor #[event] is a P0 silent-failure risk. Codegen + CI gate is the only durable mitigation.
+    Why: REQ-08 — the event schema is the contract between Move contracts and the indexer. Per PITFALLS 2.6, schema drift between Sui Move event structs and the canonical schema is a P0 silent-failure risk. Codegen + CI gate is the only durable mitigation.
     Pattern: TypeBox as single source of truth → derive TS types directly (`Static<typeof Schema>`); generate Rust structs via small codegen script; lint Move event structs against schema field names.
   </context>
   <action>
-    1. Define every canonical event in TypeBox: `VaultOpened`, `TradeIntentSubmitted`, `TradeFilled`, `RuleViolated`, `VaultPassed`, `VaultFailed`, `VaultInactive`, `SbtMinted`, `SbtLeveledUp`, `AllowlistAdded`, `OperatorPaused`, `OperatorResumed`. Include `chain` discriminator field on every event.
+    1. Define every canonical event in TypeBox: `VaultOpened`, `TradeIntentSubmitted`, `TradeFilled`, `RuleViolated`, `VaultPassed`, `VaultFailed`, `VaultInactive`, `SbtMinted`, `SbtLeveledUp`, `AllowlistAdded`, `OperatorPaused`, `OperatorResumed`.
     2. Write `codegen-rust.ts` that emits `#[derive(Serialize, Deserialize)]` Rust structs to `codegen/rust/lib.rs`.
     3. Write `codegen-move-lint.ts` that reads schema and produces a checklist of expected Move struct field names — used by Phase 1 to lint Move event definitions.
     4. Add `.github/workflows/event-parity.yml` that runs codegen on every PR and fails if `codegen/` is out of sync with `src/schema.ts`.
-    **Avoid:** hand-translating events to Move/Anchor — generation is required; Move struct codegen itself is hand-written in Phase 1 but lint-checked here.
+    **Avoid:** hand-translating events to Move — generation is required; Move struct codegen itself is hand-written in Phase 1 but lint-checked here.
   </action>
   <verify>pnpm --filter @shared/events run codegen && git diff --exit-code packages/shared/events/codegen/</verify>
   <done>
@@ -183,30 +182,27 @@ Establish the monorepo skeleton, cross-chain event schema with codegen + CI pari
 </task>
 
 <task type="auto" id="0.5" depends_on="0.1">
-  <name>Set up multisig upgrade authorities on Sui and Solana (Phase 0 deliverable, not deferred)</name>
+  <name>Set up Sui native MultiSig upgrade authority (Phase 0 deliverable, not deferred)</name>
   <files>
     infra/multisig/sui-multisig-spec.md
-    infra/multisig/squads-spec.md
     infra/multisig/test-deploy.md
   </files>
   <context>
     Why: REQ-09 + PITFALLS 4.8 — single-key risk during Phase 1-3 deploys is unacceptable. Multisig must be live before any contract goes to testnet.
-    Pattern: Squads (Solana) 2/3 multisig of founder + SC engineer + operator; Sui native MultiSig with same quorum.
+    Pattern: Sui native MultiSig 2/3 quorum of founder + SC engineer + operator.
   </context>
   <action>
-    1. Create a Squads vault on Solana devnet/mainnet with 2/3 quorum: founder, SC engineer, operator keys.
-    2. Create a Sui MultiSig with equivalent quorum (Sui's native multisig is part of the framework — not a separate contract).
-    3. Document both addresses in `infra/multisig/` along with key-rotation procedure.
-    4. Run a test deploy on Sui devnet + Solana devnet using the multisig as the upgrade authority on a dummy package. Verify upgrade flow works (publish v1 → upgrade to v2 via multisig signatures).
+    1. Create a Sui MultiSig with 2/3 quorum (Sui's native multisig is part of the framework — not a separate contract): founder, SC engineer, operator keys.
+    2. Document the address in `infra/multisig/sui-multisig-spec.md` along with key-rotation procedure.
+    3. Run a test deploy on Sui devnet using the multisig as the upgrade authority on a dummy package. Verify upgrade flow works (publish v1 → upgrade to v2 via multisig signatures).
     **Avoid:** custodial multisig services for upgrade authority — they introduce a counterparty.
   </action>
-  <verify>solana program show <dummy_id> --output json | jq '.authority' shows Squads PDA; sui client object <upgrade-cap> shows MultiSig owner</verify>
+  <verify>sui client object <upgrade-cap> shows MultiSig owner</verify>
   <done>
-    - [ ] Squads vault deployed; 2/3 quorum tested
     - [ ] Sui MultiSig configured; 2/3 quorum tested
-    - [ ] Test deploy + upgrade succeeds on both chains
+    - [ ] Test deploy + upgrade succeeds on Sui devnet
   </done>
-  <rollback>Squads vault deletion via UI; Sui MultiSig retirement procedure</rollback>
+  <rollback>Sui MultiSig retirement procedure</rollback>
 </task>
 
 <task type="auto" id="0.6" depends_on="0.3">
@@ -224,14 +220,14 @@ Establish the monorepo skeleton, cross-chain event schema with codegen + CI pari
     1. Add `services/risk-engine/Cargo.toml` with deps: tokio, axum, sqlx, tracing, tracing-subscriber, serde, serde_json, tokio-tungstenite, futures-util, pyth-sdk.
     2. Implement `price_feed.rs` that subscribes to Pyth Hermes WS for SOL/USD, BTC/USD, ETH/USD feed IDs (looked up via `https://hermes.pyth.network/v2/price_feeds`).
     3. On each price update: log `(feed_id, price, conf, publish_time, latency_ms)`. Hold latest in memory; expose via `axum` HTTP `GET /price/:symbol`.
-    4. Verify Pyth feed IDs for the same symbols exist on Sui mainnet (Pyth Sui receiver package) and Solana mainnet (Pyth Solana program). Document missing feed IDs as STATE.md blockers.
+    4. Verify Pyth feed IDs for SOL/USD, BTC/USD, ETH/USD exist on Sui mainnet (Pyth Sui receiver package). Document missing feed IDs as STATE.md blockers.
     **Avoid:** writing the slippage model in this task — that's Phase 2. This is connectivity only.
   </action>
   <verify>curl localhost:3001/price/SOL returns a price; logs show ticks within last 5s</verify>
   <done>
     - [ ] Rust binary builds and runs locally
     - [ ] Pyth Hermes WS connects and receives ticks within 5s
-    - [ ] Feed IDs for BTC/ETH/SOL confirmed on both Sui mainnet + Solana mainnet
+    - [ ] Feed IDs for BTC/ETH/SOL confirmed on Sui mainnet
   </done>
   <rollback>git checkout -- services/risk-engine/</rollback>
 </task>
@@ -249,7 +245,7 @@ Establish the monorepo skeleton, cross-chain event schema with codegen + CI pari
   <action>
     1. Write `SCOPE-LOCK.md` enumerating every "out of scope" item from PROJECT.md (real capital, mainnet DEX execution, airdrop hunting, prediction markets, real payouts, auto-scaling, profit-split ladder, multi-category, affiliate, DAO, LP vault, token, KYC, production reputation SBT) with one-line rationale each.
     2. Create the Linear workspace; mirror SCOPE-LOCK.md into a pinned Linear doc.
-    3. Skeleton `docs/operator/playbook-skeleton.md` — populated fully in Phase 7, but anchor exists now.
+    3. Skeleton `docs/operator/playbook-skeleton.md` — populated fully in Phase 7, but the skeleton exists now.
     **Avoid:** soft language like "probably out of scope" — every item is a hard NO until v2 planning revisits.
   </action>
   <verify>grep -c '^- ' SCOPE-LOCK.md returns >= 14; Linear pinned doc visible</verify>
@@ -268,13 +264,13 @@ Establish the monorepo skeleton, cross-chain event schema with codegen + CI pari
 - [ ] `pnpm --filter @shared/events run codegen` — deterministic; CI parity gate active
 - [ ] `curl localhost:3001/price/SOL` — returns live Pyth price
 - [ ] Hetzner Postgres+TSDB reachable; daily backup running
-- [ ] Both multisigs control test upgrade-authority keys
+- [ ] Sui MultiSig controls test upgrade-authority key
 - [ ] VERSIONS.md captures verified-as-of dates for all 8 pins
 - [ ] SCOPE-LOCK.md mirrored into Linear
 </verification>
 
 <success_criteria>
-Phase 0 is complete when a fresh developer can `pnpm install && pnpm turbo build && cargo build --workspace` and get a green build; the event schema codegens deterministically with a CI parity gate that fails on drift; the Hetzner stack is live with Postgres+TSDB + observability; both chain multisigs control test deploy keys with a documented and tested upgrade flow; the Pyth Hermes WS subscription receives price ticks for BTC/ETH/SOL; VERSIONS.md lists every tool pin with a verified-as-of date; and the SCOPE-LOCK.md is mirrored into Linear as the canonical "no" list. No contract code has been written yet; the next phase (Sui Contract Core) has every prerequisite in place.
+Phase 0 is complete when a fresh developer can `pnpm install && pnpm turbo build && cargo build --workspace` and get a green build; the event schema codegens deterministically with a CI gate that fails on drift; the Hetzner stack is live with Postgres+TSDB + observability; the Sui native MultiSig controls a test deploy key with a documented and tested upgrade flow; the Pyth Hermes WS subscription receives price ticks for BTC/ETH/SOL; VERSIONS.md lists every tool pin with a verified-as-of date; and the SCOPE-LOCK.md is mirrored into Linear as the canonical "no" list. No contract code has been written yet; the next phase (Sui Contract Core) has every prerequisite in place.
 </success_criteria>
 
 <output>

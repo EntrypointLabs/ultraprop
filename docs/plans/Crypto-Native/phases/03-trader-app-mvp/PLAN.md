@@ -34,7 +34,7 @@ must_haves:
 ---
 
 <objective>
-Ship the trader-facing app on Sui only (Solana follows in Phase 4 via parity). Cover the full evaluation loop: connect wallet → sign in → allowlist check → tier picker → live trading with slippage transparency → equity curve + rule pills → pass/fail/inactive terminal screens. The slippage transparency UI (showing modeled fill + +2 bps tilt pre-submit) is the load-bearing trust primitive: traders see the math before they hit submit, eliminating "the system tricked me" complaints (mitigates PITFALLS 3.5 and 4.1's UI surface).
+Ship the trader-facing app on Sui. Cover the full evaluation loop: connect wallet → sign in → allowlist check → tier picker → live trading with slippage transparency → equity curve + rule pills → pass/fail/inactive terminal screens. The slippage transparency UI (showing modeled fill + +2 bps tilt pre-submit) is the load-bearing trust primitive: traders see the math before they hit submit, eliminating "the system tricked me" complaints (mitigates PITFALLS 3.5 and 4.1's UI surface).
 </objective>
 
 <context>
@@ -230,7 +230,7 @@ Ship the trader-facing app on Sui only (Solana follows in Phase 4 via parity). C
 </verification>
 
 <success_criteria>
-Phase 3 is complete when an allowlisted Sui devnet wallet can: connect → sign in → pick Starter tier → open an evaluation → submit trades with full slippage transparency (modeled fill displayed pre-submit, matching the eventual on-chain fill within 1 ULP) → see the live equity curve + rule pills update in real time → reach a terminal state (Pass/Fail/Inactive) with appropriate UI. Playwright E2E test covers the happy path end-to-end and is wired into CI. Solana wallet support is intentionally absent; it lands in Phase 4 via the port.
+Phase 3 is complete when an allowlisted Sui devnet wallet can: connect → sign in → pick Starter tier → open an evaluation → submit trades with full slippage transparency (modeled fill displayed pre-submit, matching the eventual on-chain fill within 1 ULP) → see the live equity curve + rule pills update in real time → reach a terminal state (Pass/Fail/Inactive) with appropriate UI. Playwright E2E test covers the happy path end-to-end and is wired into CI.
 </success_criteria>
 
 <output>

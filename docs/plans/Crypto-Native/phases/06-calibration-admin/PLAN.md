@@ -1,7 +1,7 @@
 ---
 phase: 06-calibration-admin
 type: execute
-depends_on: ["02-backend-indexer", "04-solana-port"]
+depends_on: ["02-backend-indexer", "03-trader-app-mvp"]
 files_modified:
   - services/risk-engine/src/calibrator/v1/
   - services/risk-engine/src/calibrator/backtest.rs
@@ -9,17 +9,17 @@ files_modified:
   - apps/admin/
   - scripts/audit-no-override.sh
   - .github/workflows/admin-no-override-audit.yml
-  - .github/workflows/cross-chain-parity-replay.yml
+  - .github/workflows/event-schema-parity-replay.yml
   - infra/postgres/migrations/0020_calibration_*.sql
 autonomous: true
 requirements: [REQ-01, REQ-06]
 must_haves:
   truths:
-    - "30-day historical backtest passes: median |delta_bps| <= 5 bps for SOL, ETH, BTC pairs against 7K aggregator (Sui) and Jupiter (Solana) snapshots."
+    - "30-day historical backtest passes: median |delta_bps| <= 5 bps for SOL, ETH, BTC pairs against 7K aggregator snapshots."
     - "slippage-calibrator v1 daily job computes drift; soft alert at >=3 bps; hard alert at >=5 bps."
     - "Admin app shows allowlist UI + pause/unpause + read-only vault views, with no endpoint that mutates vault P&L state."
     - "CI audit job (admin-no-override-audit) statically asserts the admin API exposes zero vault-mutating routes."
-    - "Cross-chain parity CI re-run as part of this phase; canonical events from identical synthetic inputs match byte-for-byte."
+    - "Canonical event schema parity CI re-run as part of this phase; canonical events from identical synthetic inputs match byte-for-byte."
     - "Indexer cold-replay test passes deterministically in CI."
     - "Sybil clustering job runs nightly, flags suspicious wallet clusters to operator review queue (no automated action)."
   artifacts:
@@ -36,7 +36,7 @@ must_haves:
 ---
 
 <objective>
-Run the 30-day backtest gate (the first of two beta-open blocking gates) and stand up the admin app with the structurally-enforced "no override path" property. The admin app is intentionally limited to allowlist + pause + read-only vault visibility — a CI audit asserts no vault-mutating endpoint exists in the gateway, complementing the contract-level enforcement from Phase 1/4 (REQ-06). The slippage-calibrator v1 + drift alerts close the loop on the slippage-model fidelity story (REQ-01). Cross-chain parity replay + indexer cold-replay are revalidated as exit criteria for the entire pre-beta build.
+Run the 30-day backtest gate (the first of two beta-open blocking gates) and stand up the admin app with the structurally-enforced "no override path" property. The admin app is intentionally limited to allowlist + pause + read-only vault visibility — a CI audit asserts no vault-mutating endpoint exists in the gateway, complementing the contract-level enforcement from Phase 1 (REQ-06). The slippage-calibrator v1 + drift alerts close the loop on the slippage-model fidelity story (REQ-01). Canonical event schema replay + indexer cold-replay are revalidated as exit criteria for the entire pre-beta build.
 </objective>
 
 <context>
@@ -54,21 +54,20 @@ Run the 30-day backtest gate (the first of two beta-open blocking gates) and sta
   <files>
     services/risk-engine/src/calibrator/backtest.rs
     services/risk-engine/src/calibrator/historical/k7_loader.rs
-    services/risk-engine/src/calibrator/historical/jupiter_loader.rs
     infra/postgres/migrations/0020_calibration_runs.sql
     scripts/run-30day-backtest.sh
     reports/backtest/
   </files>
   <context>
     Why: REQ-01 + PROJECT.md beta-open gate. PITFALLS 1.1 — without a 30-day backtest, the slippage model's mainnet equivalence is unproven.
-    Pattern: load 30 days of swap data from 7K Protocol (Sui) and Jupiter (Solana) for SOL/ETH/BTC majors; replay each swap through the slippage_model with the live `SlippageConfig`; compute `delta_bps` per swap; aggregate.
+    Pattern: load 30 days of swap data from the 7K Protocol aggregator for SOL/ETH/BTC majors; replay each swap through the slippage_model with the live `SlippageConfig`; compute `delta_bps` per swap; aggregate.
   </context>
   <action>
     1. Build historical loaders: pull 30 days of relevant aggregator swap data via API (or aggregator archive endpoints). Cache locally to disk so reruns don't re-fetch.
     2. `backtest.rs`: for each historical swap `(price, side, size, time)`, compute the model's predicted fill via `packages/shared/slippage`; compute delta_bps; group by symbol + time bucket.
     3. Persist results to `calibration_runs` table.
     4. `run-30day-backtest.sh` outputs a Markdown report to `reports/backtest/YYYY-MM-DD.md` with: median + p95 delta_bps per symbol; recommendations if outside spec.
-    5. **GATE:** if median |delta_bps| for any of SOL/ETH/BTC exceeds 5 bps, this phase cannot exit. Adjust `SlippageConfig` parameters (a Phase 1 governance action via Sui MultiSig + Squads) and rerun.
+    5. **GATE:** if median |delta_bps| for any of SOL/ETH/BTC exceeds 5 bps, this phase cannot exit. Adjust `SlippageConfig` parameters (a Phase 1 governance action via Sui MultiSig) and rerun.
     **Avoid:** running backtest against synthetic data only (defeats the purpose); accepting "close enough" >5 bps (gate is the gate).
   </action>
   <verify>./scripts/run-30day-backtest.sh; cat reports/backtest/<today>.md; assert all 3 majors median |delta_bps| <= 5</verify>
@@ -151,7 +150,7 @@ Run the 30-day backtest gate (the first of two beta-open blocking gates) and sta
     .github/workflows/admin-no-override-audit.yml
   </files>
   <context>
-    Why: REQ-06 + PITFALLS 4.1 — operator-override creep is the silent-fail mode. The contract has no override path (Phase 1/4); this gate ensures the gateway has none either.
+    Why: REQ-06 + PITFALLS 4.1 — operator-override creep is the silent-fail mode. The contract has no override path (Phase 1); this gate ensures the gateway has none either.
     Pattern: static analysis — grep + AST walk of `services/api-gateway/src/routes/admin.ts` for any route that calls `submit_intent`, `mint_or_level_up_sbt`, or writes to `vaults` / `trade_events` / `equity_curves` tables with non-read SQL. Fail on any match.
   </context>
   <action>
@@ -170,9 +169,9 @@ Run the 30-day backtest gate (the first of two beta-open blocking gates) and sta
 </task>
 
 <task type="auto" id="6.5" depends_on="6.4">
-  <name>Cross-chain parity replay + indexer cold-replay + Sybil clustering job</name>
+  <name>Event schema parity replay + indexer cold-replay + Sybil clustering job</name>
   <files>
-    .github/workflows/cross-chain-parity-replay.yml
+    .github/workflows/event-schema-parity-replay.yml
     .github/workflows/indexer-cold-replay.yml
     services/risk-engine/src/jobs/sybil_cluster.rs
     apps/admin/app/operator-review/page.tsx
@@ -180,10 +179,10 @@ Run the 30-day backtest gate (the first of two beta-open blocking gates) and sta
   </files>
   <context>
     Why: REQ-03 + PITFALLS 4.3 + 4.4 — these CI gates re-verify the most important invariants. Sybil clustering is operator-review-only per Clarify R3 (no automated action).
-    Pattern: cross-chain parity replays the 50 synthetic inputs from Phase 4; cold-replay drops the indexer DB and reruns from cursor=0; Sybil clustering detects wallet clusters via gas-funding-source + behavior similarity.
+    Pattern: schema parity replay re-runs the 50 synthetic inputs from Phase 1 contract tests to assert canonical event output has not drifted; cold-replay drops the indexer DB and reruns from cursor=0; Sybil clustering detects wallet clusters via gas-funding-source + behavior similarity.
   </context>
   <action>
-    1. `cross-chain-parity-replay.yml`: extended version of Phase 4's gate — runs nightly + on PR; ensures parity hasn't rotted.
+    1. `event-schema-parity-replay.yml`: runs nightly + on PR; feeds 50 synthetic swap/evaluation inputs through the Move contracts on testnet and asserts the emitted canonical events match the TypeBox schema byte-for-byte. Fails if any field drifts.
     2. `indexer-cold-replay.yml`: spins ephemeral Postgres; replays indexer from cursor=0 against testnet snapshot; diffs final state vs production-snapshot baseline; fails on divergence.
     3. `sybil_cluster.rs`: nightly job; clusters wallets by: (a) gas-funded-from-same-wallet (b) identical evaluation timing patterns (c) similar IP signature on auth. Writes clusters to `sybil_clusters` table.
     4. `/operator-review` admin page renders flagged clusters; operator can mark "investigated → benign" or "suspicious → manual_pause" (which triggers the existing pause flow targeting specific allowlist removals).
@@ -191,11 +190,11 @@ Run the 30-day backtest gate (the first of two beta-open blocking gates) and sta
   </action>
   <verify>run all 3 workflows on a PR; assert pass. Inject synthetic Sybil cluster pattern; assert it appears in /operator-review.</verify>
   <done>
-    - [ ] Both CI parity workflows live + nightly
+    - [ ] Both CI replay workflows live + nightly
     - [ ] Indexer cold-replay deterministic
     - [ ] Sybil clustering job + operator review queue working
   </done>
-  <rollback>git checkout -- .github/workflows/cross-chain-parity-replay.yml .github/workflows/indexer-cold-replay.yml services/risk-engine/src/jobs/sybil_cluster.rs apps/admin/app/operator-review</rollback>
+  <rollback>git checkout -- .github/workflows/event-schema-parity-replay.yml .github/workflows/indexer-cold-replay.yml services/risk-engine/src/jobs/sybil_cluster.rs apps/admin/app/operator-review</rollback>
 </task>
 
 </tasks>
@@ -205,12 +204,12 @@ Run the 30-day backtest gate (the first of two beta-open blocking gates) and sta
 - [ ] Daily drift alert fires correctly on synthetic >3 bps state
 - [ ] Admin app: magic-link + WebAuthn enforced; allowlist + pause + read-only vault views
 - [ ] `admin-no-override-audit` CI gate fails on intentional override attempt
-- [ ] Cross-chain parity replay + indexer cold-replay both green
+- [ ] Event schema parity replay + indexer cold-replay both green
 - [ ] Sybil clustering nightly + operator review queue functional
 </verification>
 
 <success_criteria>
-Phase 6 is complete when the 30-day backtest gate passes (median |delta_bps| <= 5 bps on majors), the calibration drift alert is wired with 3/5 bps thresholds, the admin app is live with magic-link + passkey auth and contains zero vault-mutating UI, the CI audit asserts no override route exists in the gateway, cross-chain parity replay + indexer cold-replay run nightly in CI, and the Sybil clustering job feeds an operator review queue (with no automated action). At the end of this phase, only the 7-day forward-test gate stands between us and beta open.
+Phase 6 is complete when the 30-day backtest gate passes (median |delta_bps| <= 5 bps on majors), the calibration drift alert is wired with 3/5 bps thresholds, the admin app is live with magic-link + passkey auth and contains zero vault-mutating UI, the CI audit asserts no override route exists in the gateway, event schema parity replay + indexer cold-replay run nightly in CI, and the Sybil clustering job feeds an operator review queue (with no automated action). At the end of this phase, only the 7-day forward-test gate stands between us and beta open.
 </success_criteria>
 
 <output>

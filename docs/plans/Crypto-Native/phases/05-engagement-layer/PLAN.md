@@ -20,8 +20,8 @@ requirements: [REQ-04, REQ-11]
 must_haves:
   truths:
     - "Public leaderboard renders per-chain (no unified identity) sorted by highest tier reached, then consistency, then total shadow P&L."
-    - "Public profile pages at /trader/sui/<addr> and /trader/solana/<addr> render verifiable evaluation history with on-chain transaction links."
-    - "SBT renders correctly in Suiet (Sui) and Phantom (Solana) wallet UIs with 3 static designs (Starter/Basic/Pro)."
+    - "Public profile pages at /trader/sui/<addr> render verifiable evaluation history with on-chain transaction links."
+    - "SBT renders correctly in Suiet and Sui Wallet UIs with 3 static designs (Starter/Basic/Pro)."
     - "/v1-cohort page describes the credential without using the words 'token', 'airdrop', 'allocation', or 'rewards beyond profit splits'."
     - "CI lint job blocks any PR that introduces token/airdrop language anywhere in apps/trader/."
     - "Anti-promise disclaimer renders in the footer of every leaderboard, profile, and SBT view."
@@ -42,7 +42,7 @@ must_haves:
 ---
 
 <objective>
-Build the engagement layer: public per-chain leaderboards, public per-chain profile pages, three static SBT designs that level up via metadata-URI swap, and the `/v1-cohort` page that frames the credential without using token/airdrop language. The "no-token-language" CI lint and the AntiPromiseDisclaimer component are load-bearing for the messaging stance from Clarify R3 (REQ-11) — they're the only durable mitigation against PITFALLS 3.4 (promise inflation). Runs in **parallel** with Phase 4 (Solana port) since this is mostly frontend + indexer-read work; the Solana SBT assets are added when Phase 4 ships them on-chain.
+Build the engagement layer: public leaderboards, public profile pages, three static SBT designs that level up via metadata-URI swap, and the `/v1-cohort` page that frames the credential without using token/airdrop language. The "no-token-language" CI lint and the AntiPromiseDisclaimer component are load-bearing for the messaging stance from Clarify R3 (REQ-11) — they're the only durable mitigation against PITFALLS 3.4 (promise inflation). This phase is mostly frontend + indexer-read work and can begin as soon as Phase 2 (indexer) and Phase 3 (trader app MVP) are complete.
 </objective>
 
 <context>
@@ -64,14 +64,14 @@ Build the engagement layer: public per-chain leaderboards, public per-chain prof
     infra/postgres/migrations/0010_leaderboard_view.sql
   </files>
   <context>
-    Why: REQ-04 — engagement loop's distribution mechanism. FEATURES.md B1 — proven retention mechanic in Hyperliquid/Drift/Aevo. Clarify R3 — per-chain, no cross-chain identity.
+    Why: REQ-04 — engagement loop's distribution mechanism. FEATURES.md B1 — proven retention mechanic in prop-firm and futures platforms. Clarify R3 — per-chain, no cross-chain identity.
     Pattern: Postgres materialized view refreshed every 60s; sorts by `highest_tier DESC, consistency_score DESC, total_shadow_pnl DESC`. Pseudonymous (truncated address); opt-in display name from profile.
   </context>
   <action>
     1. `0010_leaderboard_view.sql`: materialized view joining `vaults` + `cohort_sbt` data + computed consistency_score (Sharpe-like over evaluation P&L sequence). Indexed on tier + score.
     2. Cron job in api-gateway refreshes the matview every 60s.
     3. `GET /leaderboard?chain=sui&tier=Pro` returns paginated rows.
-    4. `Leaderboard.tsx`: per-chain tabs (Sui / Solana); per-tier filters; row click → profile page.
+    4. `Leaderboard.tsx`: per-tier filters; row click → profile page.
     5. Pseudonymous: show truncated address like `0xabc...d3f`; trader profile page can expose a display name they set explicitly.
     **Avoid:** unified cross-chain leaderboard (Clarify R3 explicit); refreshing on every page view (DB load); exposing full addresses without trader consent.
   </action>
@@ -85,7 +85,7 @@ Build the engagement layer: public per-chain leaderboards, public per-chain prof
 </task>
 
 <task type="auto" id="5.2" depends_on="5.1">
-  <name>Public profile pages — /trader/sui/<addr> and /trader/solana/<addr></name>
+  <name>Public profile pages — /trader/sui/<addr></name>
   <files>
     apps/trader/app/trader/[chain]/[address]/page.tsx
     apps/trader/components/PublicProfile.tsx
@@ -97,9 +97,9 @@ Build the engagement layer: public per-chain leaderboards, public per-chain prof
     Pattern: server-rendered Next.js Route segment under `[chain]/[address]`. Pulls SBT state + full evaluation history + equity-curve sparklines from the indexer.
   </context>
   <action>
-    1. Route segment `/trader/[chain]/[address]/page.tsx` validates `chain ∈ {sui, solana}` and address format.
+    1. Route segment `/trader/[chain]/[address]/page.tsx` validates `chain === 'sui'` and address format.
     2. `PublicProfile.tsx`: shows SBT image + level, total passes, total trades, cumulative shadow P&L, win rate, AntiPromiseDisclaimer.
-    3. `EvaluationHistoryTable.tsx`: every evaluation as a row with tier, outcome (Passed/Failed/Inactive), date, P&L, equity curve sparkline, on-chain explorer link (Suivision or Solscan).
+    3. `EvaluationHistoryTable.tsx`: every evaluation as a row with tier, outcome (Passed/Failed/Inactive), date, P&L, equity curve sparkline, on-chain explorer link (Suiscan).
     4. Profile page has `<meta>` + Open Graph tags so the embed renders well when shared on X/Discord.
     5. Display-name setter (gated to the owning wallet) lives at `/me/profile`.
     **Avoid:** showing full address without truncation alongside the SBT level (clutter); cross-chain profile aggregation (deferred); requiring auth to view (public means public).
@@ -114,35 +114,33 @@ Build the engagement layer: public per-chain leaderboards, public per-chain prof
 </task>
 
 <task type="auto" id="5.3" depends_on="">
-  <name>SBT 3 static designs + level-up metadata-URI swap on both chains</name>
+  <name>SBT 3 static designs + level-up metadata-URI swap</name>
   <files>
     assets/sbt/starter.png
     assets/sbt/basic.png
     assets/sbt/pro.png
     assets/sbt/metadata.json
     contracts/sui/sources/cohort_sbt.move (Display update)
-    contracts/solana/programs/eval/src/state/sbt.rs (URI field)
     services/api-gateway/src/sbt/uri.ts
   </files>
   <context>
     Why: Clarify R2 — static SBT art (3 designs). REQ-04 — level-up must render in wallets correctly.
-    Pattern: assets hosted on Arweave or IPFS pinned via Pinata for permanence; URI stored on-chain in the SBT object; level-up rewrites URI; wallet UIs (Suiet, Phantom) refresh metadata on next view.
+    Pattern: assets hosted on Arweave or IPFS pinned via Pinata for permanence; URI stored on-chain in the SBT object; level-up rewrites URI; wallet UIs (Suiet, Sui Wallet) refresh metadata on next view.
   </context>
   <action>
     1. Designer delivers 3 PNG/SVG assets (Starter/Basic/Pro) + a thumbnail variant.
     2. Pin assets to Arweave or Pinata IPFS. Record CIDs in `assets/sbt/metadata.json`.
-    3. Sui: extend `cohort_sbt.move` to expose `image_url` field via `display::register`; `mint_or_level_up` writes the URI for `highest_tier`.
-    4. Solana: add `uri` field to SBT PDA; same level-up logic.
-    5. SBT-renders-in-wallets validation: install dev builds of Suiet + Phantom; mint test SBTs at each tier; visually verify they show in the NFT/collectibles tabs with correct image.
+    3. Extend `cohort_sbt.move` to expose `image_url` field via `display::register`; `mint_or_level_up` writes the URI for `highest_tier`.
+    4. SBT-renders-in-wallets validation: install dev builds of Suiet and Sui Wallet; mint test SBTs at each tier; visually verify they show in the NFT/collectibles tabs with correct image.
     **Avoid:** procedural generation (out of v1 scope per Clarify R2); fully-on-chain SVG (deferred); centralized image hosting on platform's own server (not durable).
   </action>
   <verify>mint test SBT at Starter; level up to Basic; level up to Pro; verify wallet UI updates within ~5min on each step</verify>
   <done>
     - [ ] 3 static designs pinned to IPFS/Arweave
-    - [ ] Level-up rewrites URI on both chains
-    - [ ] SBTs visually render in Suiet + Phantom test builds
+    - [ ] Level-up rewrites URI on-chain
+    - [ ] SBTs visually render in Suiet and Sui Wallet test builds
   </done>
-  <rollback>git checkout -- assets/sbt contracts/sui/sources/cohort_sbt.move contracts/solana/programs/eval/src/state/sbt.rs services/api-gateway/src/sbt/uri.ts</rollback>
+  <rollback>git checkout -- assets/sbt contracts/sui/sources/cohort_sbt.move services/api-gateway/src/sbt/uri.ts</rollback>
 </task>
 
 <task type="auto" id="5.4" depends_on="5.1,5.2,5.3">
@@ -180,9 +178,9 @@ Build the engagement layer: public per-chain leaderboards, public per-chain prof
 </tasks>
 
 <verification>
-- [ ] Leaderboard renders both chains with correct sort
-- [ ] Profile pages render at /trader/sui/<addr> and /trader/solana/<addr>
-- [ ] SBT level-up swaps image on both chains; verified in Suiet + Phantom
+- [ ] Leaderboard renders with correct sort
+- [ ] Profile pages render at /trader/sui/<addr>
+- [ ] SBT level-up swaps image; verified in Suiet and Sui Wallet
 - [ ] /v1-cohort page contains zero banned terms (verified by CI lint passing on it)
 - [ ] AntiPromiseDisclaimer visible on all 4 required surfaces
 - [ ] no-token-language-lint CI gate fails on intentional violation, passes on clean state

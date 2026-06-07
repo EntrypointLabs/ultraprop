@@ -11,27 +11,22 @@
 |---|---|---|---|
 | Sui toolchain | `sui` CLI from `mainnet` branch, Move 2024.beta edition, framework `1.x` (verify against `sui --version`) | HIGH | MED |
 | Sui testing | Sui's built-in `sui move test` + `sui-test-validator` for integration | HIGH | HIGH |
-| Solana toolchain | Anchor 0.30.x, Solana CLI 1.18.x (Agave client), Rust 1.79+ stable | HIGH | MED — Anchor 0.31 may exist |
-| Solana testing | `anchor-bankrun` (solana-bankrun) for unit; `solana-test-validator` for integration | HIGH | HIGH |
-| Cross-chain seam | JSON-schema in `packages/shared/events/` + codegen (no framework). No Wormhole/LayerZero. | HIGH | HIGH |
+| Event schema seam | JSON-schema in `packages/shared/events/` + codegen (no framework) | HIGH | HIGH |
 | Backend language | **Rust** (axum) for indexer + slippage; **TypeScript** (Hono) for the WS gateway / dashboard API | HIGH | HIGH |
 | Rust web framework | **axum** (tower ecosystem) | HIGH | HIGH |
 | Rust DB driver | **sqlx** (compile-time checked SQL, async, TimescaleDB-friendly) | HIGH | HIGH |
 | Sui indexer pattern | Direct subscription to Sui fullnode checkpoint stream (or Sui GraphQL RPC); avoid SubQuery for v1 | MED | n/a |
-| Solana indexer pattern | **Helius LaserStream / Geyser** (Yellowstone gRPC) — paid tier | HIGH | n/a |
 | Job queue | **Postgres-backed** (`river` crate) — no Redis | HIGH | HIGH |
 | Frontend | Next.js 15 App Router | HIGH | MED — Next 16 may have shipped |
 | State | **TanStack Query** + **Zustand** for local UI state | HIGH | HIGH |
 | Realtime client | `partysocket` or native `WebSocket` bridged into TanStack Query cache | MED | n/a |
 | Sui wallet | **`@mysten/dapp-kit`** (Mysten official; Wallet Standard underneath) | HIGH | HIGH |
-| Solana wallet | **`@solana/wallet-adapter`** + **Privy** for email/social fallback | HIGH | HIGH |
 | Charts | **TradingView Lightweight Charts** for prices + equity curves | HIGH | HIGH |
 | UI primitives | **shadcn/ui (Radix + Tailwind)** | HIGH | HIGH |
-| Oracle (prices) | **Pyth Hermes (pull oracle)** primary on both chains; Switchboard as failover | HIGH | HIGH |
+| Oracle (prices) | **Pyth Hermes (pull oracle)** primary on Sui; Switchboard as failover | HIGH | HIGH |
 | DB | **Self-hosted Postgres 16 + TimescaleDB 2.15+** on Hetzner CCX-class VM | HIGH | MED |
 | Frontend hosting | **Vercel** (trader app) | HIGH | HIGH |
 | Backend hosting | **Hetzner CCX dedicated VM** (Docker Compose) for v1; Fly.io for WS edge if latency demands it | HIGH | HIGH |
-| Solana RPC | **Helius Business plan** | HIGH | MED on tier |
 | Sui RPC | **Shinami** primary, Triton/QuickNode failover | MED | MED |
 | Observability | **Sentry** (FE+BE errors) + **Grafana Cloud Free** (metrics + logs via OTel) + **BetterStack** uptime | HIGH | HIGH |
 | Monorepo | **pnpm workspaces + Turborepo** | HIGH | HIGH |
@@ -40,13 +35,13 @@
 | E2E | **Playwright** | HIGH | HIGH |
 | Unit (TS) | **Vitest** | HIGH | HIGH |
 | CI | **GitHub Actions** | HIGH | HIGH |
-| Wallet auth | **SIWS** (Sign-In-With-Solana, EIP-4361-style) + Sui sign-personal-message + nonce | HIGH | HIGH |
+| Wallet auth | Sui sign-personal-message + nonce (via `@mysten/dapp-kit`) | HIGH | HIGH |
 | Session | **Iron Session** (stateless cookie) for v1; migrate to Better-Auth only if needed | HIGH | HIGH |
 | Operator auth | Separate path: WorkOS / Clerk magic-link + WebAuthn passkey | HIGH | HIGH |
 
 **Reversibility callouts:**
 - Cheap to swap later: chart library, UI primitive set, state mgmt, session lib, observability vendor.
-- Expensive (lock-in): RPC provider (Helius webhook contracts, LaserStream cursor format), DB host (Postgres+TSDB schema is portable but migrations are painful), indexer architecture, event schema (cross-chain parity hinges on it), oracle choice (Move/Anchor adapter modules are non-trivial to rewrite).
+- Expensive (lock-in): RPC provider, DB host (Postgres+TSDB schema is portable but migrations are painful), indexer architecture, event schema (schema is the contract between contracts and indexer), oracle choice (Move adapter modules are non-trivial to rewrite).
 
 ---
 
@@ -75,37 +70,13 @@
 
 **Confidence:** HIGH on toolchain & testing approach, MED on CLI version pin.
 
-### Solana Anchor
+### Event Schema Seam
 
-**Toolchain:**
-- **Anchor:** `0.30.1` stable in training data; **Anchor 0.31.x may have shipped** — verify at https://github.com/coral-xyz/anchor/releases.
-- **Solana CLI / Agave:** **1.18.x** stable; 2.x may exist by mid-2026.
-- **Rust toolchain:** stable 1.79+; pinned via `rust-toolchain.toml`.
-- **Build target:** `sbf-solana-solana` (modern target).
+**Recommendation:** **No cross-chain bridging. Schema-level parity only.**
 
-**Testing:**
-- **Primary unit:** **`anchor-bankrun`** + **`solana-bankrun`** — fast, in-process, deterministic. ~10–100× faster than `solana-test-validator`. Modern standard.
-- **Integration:** `solana-test-validator` only for CPI-heavy paths (Pyth on-chain posting integration).
-- **Fuzzing:** **Trident** (Ackee Blockchain) — 2026 standard; replaces older Honggfuzz workflows.
-
-**Deployment:**
-- `anchor deploy --provider.cluster mainnet-beta`.
-- **Buffer-account two-step** is the only safe path for mainnet.
-- **squads.so multisig** as program upgrade authority.
-
-**Confidence:** HIGH on Anchor/bankrun/Trident; MED on exact 0.30 vs 0.31 pin.
-
-### Cross-Chain Abstraction Layer
-
-**Recommendation:** **No on-chain bridging. Pure schema-level parity.**
-
-- v1 has **zero cross-chain on-chain messaging**. Trader picks Sui OR Solana per evaluation; SBTs mint on the chain evaluated on. Leaderboard is backend aggregation.
-- The "abstraction layer" is:
-  1. **`packages/shared/events/`** — JSON Schema (or TypeBox) describing every event type. Single source of truth.
-  2. **Codegen:** TypeBox → TS types + Rust structs. Move struct templates hand-written but lint-checked against schema.
-  3. **`packages/shared/contracts-abi/`** — TS bindings for both chains. Sui via `@mysten/sui/transactions`; Solana via Anchor IDL + `@coral-xyz/anchor`.
-
-**Anti-recommendation:** Do **NOT** introduce Wormhole, LayerZero, deBridge, Hyperlane, or any cross-chain messaging bridge in v1. Adding a bridge = adding a trust assumption + an oracle + multi-week integration for zero v1 user value.
+- The event schema in **`packages/shared/events/`** — JSON Schema (or TypeBox) — is the contract between Move contracts and the off-chain indexer.
+  1. **Codegen:** TypeBox → TS types + Rust structs. Move event struct templates hand-written but lint-checked against schema.
+  2. **`packages/shared/contracts-abi/`** — TS bindings. Sui via `@mysten/sui/transactions`.
 
 **Confidence:** HIGH.
 
@@ -117,9 +88,9 @@
 
 **The PRD's preference for Rust on the risk engine is correct in 2026:**
 
-1. **Determinism parity.** Slippage model exists in two places: on-chain (Move/Anchor) and off-chain. Rust off-chain matches Anchor's Rust on-chain semantics far more closely than JS/TS or Go.
+1. **Determinism parity.** Slippage model exists in two places: on-chain (Move) and off-chain. Rust off-chain matches Move's numeric semantics far more closely than JS/TS or Go.
 2. **Throughput.** Pyth Hermes pushes thousands of price updates/sec. Rust + `tokio` handles this without GC pauses.
-3. **Ecosystem.** `solana-sdk`, `anchor-client`, Sui's `sui-sdk` Rust crate, and Pyth's Hermes client are all Rust-first.
+3. **Ecosystem.** Sui's `sui-sdk` Rust crate and Pyth's Hermes client are Rust-first.
 
 **But** the WebSocket fan-out + dashboard REST API are bog-standard CRUD. Split:
 
@@ -128,7 +99,7 @@
 
 This split keeps the founder unblocked on the part they'll touch most.
 
-**Anti-recommendation:** Don't pick Go. No advantage over Rust here; Solana/Sui Rust SDKs are first-party while Go SDKs are community-maintained.
+**Anti-recommendation:** Don't pick Go. No advantage over Rust here; the Sui Rust SDK is first-party while Go SDKs are community-maintained.
 
 **Confidence:** HIGH.
 
@@ -137,7 +108,7 @@ This split keeps the founder unblocked on the part they'll touch most.
 - **`axum` 0.7.x** (or 0.8 if released). Tower ecosystem, async-first.
 - Anti-recommendations: `actix-web` (smaller middleware ecosystem, actor-model friction); `rocket` (slow release cadence).
 - **WebSocket:** `axum::extract::ws` (built-in, tungstenite underneath).
-- **gRPC (for Yellowstone/LaserStream):** `tonic` 0.12+.
+- **gRPC** (if needed): `tonic` 0.12+.
 
 **Confidence:** HIGH.
 
@@ -162,17 +133,11 @@ This split keeps the founder unblocked on the part they'll touch most.
 
 ### Indexer pattern
 
-**Sui side:**
 - **Direct subscription to Sui fullnode checkpoint stream** via the `sui-indexer-framework` Rust crate. Same pattern Mysten's own indexer uses.
 - Alternative for v1 simplicity: **Sui GraphQL RPC** poll loop. Lower throughput but simpler. Acceptable for 50–100 traders.
 - Anti: **SubQuery** for Sui — adds another service and vendor.
 
-**Solana side:**
-- **Helius LaserStream (Yellowstone gRPC)** — paid tier. Subscribe to your program ID; receive transaction + account updates with ~100ms latency.
-- Replaces polling `getSignaturesForAddress` or running your own Geyser plugin.
-- Alternatives: Triton One, QuickNode (also Yellowstone). Helius wins on docs + Solana-specific webhook UX.
-
-**Confidence:** MED on Sui; HIGH on Yellowstone-via-Helius for Solana.
+**Confidence:** MED on Sui indexer (crate is solid but evolving).
 
 ### Job queue — Postgres-backed
 
@@ -212,16 +177,12 @@ This split keeps the founder unblocked on the part they'll touch most.
 
 ### Wallet adapters
 
-**Sui:**
-- **`@mysten/dapp-kit`** — Mysten official. Wallet Standard underneath. Supports Suiet, Sui Wallet, Phantom (Sui), Backpack (Sui), Nightly. Hooks: `useCurrentWallet`, `useSignAndExecuteTransaction`, `useSignPersonalMessage`.
-- Anti: standalone Suiet wallet-kit (superseded).
-
-**Solana:**
-- **`@solana/wallet-adapter-react`** + adapter packages for Phantom, Backpack, Solflare, Glow.
-- **Privy** layered on top for email/SMS/social fallback. Useful because invitees may have primary wallets on other chains.
+- **`@mysten/dapp-kit`** — Mysten official. Wallet Standard underneath. Supports Suiet, Sui Wallet, Nightly. Hooks: `useCurrentWallet`, `useSignAndExecuteTransaction`, `useSignPersonalMessage`.
+- Anti: standalone Suiet wallet-kit (superseded by dapp-kit).
+- **Privy** layered on top for email/SMS/social fallback login (invite link → wallet create flow for less-crypto-native users).
 - Anti: Web3Auth, Magic — Privy's pricing and DX are better in 2026.
 
-**Confidence:** HIGH on Mysten dapp-kit & wallet-adapter; MED on Privy specifics.
+**Confidence:** HIGH on Mysten dapp-kit; MED on Privy specifics.
 
 ### Charts
 
@@ -243,19 +204,19 @@ This split keeps the founder unblocked on the part they'll touch most.
 
 ## 4. Oracle / Price Feed
 
-### Pyth Hermes (primary, both chains)
+### Pyth Hermes (primary, Sui)
 
-- **Pyth Network** for SOL, ETH, BTC + the dozen-ish other majors. Live on Sui mainnet since 2023; native on Solana.
+- **Pyth Network** for SOL, ETH, BTC + the dozen-ish other majors. Live on Sui mainnet since 2023.
 - **Pull oracle model** via **Hermes**:
   1. Backend subscribes to Hermes WS (`hermes.pyth.network/v2/updates/price/stream`).
   2. Receives VAA-style signed price updates.
-  3. On-chain: posts VAA via Pyth's update receiver Move module (Sui) or Anchor CPI (Solana), then reads `price_info_object` (Sui) or price account (Solana) in the same tx.
-- **Latency:** Hermes WS sub-second; on-chain posting adds 1 Sui checkpoint (~250ms) or 1 Solana slot (~400ms).
-- **Staleness:** Use Pyth's `max_age` parameter on `get_price_no_older_than` (Move) or equivalent CPI on Anchor. Revert on stale.
+  3. On-chain: posts VAA via Pyth's update receiver Move module, then reads `price_info_object` in the same tx.
+- **Latency:** Hermes WS sub-second; on-chain posting adds 1 Sui checkpoint (~250ms).
+- **Staleness:** Use Pyth's `max_age` parameter on `get_price_no_older_than` (Move). Revert on stale.
 
-### Switchboard (failover, both chains)
+### Switchboard (failover, Sui)
 
-- **Switchboard On-Demand** — pull-based since 2024. Sui + Solana coverage. Layer as halt-on-divergence: backend computes |pyth - switchboard| / mid; if > 50 bps, halt entries until cleared.
+- **Switchboard On-Demand** — pull-based since 2024. Sui coverage. Layer as halt-on-divergence: backend computes |pyth - switchboard| / mid; if > 50 bps, halt entries until cleared.
 - Satisfies the "dual-feed mitigates single-oracle failure" risk in STATE.md.
 
 ### Latency budget
@@ -265,7 +226,7 @@ This split keeps the founder unblocked on the part they'll touch most.
 - Backend → trader browser via WS: <100ms.
 - **Total trader-perceived latency: ~200ms.** Better than typical retail CEX UI.
 
-**Anti-recommendation:** Do **NOT** use Chainlink. Worse Sui/Solana coverage, push-only model wrong for this use case, more expensive on-chain.
+**Anti-recommendation:** Do **NOT** use Chainlink. Worse Sui coverage, push-only model wrong for this use case, more expensive on-chain.
 
 **Confidence:** HIGH on Pyth + Switchboard failover.
 
@@ -297,20 +258,13 @@ This split keeps the founder unblocked on the part they'll touch most.
 
 ### RPC Providers
 
-**Solana:**
-- **Helius Business plan** (~$499/mo in early-2026 — **VERIFY**). Includes dedicated RPC, Yellowstone gRPC (LaserStream), enhanced tx APIs, webhooks, priority-fee API.
-- For v1, the "Developer" or "Professional" tier may suffice (~$100/mo) if Yellowstone is bundled. **Verify Yellowstone access on the tier you pick — most important feature.**
-- Alternative: Triton One Project plan (similar features, slightly higher friction).
-- Anti: public RPCs (Solana Labs, Ankr free) for the indexer — rate limits break checkpoint catch-up.
-
-**Sui:**
 - **Shinami** primary — best Sui-focused DX, Sponsored Transactions support (useful later for gasless evaluations).
   - Free tier likely sufficient for v1's ~6k tx/day traffic.
   - Paid tier ~$99/mo for higher throughput.
 - Alternatives: Triton One Sui, QuickNode Sui, BlockVision (indexer-as-a-service — could replace self-hosted Sui indexer if team wants to deprioritize that build).
 - Anti: public `fullnode.mainnet.sui.io` for the indexer — rate-limited, no SLA.
 
-**Confidence:** MED on specific Helius plan name; HIGH on Shinami for Sui; HIGH on paying for managed RPC.
+**Confidence:** MED on Shinami plan name; HIGH on paying for managed RPC.
 
 ### Observability
 
@@ -331,7 +285,7 @@ This split keeps the founder unblocked on the part they'll touch most.
 - **Turborepo 2.x** + **pnpm 9.x workspaces**.
 - Layout (per STATE.md):
   ```
-  contracts/sui/, contracts/solana/,
+  contracts/sui/,
   services/risk-engine/ (Rust), services/api-gateway/ (TS),
   apps/trader/ (Next), apps/admin/ (Next),
   packages/shared/events/, packages/shared/contracts-abi/, packages/shared/slippage/
@@ -351,10 +305,9 @@ This split keeps the founder unblocked on the part they'll touch most.
 ### Testing
 
 - **TS unit:** Vitest 1.x or 2.x. Co-located `*.test.ts`.
-- **TS E2E:** Playwright. One full happy-path scenario per chain (Sui + Solana) minimum.
+- **TS E2E:** Playwright. Full happy-path scenario on Sui.
 - **Move tests:** `sui move test` + `test_scenario`.
-- **Anchor tests:** `anchor-bankrun` for unit; `anchor test` (test-validator) for E2E.
-- **Rust unit:** `cargo test`. For slippage model: **property-based tests via `proptest`** comparing on-chain Move/Anchor output vs Rust reference impl.
+- **Rust unit:** `cargo test`. For slippage model: **property-based tests via `proptest`** comparing on-chain Move output vs Rust reference impl.
 - Anti: Jest (slower, weaker ESM).
 
 **Confidence:** HIGH.
@@ -363,7 +316,6 @@ This split keeps the founder unblocked on the part they'll touch most.
 
 - **GitHub Actions** workflows:
   - `ci-contracts-sui.yml`: cache `~/.move`, run `sui move build` + `sui move test`.
-  - `ci-contracts-solana.yml`: cache cargo, run `anchor build` + `anchor test`.
   - `ci-services.yml`: `cargo test --workspace` + `pnpm test` + `pnpm lint`.
   - `ci-frontend.yml`: `pnpm build` + Playwright.
 - **Deployer:** GH Actions runs `cargo build --release`, ships binary via `rsync` to Hetzner; systemd restart. Or Docker Compose pull.
@@ -377,13 +329,9 @@ This split keeps the founder unblocked on the part they'll touch most.
 
 ### Trader auth — Sign-In-With-Wallet
 
-**Sui side:**
 - Backend issues nonce (UUID, 10-min TTL); frontend asks wallet to sign personal message (`useSignPersonalMessage` from `@mysten/dapp-kit`); backend verifies signature.
 - No formal "SIWS-Sui" EIP yet but personal-message pattern is de facto standard.
-
-**Solana side:**
-- **SIWS (Sign-In-With-Solana)** — Phantom-led standard, EIP-4361-style. `@solana/wallet-adapter` exposes `signIn()` directly on supported wallets.
-- Library: `@solana/wallet-standard-features`.
+- `traders` table keyed by Sui address.
 
 ### Session management
 
@@ -393,7 +341,7 @@ This split keeps the founder unblocked on the part they'll touch most.
   - Lucia Auth — deprecated in 2024.
   - Better-Auth — promising but wallet-sign-in adapters still maturing. Use for v2.
   - Clerk / WorkOS for trader app — don't natively support wallet sign-in cleanly.
-- Server-side, verified address is the only identity; `traders` table keyed by `(chain, address)`.
+- Server-side, the verified Sui address is the only identity.
 
 ### Operator auth — separate path
 
@@ -412,13 +360,12 @@ This split keeps the founder unblocked on the part they'll touch most.
 | Decision | Reversibility | Notes |
 |---|---|---|
 | Sui Move framework branch | LOW friction | Just bump `rev` |
-| Anchor version | LOW friction | `avm use` |
 | **Event schema in `packages/shared/events/`** | **HIGH friction** | Touches contracts + indexer + frontend — get right week 1–2 |
-| **RPC provider** | MED friction | Yellowstone gRPC is standardized; webhook contracts are not |
+| **RPC provider** | MED friction | Checkpoint cursor format is stable; vendor switch requires cursor migration |
 | **Indexer architecture** | HIGH friction | Rewrite |
 | DB host (Hetzner VM) | MED friction | Schema portable; backups need redoing |
 | Postgres + TSDB choice | HIGH friction | Time-series schema hard to migrate to non-TSDB |
-| **Oracle (Pyth Hermes)** | HIGH friction | Move/Anchor adapter modules are non-trivial |
+| **Oracle (Pyth Hermes)** | HIGH friction | Move adapter modules are non-trivial |
 | Frontend framework (Next) | MED friction | Could swap to Vite + TanStack Router, but rewrites all routing |
 | State (TanStack Query + Zustand) | LOW friction | Local to components |
 | UI library (shadcn/ui) | LOW friction | Owned source |
@@ -432,24 +379,20 @@ This split keeps the founder unblocked on the part they'll touch most.
 ## Open Questions / Verify Before Scaffolding
 
 1. **Confirm exact Sui CLI version** — run `sui --version` against `mainnet` branch and pin via Suibase before scaffolding `Move.toml`.
-2. **Confirm Anchor 0.30.x vs 0.31.x** — check https://github.com/coral-xyz/anchor/releases. The 0.29→0.30 break was significant; another may have shipped.
-3. **Confirm Solana CLI / Agave** on 1.18.x or 2.x.
-4. **Confirm Helius plan + Yellowstone access** at current pricing. Helius rebrands products often.
-5. **Confirm Next.js 15 vs 16** — prefer 16 if >2 months stable.
-6. **Confirm Tailwind v4** stability — if still in RC, use 3.4.
-7. **Confirm Privy Solana custodial wallet pricing** if email-signin fallback is v1 scope.
-8. **Confirm Switchboard On-Demand coverage on Sui mainnet** for exact pairs (flagged as STATE.md blocker).
+2. **Confirm Next.js 15 vs 16** — prefer 16 if >2 months stable.
+3. **Confirm Tailwind v4** stability — if still in RC, use 3.4.
+4. **Confirm Privy Sui wallet pricing** if email-signin fallback is v1 scope.
+5. **Confirm Switchboard On-Demand coverage on Sui mainnet** for exact pairs (flagged as STATE.md blocker).
 
 ## Confidence Assessment
 
 | Area | Level | Reason |
 |---|---|---|
-| Smart contract toolchain (choice) | HIGH | Sui CLI / Anchor are the only first-party options |
+| Smart contract toolchain (choice) | HIGH | Sui CLI is the only first-party option |
 | Smart contract toolchain (version pins) | MED | Verify against live release notes before scaffolding |
 | Backend language split | HIGH | Rust+TS split matches PRD's risk-engine performance need + founder's TS productivity |
 | Indexer pattern (Sui) | MED | First-party indexer crate solid but evolving |
-| Indexer pattern (Solana) | HIGH | Yellowstone via Helius is the entrenched 2026 standard |
 | Oracle | HIGH | Pyth dominance + Hermes pull model is settled |
 | Hosting | HIGH | Hetzner + Vercel is cost-effective consensus |
 | Frontend | HIGH | shadcn/Next15/TanStack Query is the dominant 2026 pattern |
-| Wallet auth | HIGH | SIWS + Mysten dapp-kit are documented best practice |
+| Wallet auth | HIGH | Mysten dapp-kit personal-message sign-in is documented best practice |

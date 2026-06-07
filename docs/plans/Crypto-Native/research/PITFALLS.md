@@ -1,6 +1,6 @@
 # Domain Pitfalls — Crypto-Native Prop Firm v1 Closed Beta
 
-**Domain:** Two-chain (Sui Move + Solana Anchor) paper-trading evaluation platform with on-chain rule enforcement, mutable cohort SBT, and public leaderboard.
+**Domain:** Sui Move paper-trading evaluation platform with on-chain rule enforcement, mutable cohort SBT, and public leaderboard.
 **Researched:** 2026-05-14
 **Researcher confidence note:** Web search and web fetch were both denied at the environment level during this research pass. All findings below derive from training-data knowledge of public incidents and documented ecosystem patterns through January 2026. Real-incident citations are marked MEDIUM confidence and flagged for verification by the SC engineer during Phase 1 scaffolding. Every recommendation includes a concrete metric or check so the phase planner can convert it into a gate or alert.
 
@@ -38,7 +38,7 @@
 - Top-quartile P&L is bunched above the historical mainnet 95th-percentile equivalent for the same size and pair.
 
 **Prevention strategy:**
-1. Calibrate against *both* the 30-day historical replay (per `PROJECT.md` success criterion) *and* a continuous shadow comparison: every trade intent simultaneously simulates fill *and* queries a live router quote (e.g., Jupiter on Solana, Cetus/Aftermath on Sui aggregator). Persist `(sim_fill, live_quote, delta_bps)` for every trade. Alert when 7-day median `|delta_bps|` > 3 bps on majors.
+1. Calibrate against *both* the 30-day historical replay (per `PROJECT.md` success criterion) *and* a continuous shadow comparison: every trade intent simultaneously simulates fill *and* queries a live router quote (e.g., Cetus/Aftermath via 7K aggregator on Sui). Persist `(sim_fill, live_quote, delta_bps)` for every trade. Alert when 7-day median `|delta_bps|` > 3 bps on majors.
 2. Apply a deliberate "house-conservative" tilt of +1–2 bps against the trader in v1. Documented up front in trader-facing docs as "v1 simulates a slightly worse-than-mainnet fill so v2 results never disappoint." Easier to relax than tighten.
 3. Include explicit modeled fees (router fee bps + gas equivalent priced in USD per trade) in the fill price, not just slippage.
 4. Freeze model parameters at the moment beta opens. Any post-launch tuning is a **versioned model** — old evaluations finish on their original version (see Pitfall 1.7 and Pitfall 3.6).
@@ -54,8 +54,8 @@
 **What goes wrong:** Trader's intent is "filled" at the oracle price observed at submission time. On mainnet, the price would have moved during slot/checkpoint inclusion. Traders earn alpha from a delay that doesn't exist on real venues.
 
 **Why it happens:**
-- Solana slot time is ~400ms (Confidence: High — well-documented). Sui checkpoint commit cadence is ~250–500ms (Confidence: Medium — varies by epoch and validator config; SC engineer to confirm against current testnet docs in Phase 1).
-- Pyth on Solana publishes at sub-second cadence; on Sui via Wormhole bridge with additional latency.
+- Sui checkpoint commit cadence is ~250–500ms (Confidence: Medium — varies by epoch and validator config; SC engineer to confirm against current testnet docs in Phase 1).
+- Pyth on Sui publishes at sub-second cadence, with additional bridge latency when relayed via Wormhole.
 - A trader spamming intents during a volatile candle can effectively pick tops/bottoms with zero exposure to confirmation drift.
 
 **Warning signs:**
@@ -63,7 +63,7 @@
 - Distribution of trade timestamps is non-uniform — cluster around price-move boundaries.
 
 **Prevention strategy:**
-1. Model an explicit **submission-to-fill latency** as part of the fill: `fill_price = oracle_price_at(t_submit + latency_window)` where `latency_window` is the empirical median chain-inclusion-to-DEX-fill on the comparable mainnet venue. Default: Solana 600ms, Sui 800ms (Confidence: Medium — calibrate during Phase 2 against measured Jupiter/Cetus inclusion-to-event distributions).
+1. Model an explicit **submission-to-fill latency** as part of the fill: `fill_price = oracle_price_at(t_submit + latency_window)` where `latency_window` is the empirical median chain-inclusion-to-DEX-fill on the comparable mainnet venue. Default: Sui 800ms (Confidence: Medium — calibrate during Phase 2 against measured Cetus/Aftermath inclusion-to-event distributions).
 2. Add Gaussian noise around the latency mean (std ≈ 30% of mean) so traders can't precision-snipe.
 3. Use Pyth's `publish_time` field as a sanity bound: if `current_time - publish_time` > staleness threshold, revert (see Pitfall 1.3). Never extrapolate forward.
 
@@ -77,7 +77,7 @@
 
 **What goes wrong:** Pyth or Switchboard feed lags during a market move. Contract accepts trades at a stale price; trader either gets free profit (oracle hasn't caught up to the move they front-ran) or unfair loss (oracle catches up mid-evaluation).
 
-**Why it happens:** Pyth/Switchboard publishers can fall behind during congestion or feed outages. Bridges (Wormhole for Pyth-on-Sui) add latency. Network-level Solana congestion has historically pushed price-feed updates into the seconds-stale range. (Confidence: Medium — multiple Solana DEX postmortems through 2024–2025 cite this class of issue; SC engineer to source specific incidents.)
+**Why it happens:** Pyth/Switchboard publishers can fall behind during congestion or feed outages. The Wormhole relay for Pyth-on-Sui adds bridge latency. (Confidence: Medium — feed-delay patterns on Sui have been flagged in multiple DEX postmortems; SC engineer to source specific incidents.)
 
 **Warning signs:**
 - Indexer alert: `now - last_publish_time > 5s` for any active pair.
@@ -85,12 +85,12 @@
 - Diverging Pyth vs Switchboard prices for the same asset > 30 bps for > 10s.
 
 **Prevention strategy:**
-1. **Hard staleness revert** in the contract. Reject intents where `slot_time - publish_time > MAX_STALENESS` (default: 5 seconds on Solana, 10 seconds on Sui via Wormhole). Module: `oracle_adapter.move` / `oracle_adapter` Anchor module.
+1. **Hard staleness revert** in the contract. Reject intents where `checkpoint_time - publish_time > MAX_STALENESS` (default: 10 seconds on Sui). Module: `oracle_adapter.move`.
 2. **Confidence-interval gate.** Reject intents where Pyth confidence > 50 bps of price. Pyth's own docs recommend rejecting on excessive confidence widening. (Confidence: Medium — needs verification against current Pyth docs.)
 3. **Dual-feed divergence halt.** If Pyth and Switchboard diverge > 30 bps for > 10s, halt new intents (existing positions continue against the more recently updated feed). Per `STATE.md` risk table this is already planned.
 4. **User-facing UX.** When a stale-price revert fires, surface in the trader dashboard as "market data paused — protecting your fill" not "trade failed." Trust-preserving copy is part of the spec.
 
-**Phase mapping:** Phase 1 (oracle adapter modules, both chains), Phase 2 (BE — staleness alerting), Phase 3 (frontend — paused-feed UX), Phase 4 (drill: simulate a feed outage).
+**Phase mapping:** Phase 1 (oracle adapter module), Phase 2 (BE — staleness alerting), Phase 3 (frontend — paused-feed UX), Phase 4 (drill: simulate a feed outage).
 
 ---
 
@@ -108,7 +108,7 @@
 
 **Prevention strategy:**
 1. **Restrict v1 to BTC/ETH/SOL majors only** (already implied by success-criterion language; make it an explicit allowlist in the slippage model config).
-2. **Square-root impact model.** Apply `impact_bps = k * sqrt(trade_notional / pool_depth)` even though no real pool is touched. Calibrate `k` against historical Jupiter/Cetus swap data (median realized impact for similar-size swaps).
+2. **Square-root impact model.** Apply `impact_bps = k * sqrt(trade_notional / pool_depth)` even though no real pool is touched. Calibrate `k` against historical Cetus/Aftermath swap data via the 7K aggregator (median realized impact for similar-size swaps).
 3. **Notional cap per intent.** Cap single-intent notional at e.g. 20% of pool depth; reject larger intents. Forces traders to slice, which itself models a more realistic execution path.
 
 **Phase mapping:** Phase 2 (BE slippage model — impact term), Phase 4 (calibration).
@@ -129,7 +129,7 @@
 - Trade clustering within 1 slot/checkpoint of oracle publish events.
 
 **Prevention strategy:**
-1. **Rate-limit intents** at the contract level: enforce `min_interval_between_intents` per vault (e.g., 1s on Solana, 2s on Sui). Document as "v1 paper trading is not a latency game; v2 mainnet will be."
+1. **Rate-limit intents** at the contract level: enforce `min_interval_between_intents` per vault (e.g., 2s). Document as "v1 paper trading is not a latency game; v2 mainnet will be."
 2. **Add a simulated "queue position" penalty** for back-to-back intents within the same slot: each subsequent intent in a slot gets a worse fill (e.g., +0.5 bps per consecutive intent). Models the realistic situation that on mainnet your second tx of the slot would race other takers.
 3. **Hard cap intents per evaluation period** (e.g., 200 trades per evaluation cycle). Forces trade selectivity; matches realistic prop-firm evaluation rules.
 4. Acknowledge in trader docs that v1 is **not the venue for HFT strategies** and v2 will model queue contention explicitly.
@@ -152,7 +152,7 @@
 - Operator alert on consecutive volatile sessions where pass-rate spikes or crashes.
 
 **Prevention strategy:**
-1. **Forward-test gate before beta opens.** After backtest passes, run model in shadow against live mainnet for 7 days *without any traders*. Compare sim fill against live Jupiter/Cetus quotes in real time. Must hold ±5 bps median on majors. This is a second gate after the historical backtest.
+1. **Forward-test gate before beta opens.** After backtest passes, run model in shadow against live mainnet for 7 days *without any traders*. Compare sim fill against live Cetus/Aftermath quotes (via 7K aggregator) in real time. Must hold ±5 bps median on majors. This is a second gate after the historical backtest.
 2. **Continuous calibration dashboard** during beta. Per `STATE.md` this is already planned — make it a visible Phase 4 deliverable, not an afterthought.
 3. **Versioned model with public changelog.** If parameters change mid-beta, version bumps; new evaluations use new version, in-flight evaluations finish on old version (see Pitfall 3.6).
 
@@ -268,9 +268,9 @@
 **Relevance here:** v1 has no real capital, so direct theft is not the issue. But the slippage / fill model is the load-bearing essence. A precision bug in fill math means pass/fail decisions are wrong, the SBT levels wrong people, and the leaderboard is corrupt.
 
 **Prevention strategy:**
-1. **No hand-rolled fixed-point.** Use a vetted library (Sui's `sui::math` / `std::u128` patterns; Anchor: a well-known crate like `fixed` or `spl-math` if applicable). Document choice in module header.
+1. **No hand-rolled fixed-point.** Use a vetted library (Sui's `sui::math` / `std::u128` patterns). Document choice in module header.
 2. **Property-based tests** on the slippage/fill function: random inputs across the full domain, assert invariants (`fill_price` between oracle and worst-case bound; `output_amount > 0` for `input_amount > 0`; no overflow).
-3. **Fuzzing in CI.** Move/Anchor fuzz harness on the fill function for at least N seconds per CI run.
+3. **Fuzzing in CI.** Move fuzz harness on the fill function for at least N seconds per CI run.
 4. **External audit** of the fill/slippage math before beta opens, even though no real capital is at stake. Cost is non-trivial but the credibility cost of a public "your sim is broken" finding mid-beta is higher.
 
 **Warning signs:**
@@ -281,111 +281,20 @@
 
 ---
 
-### Pitfall 2.6: Solana Anchor — missing account constraints
+### Pitfall 2.6: Event schema drift (Move structs vs canonical schema)
 **Severity:** P0
 **Confidence in mitigation:** High
 
-**What goes wrong:** A handler accepts an `Account<'info, EvalVault>` without `has_one = owner`, `seeds = [...]`, or signer constraints. Attacker passes a vault that isn't theirs, or an unsigned vault, and the handler proceeds. (This is the #1 class of Anchor exploit historically — see Sealevel Attacks / coral-xyz documented patterns. Confidence: Medium — pattern is well-documented; SC engineer to reference the canonical Sealevel Attacks repo during Phase 1.)
+**What goes wrong:** A Move struct field is renamed or retyped (e.g., `shadow_pnl: i128` → `shadow_pnl: u128`) without updating the canonical schema in `packages/shared/events/`. The indexer ingests the field silently — Postgres column type permitting — but values sign-extend wrong. Leaderboard figures are incorrect for an unknown subset of traders.
 
-**Prevention strategy:**
-1. **Every account in every handler context has explicit constraints.** Mandatory checklist per handler: `signer`, `owner`, `seeds`, `bump`, `mut` flags.
-2. **CI lint** against Anchor IDL: every account in every instruction must have at least one of `signer`/`has_one`/`seeds`/`address` or be marked `UncheckedAccount` with a `/// CHECK:` comment explaining why.
-3. **Negative tests.** For every handler, a test that submits with the wrong owner / unsigned / wrong PDA and asserts revert.
-
-**Phase mapping:** Phase 1 (Anchor port — written with Sealevel Attacks checklist as a code-review aid).
-
----
-
-### Pitfall 2.7: Solana Anchor — PDA seed collisions
-**Severity:** P1
-**Confidence in mitigation:** High
-
-**What goes wrong:** Two PDAs in different programs (or different account types in the same program) derive to the same address because seed prefixes aren't disambiguated. Account-confusion attack: attacker gets one type stored where another is expected.
-
-**Prevention strategy:**
-1. Every PDA seed list starts with a **typed string discriminator** unique per account type: `seeds = [b"eval_vault_v1", trader.key().as_ref()]`, never `seeds = [trader.key().as_ref()]`.
-2. CI grep: every PDA derivation includes a string seed as first element matching the account type name.
-
-**Phase mapping:** Phase 1 (Anchor port).
-
----
-
-### Pitfall 2.8: Solana Anchor — account size / rent / resize traps
-**Severity:** P1
-**Confidence in mitigation:** Medium
-
-**What goes wrong:** Vault account allocated with a fixed size; mid-beta, schema grows (e.g., new field for v1.1). Resize logic is buggy or rent isn't topped up. Vault becomes uninitializable for new traders, or worse, existing vaults' data is corrupted on resize.
-
-**Prevention strategy:**
-1. **Allocate generously.** Vault accounts size = max foreseeable v1 schema + 50% headroom. Rent is paid once at creation; over-allocation is cheap.
-2. **No mid-evaluation resize.** Any schema change ships in a new program version; new vaults use new size; old vaults complete on old layout.
-3. **Rent-exemption explicit at creation.** Anchor's `init` handles this; never bypass with manual `system_program::create_account`.
-
-**Phase mapping:** Phase 1 (Anchor port — vault sizing decision).
-
----
-
-### Pitfall 2.9: Solana Anchor — CPI privilege escalation / signer leakage
-**Severity:** P0
-**Confidence in mitigation:** High
-
-**What goes wrong:** Program A invokes Program B via CPI with signer seeds, but the signer-seeds set leaks authority that B then uses to act on A's behalf in unintended ways.
-
-**Relevance:** SBT mint will likely CPI to a token program (Metaplex Token Metadata or a v1 custom token program). Oracle reads CPI to Pyth.
-
-**Prevention strategy:**
-1. **Minimal CPI signer seeds.** Only sign what's strictly needed for the invoked instruction.
-2. **Read-only CPIs** for oracle reads (Pyth's price account is read-only; no signer needed).
-3. Negative test: assert that CPI-invoked program cannot act on accounts beyond the explicit account list.
-
-**Phase mapping:** Phase 1 (Anchor SBT mint module).
-
----
-
-### Pitfall 2.10: Solana Anchor — Anchor version pinning + sysvar deprecations
-**Severity:** P2
-**Confidence in mitigation:** High
-
-**What goes wrong:** Anchor 0.30+ deprecated several sysvar imports / changed account validation defaults. Mid-project upgrade silently changes semantics; a constraint that was checked is no longer checked.
-
-**Prevention strategy:**
-1. Pin Anchor version in `Cargo.toml` and `Anchor.toml`. Pin Solana CLI version in `rust-toolchain`. Pin in CI image.
-2. Upgrade in a dedicated branch with full test suite re-run; never as a transitive bump.
-
-**Phase mapping:** Phase 0 (toolchain pinning decision in scaffolding).
-
----
-
-### Pitfall 2.11: Cross-chain — event schema drift
-**Severity:** P0
-**Confidence in mitigation:** High
-
-**What goes wrong:** Sui emits `TradeExecuted { ..., shadow_pnl: i128, ... }`; Solana emits `TradeExecuted { ..., shadow_pnl: i64, ... }`. Indexer ingests both into the same Postgres column; one of them silently truncates or sign-extends wrong. Leaderboard is incorrect for one chain's traders, possibly only at edge cases.
-
-**Why it matters here:** `STATE.md` already flags this as H impact; this section grounds the specific mechanism.
+**Why it matters here:** `STATE.md` already flags this as high impact; this section grounds the specific failure mechanism.
 
 **Prevention strategy:**
 1. **Single schema source of truth** in `packages/shared/events/`, per `STATE.md` decision.
-2. **Codegen, not hand-translation.** Move struct definitions and Anchor `#[event]` structs generated from the same schema file. CI fails if codegen output differs from committed source.
-3. **Indexer schema test.** Sample events from both chains in the test corpus; assert identical Postgres row after ingest for semantically identical trades.
-4. **Cross-chain event parity test** in CI: same trade scenario submitted to both chains' local validators (sui-test-validator + solana-test-validator), diff the emitted events normalized to JSON.
+2. **Codegen, not hand-translation.** Move struct definitions generated from (or linted against) the schema file. CI fails if committed Move event structs differ from what codegen would produce.
+3. **Indexer schema test.** Sample events in the test corpus; assert correct Postgres row after ingest for all numeric edge cases (max i128, zero, negative PnL).
 
-**Phase mapping:** Phase 0 (schema + codegen scaffolding), Phase 1 (both contracts consume codegen), Phase 2 (indexer parity test), Phase 4 (beta hardening — schema-drift CI gate is blocking).
-
----
-
-### Pitfall 2.12: Cross-chain — identical state evolves differently due to timing
-**Severity:** P1
-**Confidence in mitigation:** Medium
-
-**What goes wrong:** A trade submitted at "the same time" on Sui and Solana fills at different oracle prices because Sui's checkpoint and Solana's slot have different cadences and Pyth on Sui is bridged via Wormhole (additional ~1–3s latency, Confidence: Medium). The two chains' leaderboards reward different things for the same strategy.
-
-**Prevention strategy:**
-1. **Per-chain leaderboards** displayed alongside a combined one. Traders see "Sui leaderboard", "Solana leaderboard", "Combined." Combined uses normalized P&L (% of allocation) not raw P&L.
-2. **Document timing differences** in trader-facing docs. Don't pretend the two chains are interchangeable second-by-second; the *evaluation outcome* is comparable, not the per-tick fill.
-3. **Backtest both chains against the same 30-day window.** Confirm that median fills converge within 2 bps when normalized; if not, the slippage model needs a chain-specific latency term.
-
-**Phase mapping:** Phase 2 (BE — chain-specific latency calibration), Phase 3 (frontend — per-chain + combined leaderboards), Phase 4 (calibration gate per chain).
+**Phase mapping:** Phase 0 (schema + codegen scaffolding), Phase 1 (Move contracts consume codegen), Phase 2 (indexer schema test), Phase 4 (schema-drift CI gate is a beta-open blocker).
 
 ---
 
@@ -438,7 +347,7 @@
 
 **What goes wrong:** Trader fails Starter on day 1. Per typical prop-firm semantics, they're "out." With no fee paid (per `PROJECT.md` no fees in v1) the marginal cost of disengagement is zero. They never come back. Total beta cohort shrinks faster than expected; the 30-completion success criterion misses.
 
-**Adjacent reference:** Hyperliquid, Drift, GMX, dYdX have all run trader competitions; the public retrospectives (Confidence: Low — specific public numbers are sparse) generally show participant numbers falling 50%+ between rounds without explicit re-engagement mechanics.
+**Adjacent reference:** Hyperliquid, GMX, dYdX have all run trader competitions; the public retrospectives (Confidence: Low — specific public numbers are sparse) generally show participant numbers falling 50%+ between rounds without explicit re-engagement mechanics.
 
 **Prevention strategy:**
 1. **"Retry" semantics from day 1.** Failed Starter can be retried after a 24-hour cooldown. The SBT records `total_failures` (not in current `PROJECT.md` schema — propose adding `total_attempts` if not already implied by `total_trades`).
@@ -516,7 +425,7 @@
 **What goes wrong:** Trader's evaluation ends in a marginal fail — DD breach at 8.01% when limit is 8.00%, with a clear case that "the oracle was momentarily glitchy." Operator hand-overrides "just this once." Word spreads in Discord. Next week, three more traders appeal. Then ten. Within a month, the platform is run on operator vibes, not on-chain rules; v2 launches and the same expectations carry over to real money.
 
 **Prevention strategy (this needs the strongest possible enforcement):**
-1. **No override path exists in the contract.** Operator role has exactly two capabilities: `pause()` (halts new intents) and `update_allowlist()` (adds/removes traders). Operator role *cannot* mutate vault outcomes, cannot reverse pass/fail events, cannot mint SBTs out-of-band. **Enforced in Move/Anchor, not in policy.**
+1. **No override path exists in the contract.** Operator role has exactly two capabilities: `pause()` (halts new intents) and `update_allowlist()` (adds/removes traders). Operator role *cannot* mutate vault outcomes, cannot reverse pass/fail events, cannot mint SBTs out-of-band. **Enforced in Move, not in policy.**
 2. **Admin dashboard is read-only for evaluation state.** No "edit vault" button exists in the UI. There is no admin RPC method that mutates vault outcomes. If an emergency forces a fix, it requires a deliberate, audited contract upgrade — friction is the feature.
 3. **"Appeals" channel = data-collection channel, not action channel.** Discord has a `#feedback` channel; appeals go there. They generate model-improvement tickets (recalibration with versioning, per Pitfall 3.6); they do NOT generate per-trader fixes.
 4. **Public commitment in trader docs.** Trader-facing FAQ states verbatim: "Pass/fail outcomes are determined by on-chain rules and cannot be reversed. The operator team cannot and will not override an evaluation outcome."
@@ -566,22 +475,21 @@
 
 ---
 
-### Pitfall 4.4: Cross-chain parity rot
+### Pitfall 4.4: Contract-upgrade regression silently changes fill semantics
 **Severity:** P1
 **Confidence in mitigation:** Medium
 
-**What goes wrong:** Sui contract ships a v1.1 patch that subtly changes an edge case. Solana port doesn't get the patch for two weeks. Solana traders silently get worse fills, complain in Discord, feel like second-class citizens. By the time the team notices, half the Solana cohort has churned.
+**What goes wrong:** A v1.1 patch that fixes a staleness edge case subtly changes fill prices for a class of trade. In-flight evaluations complete on the old behavior but new evaluations start on the new behavior. Traders in the same cohort are evaluated under different rules; the leaderboard mixes apples and oranges.
 
-**Why it happens:** Sui-first sequencing (per `PROJECT.md`) plus a small team plus the natural tendency to "ship to Sui, port later" creates a permanent lag.
+**Why it happens:** Urgency to ship a fix overrides the versioning discipline from Pitfall 3.6. The "patch is small" intuition breaks.
 
 **Prevention strategy:**
-1. **No Sui-only patches after beta opens.** Post-launch contract changes ship to both chains in the same release window or not at all. Pre-launch this is relaxed (Sui can be ahead during dev); post-launch it is policy.
-2. **Cross-chain parity CI gate.** Every PR touching `contracts/sui/` flags the corresponding `contracts/solana/` file in PR review checklist. CI fails if Sui contract changes without a corresponding Solana change ticket linked.
-3. **Parity diff dashboard.** Indexer tracks: same-trade fill price delta between chains for the same oracle window. If >2 bps median over 24h, page.
-4. **Per-chain pass-rate metric.** If Sui pass rate and Solana pass rate diverge by >5pp over a week, page. (Detects the "subtle bug only affects one chain" failure.)
-5. **Honest about Sui-first in launch comms.** If Solana parity slips, **acknowledge publicly** and set a re-parity date. Silence is worse than slippage.
+1. **Any contract change that touches fill math is a versioned model event**, not a patch. Follows the same protocol as Pitfall 3.6: new vault starts on new version, in-flight vaults complete on old version.
+2. **Upgrade CI gate.** Every PR touching `contracts/sui/` with any change to `slippage_model` or `evaluation_vault::submit_intent` must include a changelog entry and a version bump in `SlippageConfig`.
+3. **Fill-semantics regression test.** A golden-file test that verifies a set of historical trade inputs produce known fill outputs; CI fails if outputs change after a patch.
+4. **Honest in changelog.** If fill semantics change, the operator announces it to the cohort with a version number and effective date.
 
-**Phase mapping:** Phase 1 (SC — codegen + cross-chain CI gate), Phase 2 (indexer parity diff), Phase 4 (operator playbook — comms protocol when parity slips).
+**Phase mapping:** Phase 1 (SC — versioned SlippageConfig + regression test baseline), Phase 4 (operator playbook — upgrade comms protocol).
 
 ---
 
@@ -592,13 +500,12 @@
 **What goes wrong:** Trader receives invite, clicks "connect wallet," wallet adapter hangs / shows a confusing chain-mismatch error / fails to sign the intent payload. Trader drops off. With a 30-trader success criterion against a 50–100 invite list, every drop-off in connection flow is a meaningful percentage.
 
 **Why it happens:**
-- Sui wallet ecosystem has multiple adapters (Sui Wallet, Suiet, Backpack-on-Sui, Phantom-on-Sui). Adapter-version interactions break.
-- Solana wallet ecosystem (Phantom, Backpack, Solflare) has fewer issues but more users → more long-tail edge cases.
+- Sui wallet ecosystem has multiple adapters (Sui Wallet, Suiet). Adapter-version interactions break.
 - Trade-intent signing UX is non-standard; a wallet prompt showing raw bytes triggers "is this a scam?" instinct.
 
 **Prevention strategy:**
-1. **Pre-launch wallet matrix test.** Before beta opens, founder + designer + SC engineer each test the connection + intent-signing flow on each of: Phantom, Backpack, Solflare (Solana side); Sui Wallet, Suiet, Backpack-on-Sui (Sui side). Matrix lives in `STATE.md` or a wiki; any "fail" cell blocks beta open.
-2. **Human-readable intent payloads.** Use Sui's transaction-block intent description and Solana's `versioned transaction + simulation` to surface "Trade: BUY 0.5 SOL at ~$X, max slippage Y bps" in the wallet UI, not raw bytes. (Confidence: Medium — exact wallet UI varies; designer to spec.)
+1. **Pre-launch wallet matrix test.** Before beta opens, founder + designer + SC engineer each test the connection + intent-signing flow on each of: Sui Wallet, Suiet. Matrix lives in a wiki; any "fail" cell blocks beta open.
+2. **Human-readable intent payloads.** Use Sui's transaction-block intent description to surface "Trade: BUY 0.5 SOL at ~$X, max slippage Y bps" in the wallet UI, not raw bytes. (Confidence: Medium — exact wallet UI varies; designer to spec.)
 3. **Connect-flow funnel metric.** Indexer logs: invites issued → wallet connected → first intent signed → first evaluation started → first evaluation completed. Operator reviews funnel weekly. Drop > 20% at any step triggers investigation.
 4. **Wallet-recovery copy.** If connection fails, the failure screen tells the trader exactly what to try (refresh, switch network, update adapter), not "something went wrong."
 5. **Discord live-test channel.** Two weeks before public beta open, run a "test cohort" of 5 invitees through the full flow. Treat their stumbles as P0 bugs.
@@ -654,7 +561,7 @@
 
 **Prevention strategy:**
 1. **Secrets in a managed store** (Doppler, 1Password CLI, or even a per-VM `systemd-creds` setup). Not in `.env` files committed to anywhere.
-2. **Admin/upgrade caps in a multisig** (Sui `MultiSigAuthority`, Solana Squads or similar). Operator alone cannot push a contract upgrade.
+2. **Admin/upgrade caps in a multisig** (Sui native `MultiSigAuthority`). Operator alone cannot push a contract upgrade.
 3. **Quarterly key rotation drill** before any production-token-or-capital touch (v2). For v1, document the rotation path; rotating in v1 is optional.
 
 **Phase mapping:** Phase 0 (secrets-management scaffolding + multisig setup for upgrade caps).
@@ -680,8 +587,8 @@
 
 | Phase | Topic | Likely Pitfall | Severity | Mitigation Reference |
 |-------|-------|----------------|----------|----------------------|
-| Phase 0 (scaffolding) | Toolchain pinning | Anchor/Move version drift | P2 | 2.10 |
-| Phase 0 | Schema source of truth | Cross-chain event drift | P0 | 2.11 |
+| Phase 0 (scaffolding) | Toolchain pinning | Move version drift | P2 | — |
+| Phase 0 | Schema source of truth | Event schema drift | P0 | 2.6 |
 | Phase 0 | Secrets/multisig | Key compromise / unilateral upgrade | P1 | 4.8 |
 | Phase 0 | Scope lock | Feature creep | P0 | 4.7 |
 | Phase 1 (Sui SC) | Vault ownership model | Shared-object contention | P0 | 2.1 |
@@ -692,17 +599,13 @@
 | Phase 1 | Operator capability split | Override creep | P0 | 4.1 |
 | Phase 1 | On-chain SlippageConfig + version | Determinism break + mid-beta recalibration | P0 | 1.7, 3.6 |
 | Phase 1 | Rate-limit + intent cap | HFT free edge | P1 | 1.5 |
-| Phase 1 (Anchor) | Account constraints checklist | Sealevel-class account confusion | P0 | 2.6 |
-| Phase 1 (Anchor) | PDA seed discriminators | Seed collision | P1 | 2.7 |
-| Phase 1 (Anchor) | Vault sizing + rent | Resize trap | P1 | 2.8 |
-| Phase 1 (Anchor) | CPI signer minimization | Privilege escalation | P0 | 2.9 |
 | Phase 2 (BE) | Shadow live-quote logger | Generous slippage | P0 | 1.1 |
 | Phase 2 | Latency model with noise | HFT free edge / latency absence | P1 | 1.2, 1.5 |
 | Phase 2 | Forward-test gate (7 days) | Backtest ≠ forward test | P0 | 1.6 |
 | Phase 2 | Indexer cursor + lag metric | Stale dashboard | P1 | 4.3 |
 | Phase 2 | Sybil clustering job | Multi-wallet farming | P1 | 3.1 |
 | Phase 2 | Calibration daily job + alert | Calibration drift | P0 | 4.2 |
-| Phase 2 | Cross-chain parity diff | Parity rot | P1 | 4.4 |
+| Phase 2 | Fill-semantics regression test | Upgrade regression | P1 | 4.4 |
 | Phase 3 (frontend) | Wallet matrix test | Connect-flow cliff | P1 | 4.5 |
 | Phase 3 | SBT disclaimer copy everywhere | Promise inflation | P0 | 3.4 |
 | Phase 3 | Pseudonymous handles + multi-leaderboard | Mid-tier demoralization | P1 | 3.5 |
@@ -724,14 +627,13 @@
 
 | Area | Confidence | Reason |
 |------|-----------|--------|
-| Anchor account-validation pitfalls (Sealevel Attacks) | High | Patterns are well-documented in the public Coral / Anchor ecosystem; SC engineer can verify against the canonical Sealevel Attacks repo |
 | Sui Move pattern misuse | Medium-High | Documented in Sui's own ecosystem; specific upgrade-compatibility rules evolve per Sui release |
 | Cetus 2025 incident specifics | Medium | Incident widely reported through 2025; specific Move-level root cause should be verified by SC engineer against the public post-mortem |
-| Pyth/Switchboard staleness thresholds | Medium | Pyth docs recommend the pattern; exact numeric thresholds are conventions, not standards — BE engineer to verify against current Pyth on-Sui and on-Solana docs |
-| Hyperliquid/Drift retention-mechanic specifics | Low | Public retrospectives are sparse; recommendations here are derived from general engagement-loop patterns, not specific public numbers |
+| Pyth/Switchboard staleness thresholds on Sui | Medium | Pyth docs recommend the pattern; exact numeric thresholds are conventions, not standards — BE engineer to verify against current Pyth on-Sui docs |
+| Hyperliquid engagement-mechanic specifics | Low | Public retrospectives are sparse; recommendations here are derived from general engagement-loop patterns, not specific public numbers |
 | Operator-override discipline | High | The mitigation is structural (no override capability exists in the contract); discipline can be enforced by code, not just policy |
 | Slippage-model fidelity techniques (shadow-quote, forward-test gate) | High | Standard quant-trading validation practice adapted to the on-chain setting |
-| Cross-chain event-schema codegen | High | Mechanical: a single schema + codegen + CI parity gate is a solved-problem pattern |
+| Event-schema codegen | High | Mechanical: a single schema + codegen + CI gate is a solved-problem pattern |
 | Wallet-adapter UX edge cases | Medium | Specific failure modes vary by wallet version; only a real test matrix surfaces them |
 
 ---
@@ -742,8 +644,8 @@ These need resolution during Phase 0 / Phase 1 setup; the pitfalls above assume 
 
 1. **Will the team commission a Phase 4 audit of the fill/slippage math?** Cost and timing TBD; Pitfall 2.5 assumes yes.
 2. **Is Linear (or equivalent) committed as the v1 ticket tool**, or does the team want to stay Discord+Notion-only? Pitfall 4.6 assumes the former.
-3. **Multisig provider choice for upgrade caps** on both chains (Sui MultiSigAuthority? Solana Squads?). Pitfall 4.8 assumes multisig from day 1.
-4. **Pyth/Switchboard staleness thresholds**: 5s/10s are conventions; the team should set definitive values after a Phase 1 review of current Pyth on-Sui (Wormhole-bridged) latency characteristics.
+3. **Multisig provider choice for upgrade caps** (Sui native MultiSigAuthority). Pitfall 4.8 assumes multisig from day 1.
+4. **Pyth/Switchboard staleness threshold**: 10s is the current convention; the team should set a definitive value after a Phase 1 review of current Pyth on-Sui (Wormhole-bridged) latency characteristics.
 5. **Live shadow-quote source on Sui**: Cetus and Aftermath are candidates; Pitfall 1.1 assumes one is chosen by Phase 2 start.
 6. **Per-trader timezone anchor in v1** (Pitfall 4.9) — is this in scope, or is "UTC for everyone" acceptable for closed beta? Recommended in scope; final call needed.
 7. **Behavioral Sybil-detection thresholds** (Pitfall 3.1): operator review only, or any automated action? Recommended: review only in v1.
@@ -755,13 +657,10 @@ These need resolution during Phase 0 / Phase 1 setup; the pitfalls above assume 
 Direct verification via WebFetch / WebSearch was blocked in this research environment. The following are the sources downstream phases should consult to verify the historical incident claims and current best-practice citations marked Medium confidence above:
 
 - Cetus Sui exploit (May 2025) post-mortem: rekt.news / Cetus official blog (to be verified by SC engineer in Phase 1)
-- Sealevel Attacks (canonical Anchor vulnerability catalog): github.com/coral-xyz/sealevel-attacks (to be referenced by SC engineer during Anchor port)
 - Sui Move patterns documentation: docs.sui.io/concepts/sui-move-concepts/patterns
 - Sui package upgrade compatibility: docs.sui.io/concepts/sui-move-concepts/packages/upgrade
 - Pyth Network best practices: docs.pyth.network/price-feeds/best-practices
 - Switchboard On-Demand docs: docs.switchboard.xyz
-- Solana slot timing: docs.solana.com / agave validator docs
-- Anchor security checklist: book.anchor-lang.com (current Anchor version)
 - Wormhole-bridged Pyth on Sui latency characteristics: Pyth Sui integration docs
 
 Phase 1 SC engineer is the right owner to fetch and verify each above before scaffolding begins.

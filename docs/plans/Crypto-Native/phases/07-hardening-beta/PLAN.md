@@ -15,11 +15,11 @@ must_haves:
   truths:
     - "7-day live forward-test passes: median |delta_bps| <= 5 bps on majors against live aggregator quotes."
     - "Backup + restore drill executed from a cold Backblaze B2 snapshot; measured RTO recorded in operator playbook."
-    - "Wallet matrix test passes on Suiet, Sui Wallet, Backpack-Sui, Phantom, Backpack-Solana, Solflare."
+    - "Wallet matrix test passes on Suiet, Sui Wallet, and Backpack-Sui."
     - "Operator playbook with full language canon committed to repo and mirrored to Notion."
     - "Linear ticket workflow operational; weekly scope-review cadence scheduled."
-    - "Test cohort dry-run with 5 internal invitees completes a full evaluation cycle on both chains without operator override."
-    - "Beta open: 50-100 invitees added to allowlist on both chains; soft launch communications sent."
+    - "Test cohort dry-run with 5 internal invitees completes a full evaluation cycle on Sui without operator override."
+    - "Beta open: 50-100 invitees added to allowlist on Sui; soft launch communications sent."
   artifacts:
     - "7-day forward-test report"
     - "Restore-drill report with measured RTO"
@@ -55,10 +55,10 @@ Run the final pre-beta gates: 7-day live forward-test (BLOCKING), backup-and-res
   </files>
   <context>
     Why: REQ-10 + PROJECT.md beta-open gate #2. PITFALLS 1.6 — historical backtest is necessary but not sufficient; the model must hold against live market conditions for 7 consecutive days before traders trust it.
-    Pattern: leverage shadow-quote logger from Phase 2. Drive synthetic test trades through the system at 1Hz over 7 days; aggregate `delta_bps` against live 7K (Sui) / Jupiter (Solana) quotes; success criterion = median |delta_bps| ≤ 5 bps for each of SOL/ETH/BTC across the full window.
+    Pattern: leverage shadow-quote logger from Phase 2. Drive synthetic test trades through the system at 1Hz over 7 days; aggregate `delta_bps` against live 7K aggregator quotes; success criterion = median |delta_bps| ≤ 5 bps for each of SOL/ETH/BTC across the full window.
   </context>
   <action>
-    1. `runner.sh`: starts a long-running synthetic-trade generator (1 Hz, varied size + side + symbol) targeting a dedicated "forward-test" vault on each chain.
+    1. `runner.sh`: starts a long-running synthetic-trade generator (1 Hz, varied size + side + symbol) targeting a dedicated "forward-test" vault on Sui testnet.
     2. `report.ts`: daily aggregation of shadow_quotes; produces `reports/forward-test/day-N.md` with median + p95 per symbol + cumulative for the run.
     3. `forward-test-gate.yml`: scheduled daily; on day 7, runs final aggregation. If any of SOL/ETH/BTC median > 5 bps for the full 7-day window, fails the gate.
     4. **GATE:** beta cannot open until the 7-day window completes with all 3 majors within spec. If the gate fails, the model is recalibrated (governance action via multisig) and the 7-day window restarts.
@@ -104,7 +104,7 @@ Run the final pre-beta gates: 7-day live forward-test (BLOCKING), backup-and-res
 </task>
 
 <task type="auto" id="7.3" depends_on="">
-  <name>Wallet matrix test (Suiet, Sui Wallet, Backpack-Sui, Phantom, Backpack-Solana, Solflare)</name>
+  <name>Wallet matrix test (Suiet, Sui Wallet, Backpack-Sui)</name>
   <files>
     infra/wallet-matrix/test-plan.md
     infra/wallet-matrix/results/<date>.md
@@ -117,14 +117,14 @@ Run the final pre-beta gates: 7-day live forward-test (BLOCKING), backup-and-res
   <action>
     1. `test-plan.md`: list of test cases per wallet — connect, sign-in personal-message, open evaluation, submit trade, switch account mid-session, refresh-browser-persists-session, log out.
     2. For each of the 6 wallets, run all test cases on a clean browser profile; record results in `results/<date>.md`.
-    3. Convert at least 2 wallets (Suiet + Phantom) into Playwright fixtures and add to CI so future regressions are caught automatically.
+    3. Convert at least 2 wallets (Suiet + Sui Wallet) into Playwright fixtures and add to CI so future regressions are caught automatically.
     4. File Linear tickets for any P0/P1 failures discovered.
     **Avoid:** skipping the "switch account mid-session" case (real users do this constantly); accepting "works on my machine"; allowing Playwright fixtures to mock the full matrix (need real wallet builds in CI for at least the 2 priority wallets).
   </action>
-  <verify>open results/<date>.md; verify all 6 wallets × ~7 cases ≈ 42 test cases recorded; zero P0 failures open</verify>
+  <verify>open results/<date>.md; verify all 3 wallets × ~7 cases ≈ 21 test cases recorded; zero P0 failures open</verify>
   <done>
-    - [ ] All 6 wallets tested on full case list
-    - [ ] Suiet + Phantom Playwright fixtures in CI
+    - [ ] All 3 wallets tested on full case list
+    - [ ] Suiet + Sui Wallet Playwright fixtures in CI
     - [ ] Any P1+ failures triaged + fixed before beta open
   </done>
   <rollback>archive test results; revert any fixes that broke other paths</rollback>
@@ -174,10 +174,10 @@ Run the final pre-beta gates: 7-day live forward-test (BLOCKING), backup-and-res
   </files>
   <context>
     Why: REQ-05 — the final pre-launch safety net. PITFALLS 3.5 — public leaderboard demoralization, mid-evaluation friction, and any UX cliff is best surfaced by a controlled internal cohort before opening the funnel.
-    Pattern: 5 internal invitees (operator + SC engineer + BE engineer + founder + designer) complete a full evaluation cycle on Sui and Solana. Triage any P0/P1 issues. Then open the gate to the broader allowlist.
+    Pattern: 5 internal invitees (operator + SC engineer + BE engineer + founder + designer) complete a full evaluation cycle on Sui. Triage any P0/P1 issues. Then open the gate to the broader allowlist.
   </context>
   <action>
-    1. Onboard the 5 internal traders; each completes Starter on both chains; at least 2 attempt Basic.
+    1. Onboard the 5 internal traders; each completes Starter on Sui; at least 2 attempt Basic.
     2. Capture issues in Linear with severity; resolve all P0/P1 before public beta.
     3. `dry-run.md`: report each tester's experience, time to complete, friction points, suggested improvements.
     4. Beta-open prep: assemble the 50-100 invitee allowlist (mirror in Linear); send invite comms using `beta-comms-templates.md` (signal-only — no token/airdrop language); stagger invitations over 3-5 days to keep load manageable.
@@ -210,7 +210,7 @@ Run the final pre-beta gates: 7-day live forward-test (BLOCKING), backup-and-res
 </verification>
 
 <success_criteria>
-Phase 7 is complete when both blocking gates are passed (7-day forward-test within spec; restore drill RTO measured ≤ 2h), the wallet matrix is verified across 6 wallets, the operator playbook + language canon is in production use with the team trained on it, the internal dry-run cohort has completed evaluations with zero unresolved P0/P1 issues, and the first batch of 50-100 invited beta traders has been allowlisted on both chains with invitations sent. The platform is now live in closed beta. The first +7-day summary report will measure actual cohort behavior against the PROJECT.md success criteria — that's the start of beta operations, beyond this plan's scope.
+Phase 7 is complete when both blocking gates are passed (7-day forward-test within spec; restore drill RTO measured ≤ 2h), the wallet matrix is verified across all supported wallets, the operator playbook + language canon is in production use with the team trained on it, the internal dry-run cohort has completed evaluations with zero unresolved P0/P1 issues, and the first batch of 50-100 invited beta traders has been allowlisted on Sui with invitations sent. The platform is now live in closed beta. The first +7-day summary report will measure actual cohort behavior against the PROJECT.md success criteria — that's the start of beta operations, beyond this plan's scope.
 </success_criteria>
 
 <output>

@@ -8,7 +8,7 @@
 
 ## Research Note on Verification
 
-Both `WebFetch` and `WebSearch` tools were denied at runtime in this sandbox. As a result, every external-platform feature claim below is drawn from training data (knowledge cutoff January 2026) for products that are widely and publicly documented (FTMO, Topstep, TopstepX, Hyperliquid, Drift, GMX, dYdX, Aevo, Jupiter, Galxe, Layer3, Guild.xyz). Confidence is assigned accordingly:
+Both `WebFetch` and `WebSearch` tools were denied at runtime in this sandbox. As a result, every external-platform feature claim below is drawn from training data (knowledge cutoff January 2026) for products that are widely and publicly documented (FTMO, Topstep, TopstepX, Hyperliquid, GMX, dYdX, Aevo, Galxe, Layer3, Guild.xyz). Confidence is assigned accordingly:
 
 - **HIGH** — well-attested across multiple public sources at cutoff, mechanic is structurally stable.
 - **MEDIUM** — well-known but specific numeric thresholds may have changed since cutoff; pattern is stable.
@@ -73,7 +73,7 @@ What these products actually show a trader, abstracted from training-data recall
 
 ---
 
-### Category 2: Crypto-Native Trading Game-ifications (Hyperliquid, Drift, GMX, dYdX, Aevo, Jupiter, Polymarket, testnet rallies)
+### Category 2: Crypto-Native Trading Game-ifications (Hyperliquid, GMX, dYdX, Aevo, Polymarket, testnet rallies)
 
 What actually retains crypto users (**MEDIUM** confidence, training-data; engagement mechanics are highly publicly documented):
 
@@ -84,19 +84,11 @@ What actually retains crypto users (**MEDIUM** confidence, training-data; engage
 - HLP (Hyperliquid Liquidity Provider) vault — separate retention layer for non-traders.
 - Vaults (copy-trading) — trader can publish a vault others deposit into, vault owner gets a fee.
 
-**Drift Protocol** — Solana perps DEX with multi-season points and competitions.
-- "Drift Points" with multi-season structure (S1, S2 were airdrop precursors, S3+ ongoing).
-- Trader profile with stats, all-time PnL, badges.
-- Periodic trading competitions with leaderboards (often partnered with ecosystem campaigns).
-- DRIFT token airdrop in 2024 explicitly rewarded points and historical trading.
-
 **GMX** — referrals, esGMX vesting, "Stats" page that effectively functions as a leaderboard for top traders.
 
 **dYdX** — historical trading rewards mechanism that distributed DYDX tokens to traders based on volume, fees paid, and open interest. Set the template that every perps DEX since has copied.
 
 **Aevo** — Sonar competitions, Farms (points), leaderboards segmented by competition.
-
-**Jupiter** — Jupiter Trading Tournaments (JTT): bracket-style trading competitions, leaderboards, prize pools in JUP/other tokens, distinct seasons.
 
 **Polymarket** — leaderboard with timeframes; profile pages public by wallet; "biggest winners this week" feed on the landing page is a recurring retention pull.
 
@@ -164,7 +156,7 @@ Legend: **Category** — A=table-stakes, B=differentiator, C=anti-feature. **Com
 
 | # | Feature | Description | Cat | Complexity | Dependencies | Owner | v1 Verdict |
 |---|---------|-------------|-----|------------|--------------|-------|------------|
-| A1 | Wallet connect (Sui + Solana) | One-click wallet sign-in via Sui Wallet Kit and Solana Wallet Adapter, with allowlist gating | A | S | Allowlist contract/table | trader | **must** |
+| A1 | Wallet connect (Sui) | One-click wallet sign-in via @mysten/dapp-kit, with allowlist gating | A | S | Allowlist contract/table | trader | **must** |
 | A2 | Tier picker | Pre-evaluation screen lets the trader start the Starter tier (Basic/Pro locked until prior pass) | A | S | SBT read, contract entrypoint | trader | **must** |
 | A3 | Live equity curve | Sub-second WebSocket-fed equity line; the heart of the dashboard | A | M | Indexer, oracle stream, fill model | trader | **must** |
 | A4 | Rule-budget pills | Live "daily loss budget remaining" + "max drawdown budget remaining" + "profit target progress" pills, color-coded | A | S | Indexer derives from chain events | trader | **must** |
@@ -177,7 +169,7 @@ Legend: **Category** — A=table-stakes, B=differentiator, C=anti-feature. **Com
 | A11 | Slippage transparency | Pre-trade quote breakdown: "oracle mid = X, modeled slippage = Y bps, your fill = Z." Trader sees exactly why their fill differed. | A | M | Slippage model | trader | **must** |
 | A12 | Mobile-responsive layout | Dashboard must be usable on a phone; crypto traders check positions from anywhere | A | M | UI framework choice | trader | **must** |
 | A13 | Connection / sync status indicator | "Live" / "reconnecting" / "stale" indicator in the header; trust is fragile when this is hidden | A | S | WebSocket health | trader | **must** |
-| A14 | Per-trader on-chain state inspector | "View this trader on Sui Explorer / Solana Explorer" link — every assertion in the UI must be verifiable | A | S | Block explorer URL templates | trader | **must** |
+| A14 | Per-trader on-chain state inspector | "View this trader on Suiscan" link — every assertion in the UI must be verifiable | A | S | Block explorer URL templates | trader | **must** |
 | A15 | Tier rules cheat sheet | Always-visible accordion: profit target, max DD, daily loss, min trading days. Mirrors FTMO/Topstep pattern. | A | S | Static content | trader | **must** |
 | A16 | FAQ / help docs | "What is paper trading?", "How do fills work?", "What does a tier pass unlock?", "Is there a token?" (must answer this honestly, see B-features) | A | S | None | trader | **must** |
 | A17 | Allowlist invite flow | Email-or-Discord-DM invite → wallet allowlist registration → first sign-in | A | S | Allowlist mechanism | trader+operator | **must** |
@@ -192,9 +184,8 @@ Legend: **Category** — A=table-stakes, B=differentiator, C=anti-feature. **Com
 |---|---------|-------------|-----|------------|--------------|-------|------------|
 | B1 | Public leaderboard (multi-axis) | Sortable by: highest_tier reached, total_shadow_pnl, total_passes, consistency score, trades count. Time windows: this cohort / all-time. | B | M | Indexer aggregations | public | **must** |
 | B2 | Per-wallet public profile page | `/profile/<wallet>` — SBT level, tier badges, evaluation history, equity curves of past evals, all-time stats. Shareable URL. | B | M | Indexer, SBT read | public | **must** |
-| B3 | Mutable v1 cohort SBT | One per wallet. Fields per PROJECT.md: highest_tier, total_passes, total_shadow_pnl, total_trades, last_active_at. Non-transferable. | B | M | Contract, both chains | trader+public | **must** |
+| B3 | Mutable v1 cohort SBT | One per wallet. Fields per PROJECT.md: highest_tier, total_passes, total_shadow_pnl, total_trades, last_active_at. Non-transferable. | B | M | Contract | trader+public | **must** |
 | B4 | Tier-pass mint ceremony | When a trader passes a tier, the SBT mint/level emits a beautiful, shareable moment: animated pass screen, one-click share to X/Farcaster with embedded card image | B | S | SBT events, share-card generator | trader | **must** |
-| B5 | Cross-chain identity unification | Profile page can link a Sui wallet and a Solana wallet to the same trader; SBTs from both chains shown side by side | B | M | Off-chain link table (signed proof) | trader | **should** |
 | B6 | Verifiable evaluation history | Every past evaluation has a permalink with all trades, all rule-budget snapshots, all events. Anyone can audit. | B | M | Indexer + permalink routing | public | **must** |
 | B7 | "Beta cohort #1" framing | The cohort itself is a credential — UI consistently brands as "v1 closed beta cohort," membership in the cohort is part of the identity | B | S | Branding, copy | trader+public | **must** |
 | B8 | Soft-airdrop-signal page | A "Why we don't talk about tokens" page that *explicitly* refuses to promise an airdrop but enumerates what the SBT credibly proves and the design principles that govern future credentialing. This is the load-bearing legal and trust artifact. | B | S | Legal/comms review | public | **must** |
@@ -202,14 +193,13 @@ Legend: **Category** — A=table-stakes, B=differentiator, C=anti-feature. **Com
 | B10 | Hall of Fame / Cohort milestones | Static page: "first trader to pass Pro," "first to pass all three on both chains," "longest active streak in cohort." Cheap but enormously sticky. | B | S | Indexer | public | **should** |
 | B11 | Backtest replay viewer | Click any past evaluation → scrubbable timeline of trades + equity curve + rule-budget evolution. "Watch the trade." | B | L | Indexer time-series | trader+public | **could** |
 | B12 | SBT level-up animation | Each pass visibly evolves the SBT artwork (color/badge/border level changes by tier). Strong "show off" mechanic. | B | M | Designer; on-chain or off-chain art? | trader+public | **should** |
-| B13 | "Same evaluation, both chains" badge | Special SBT marker for traders who passed equivalent tiers on both Sui and Solana. Distinct flex. Drives cross-chain engagement. | B | S | Contract or indexer attest | trader | **should** |
 | B14 | Public cohort-health dashboard | Site-wide stats page: how many traders in cohort, how many passed each tier, average time-to-pass, etc. Builds trust + voyeurism appeal. | B | S | Indexer aggregations | public | **should** |
 | B15 | Embeddable profile card | OG-image / Farcaster-frame generator so a trader's profile page renders as a rich card when shared. | B | S | OG image service | public | **should** |
 | B16 | Per-trade share | One-click share a single notable trade as a card. Mirrors Hyperliquid's social-proof loop. | B | S | OG image service | trader | **could** |
 | B17 | Activity / streak counter | "Active streak: 11 days." Soft engagement hook without explicit airdrop framing. | B | S | Indexer | trader | **could** |
 | B18 | Tier-pass anniversary reminders | Email or Discord webhook: "It's been 30 days since you passed Basic — Pro is waiting." | B | S | Indexer + notification service | trader | **could** |
 | B19 | API/RPC for third-party readers | Public JSON endpoint exposing the leaderboard and per-wallet stats. Lets ecosystem partners pull v1 data. | B | M | Indexer query layer | public | **could** |
-| B20 | Cohort SBT viewable in mainstream wallets | Ensure SBT metadata renders correctly in Sui Wallet, Phantom, Backpack. Validation step, not new build. | B | S | SBT metadata schema | trader | **must** |
+| B20 | Cohort SBT viewable in wallets | Ensure SBT metadata renders correctly in Sui Wallet and Suiet. Validation step, not new build. | B | S | SBT metadata schema | trader | **must** |
 
 ### Group C: Anti-features (deliberately NOT building in v1)
 
@@ -264,7 +254,6 @@ A6 positions ─> A7 history ─> A14 explorer link                             
                                                               B15 embed cards <── B16 per-trade share
                                                               B20 wallet display (validation, not blocking)
                                                               B12 SBT level-up art (parallel)
-                                                              B13 both-chains badge (depends on B3 on both chains)
 
 Operator:
 A20 allowlist ─> A21 pause switch ─> (covered by indexer + admin app)
@@ -293,11 +282,9 @@ If the 14–18-week timeline slips and a 50%-scope cut is forced (per PROJECT.md
 
 **First to slip (should but not must):**
 - B4 mint ceremony (replace with a static "you passed" page)
-- B5 cross-chain identity unification (each chain stands alone)
 - B9 consistency score (use raw PnL ordering)
 - B10 hall of fame (later cohort cycle)
 - B12 SBT level-up art (single static art per tier)
-- B13 both-chains badge (defer)
 - B14 cohort-health dashboard (operator gets this in admin, public can wait)
 - B15 embeddable cards (basic share text, no OG)
 - A12 mobile-responsive (target desktop first, mobile-good-enough)
@@ -319,10 +306,10 @@ The user's explicit goal: retain crypto traders across the multi-month v1→v2 g
 
 | Mechanic | Proven where | v1 manifestation |
 |----------|--------------|-------------------|
-| **Points without dollar value** | Hyperliquid, Drift, Aevo, Jupiter, almost every L1 testnet rally since 2022 | Mutable SBT level + tier passes (B3). The "points" here are integer fields on an on-chain object. |
-| **Public leaderboard with shareable wallet URLs** | Hyperliquid, Drift, Polymarket | B1 + B2. Public URL is the share unit. |
-| **Time-bound cohort with all-time persistence** | Drift seasons, Aevo Sonar, Layer3 quests | "v1 cohort" framing (B7); SBT is permanent, cohort window is bounded. |
-| **Visible "I was early" credential** | Every successful crypto product's OG-era badges (OG Phantom, OG Backpack, OG Hyperliquid) | The v1 cohort SBT itself is the OG credential. Do not dilute it later by re-using the same SBT type for v2. |
+| **Points without dollar value** | Hyperliquid, Aevo, almost every L1 testnet rally since 2022 | Mutable SBT level + tier passes (B3). The "points" here are integer fields on an on-chain object. |
+| **Public leaderboard with shareable wallet URLs** | Hyperliquid, Polymarket | B1 + B2. Public URL is the share unit. |
+| **Time-bound cohort with all-time persistence** | Aevo Sonar, Layer3 quests | "v1 cohort" framing (B7); SBT is permanent, cohort window is bounded. |
+| **Visible "I was early" credential** | Every successful crypto product's OG-era badges (OG Hyperliquid, OG Pudgy Penguins, etc.) | The v1 cohort SBT itself is the OG credential. Do not dilute it later by re-using the same SBT type for v2. |
 | **Plausible airdrop signal without commitment** | OP airdrop 1, ARB airdrop 1, JUP airdrop, HYPE airdrop, every retroactive program | The soft-airdrop-signal page (B8) explicitly states "no token, no promise" while letting the SBT credibly accumulate value. Crypto users self-impose belief; do not feed the belief, do not deny it either. |
 | **Show-off mechanics (mint ceremony, level-up art)** | NFT mints, on-chain games | B4 mint ceremony + B12 SBT level-up art. |
 | **Streaks / recency** | Layer3, Duolingo, every Web2 retention playbook | B17 streak counter — defer to post-launch to avoid encouraging spam trades. |
@@ -361,15 +348,15 @@ V1 mitigates Sybil via invite-only allowlist (~50–100 wallets). Post-v1 open a
 | Capital-at-risk (deposit forfeitable on fail) | V2 with real capital | 0 — v2 concern |
 | Behavioral anomaly detection (correlated trades across wallets) | Once indexer has volume | M — useful to start collecting signals now even if not enforcing |
 
-**v1 cost to keep these options open:** indexer should log enough per-trade and per-wallet metadata that retroactive Sybil clustering is possible (timing correlations, address co-funding patterns, trade-pattern similarity). Logging is cheap; analytics can come later. **One small adjustment recommended:** ensure the indexer captures the funding-source wallet of each trader's gas-paying account on both chains. This is the cheapest possible Sybil-clustering signal to capture now.
+**v1 cost to keep these options open:** indexer should log enough per-trade and per-wallet metadata that retroactive Sybil clustering is possible (timing correlations, address co-funding patterns, trade-pattern similarity). Logging is cheap; analytics can come later. **One small adjustment recommended:** ensure the indexer captures the funding-source wallet of each trader's gas-paying account. This is the cheapest possible Sybil-clustering signal to capture now.
 
 ---
 
 ## v1 Open Questions for Roadmap / Clarify Phase
 
-1. **SBT art strategy.** Static art per tier (cheapest) vs. procedurally-generated art with on-chain metadata (best for show-off) vs. fully on-chain SVG (most crypto-native). Recommend procedurally-generated art with metadata pointing at one of ~9 designs (3 tiers × 3 chains-or-cross-chain).
+1. **SBT art strategy.** Static art per tier (cheapest) vs. procedurally-generated art with on-chain metadata (best for show-off) vs. fully on-chain SVG (most crypto-native). Recommend procedurally-generated art with metadata pointing at one of ~3 designs (one per tier).
 
-2. **Profile-page URL surface.** `/profile/<sui-address>` and `/profile/<sol-address>` separately, or a unified `/trader/<id>` once cross-chain link is signed? Defer until B5 is scoped.
+2. **Profile-page URL surface.** `/profile/<sui-address>` — straightforward; keep it chain-native.
 
 3. **Leaderboard refresh cadence.** Sub-second is overkill; once-per-minute is fine for a public leaderboard. But the *trader's own dashboard* must be sub-second (A3). Keep these two paths separate in the indexer.
 
@@ -389,13 +376,11 @@ Confidence on most external-product claims below is **MEDIUM** (training-data, k
 - Topstep website (`topstep.com`) — Trading Combine rules, trailing max loss, consistency rule, scaling plan, weekly payouts. `[verify pre-launch].`
 - FundedNext, The5%ers, Apex Trader Funding — public marketing pages and rule disclosures. `[verify].`
 - Hyperliquid leaderboard (`app.hyperliquid.xyz/leaderboard`), HLP vault docs, points program — well-documented in public posts and the Hyperliquid docs through 2024–2025. `[verify].`
-- Drift Protocol (`drift.trade`) — multi-season points, leaderboards, DRIFT token launch 2024. `[verify].`
 - GMX (`gmx.io`) — referral system, esGMX vesting, Stats page. `[verify].`
 - dYdX historical trading rewards — well-documented in dYdX governance forums. `[verify].`
 - Aevo Sonar competitions, Farms — Aevo blog + docs. `[verify].`
-- Jupiter Trading Tournaments (JTT) — Jupiter docs and Jupuary announcements. `[verify].`
 - Polymarket leaderboard — `polymarket.com/leaderboard`. `[verify].`
 - Galxe campaigns (`galxe.com`), Layer3 quests (`layer3.xyz`), Guild.xyz roles, Optimism RetroPGF (`retrofunding.optimism.io`), Snapshot, Worldcoin / World ID — public docs and ecosystem posts through 2025. `[verify].`
 - Project context: `/Users/gifted/Documents/repos/entrypoint/prop-firm/.claude/plans/Crypto-Native/PROJECT.md`, `/Users/gifted/Documents/repos/entrypoint/prop-firm/.claude/plans/Crypto-Native/STATE.md` (HIGH confidence — read directly).
 
-**Recommendation to consumer:** before locking the v1 spec, run a live verification pass against the actual product pages of FTMO, Topstep, Hyperliquid, Drift, Galxe, and Layer3 to confirm specific numeric thresholds and feature names. The categorical patterns (A/B/C verdicts here) are stable regardless of those specifics.
+**Recommendation to consumer:** before locking the v1 spec, run a live verification pass against the actual product pages of FTMO, Topstep, Hyperliquid, Galxe, and Layer3 to confirm specific numeric thresholds and feature names. The categorical patterns (A/B/C verdicts here) are stable regardless of those specifics.
