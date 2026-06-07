@@ -1,0 +1,448 @@
+import type {
+  CohortStats,
+  EquityPoint,
+  LeaderboardEntry,
+  Position,
+  PriceTick,
+  Profile,
+  RuleBudget,
+  SbtState,
+  Session,
+  Symbol,
+  Tier,
+  TradeRecord,
+  VaultState,
+  VaultSummary,
+} from "@/lib/mock/types";
+
+/**
+ * Fixed reference epoch used to seed all time-based fixtures so server render
+ * and first client render are identical (no hydration drift). Live jitter is
+ * introduced only inside client effects/intervals, never here.
+ */
+export const SEED_NOW = 1_749_312_000_000; // 2025-06-07T16:00:00Z
+
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/** Deterministic mulberry32 PRNG. */
+function rng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededSpark(
+  seed: number,
+  base: number,
+  count: number,
+  vol: number,
+): number[] {
+  const r = rng(seed);
+  const out: number[] = [];
+  let v = base;
+  for (let i = 0; i < count; i++) {
+    v = v * (1 + (r() - 0.5) * vol);
+    out.push(Number(v.toFixed(base > 1000 ? 1 : 4)));
+  }
+  return out;
+}
+
+export const BASE_PRICES: Record<Symbol, number> = {
+  BTC: 68_420.5,
+  ETH: 3_512.18,
+  SOL: 168.42,
+};
+
+export const SYMBOLS: Symbol[] = ["BTC", "ETH", "SOL"];
+
+export const INITIAL_PRICES: PriceTick[] = [
+  {
+    symbol: "BTC",
+    price: BASE_PRICES.BTC,
+    change24h: 2.14,
+    spark: seededSpark(101, BASE_PRICES.BTC, 32, 0.01),
+    ts: SEED_NOW,
+  },
+  {
+    symbol: "ETH",
+    price: BASE_PRICES.ETH,
+    change24h: -1.42,
+    spark: seededSpark(202, BASE_PRICES.ETH, 32, 0.014),
+    ts: SEED_NOW,
+  },
+  {
+    symbol: "SOL",
+    price: BASE_PRICES.SOL,
+    change24h: 4.83,
+    spark: seededSpark(303, BASE_PRICES.SOL, 32, 0.02),
+    ts: SEED_NOW,
+  },
+];
+
+export const TIERS: Tier[] = [
+  {
+    id: "starter",
+    name: "Starter",
+    leverage: 10,
+    profitTarget: 0.08,
+    maxDrawdown: 0.1,
+    dailyLoss: 0.05,
+    shadowAllocation: 10_000,
+    intentCap: 200,
+    locked: false,
+    unlockedBy: null,
+  },
+  {
+    id: "basic",
+    name: "Basic",
+    leverage: 8,
+    profitTarget: 0.08,
+    maxDrawdown: 0.08,
+    dailyLoss: 0.05,
+    shadowAllocation: 25_000,
+    intentCap: 200,
+    locked: true,
+    unlockedBy: "starter",
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    leverage: 8,
+    profitTarget: 0.1,
+    maxDrawdown: 0.08,
+    dailyLoss: 0.05,
+    shadowAllocation: 50_000,
+    intentCap: 200,
+    locked: true,
+    unlockedBy: "basic",
+  },
+];
+
+export const DEMO_WALLET =
+  "0x9a4f2c1e7b8d3056af19e2c4b7d8f0a1c3e5d7b9f1a2c4e6d8b0f2a4c6e8d0b2";
+
+export const MOCK_SESSION_SIGNED_OUT: Session = {
+  address: null,
+  chain: "sui",
+  balanceUsd: 0,
+  allowlisted: false,
+  status: "disconnected",
+};
+
+export const MOCK_SESSION_SIGNED_IN: Session = {
+  address: DEMO_WALLET,
+  chain: "sui",
+  balanceUsd: 0,
+  allowlisted: true,
+  status: "connected",
+};
+
+function buildEquityCurve(
+  seed: number,
+  start: number,
+  points: number,
+): EquityPoint[] {
+  const r = rng(seed);
+  const out: EquityPoint[] = [];
+  let equity = start;
+  for (let i = 0; i < points; i++) {
+    const drift = 0.0008;
+    equity = equity * (1 + drift + (r() - 0.48) * 0.01);
+    out.push({
+      ts: SEED_NOW - (points - 1 - i) * (15 * MINUTE),
+      equity: Number(equity.toFixed(2)),
+    });
+  }
+  return out;
+}
+
+export const DEMO_VAULT_ID = "vault_starter_001";
+
+const STARTER = TIERS[0];
+
+export const DEMO_EQUITY_CURVE: EquityPoint[] = buildEquityCurve(
+  7,
+  STARTER.shadowAllocation,
+  96,
+);
+
+const lastEquity = DEMO_EQUITY_CURVE[DEMO_EQUITY_CURVE.length - 1].equity;
+const peakEquity = Math.max(...DEMO_EQUITY_CURVE.map((p) => p.equity));
+
+export const DEMO_POSITIONS: Position[] = [
+  {
+    id: "pos_1",
+    symbol: "BTC",
+    side: "long",
+    sizeUsd: 4200,
+    entryPrice: 67_980.0,
+    markPrice: BASE_PRICES.BTC,
+    unrealizedPnl: 27.18,
+    unrealizedPnlPct: 0.65,
+    openedAt: SEED_NOW - 2 * HOUR,
+  },
+  {
+    id: "pos_2",
+    symbol: "SOL",
+    side: "short",
+    sizeUsd: 1500,
+    entryPrice: 171.2,
+    markPrice: BASE_PRICES.SOL,
+    unrealizedPnl: 24.36,
+    unrealizedPnlPct: 1.62,
+    openedAt: SEED_NOW - 40 * MINUTE,
+  },
+];
+
+export const DEMO_TRADES: TradeRecord[] = [
+  {
+    id: "trd_1",
+    symbol: "BTC",
+    side: "long",
+    sizeUsd: 4200,
+    oracleMid: 67_980.0,
+    fill: 67_993.6,
+    slippageBps: 0.0,
+    tiltBps: 2,
+    venue: "7K",
+    realizedPnl: 0,
+    ts: SEED_NOW - 2 * HOUR,
+    txDigest: "9Xh2bQ7Lm4Tz1Rk8Pv3Nc6Wd0Fj5Hs2Ay9Bx4Cq7Er",
+  },
+  {
+    id: "trd_2",
+    symbol: "ETH",
+    side: "long",
+    sizeUsd: 2000,
+    oracleMid: 3_488.4,
+    fill: 3_489.1,
+    slippageBps: 0.0,
+    tiltBps: 2,
+    venue: "7K",
+    realizedPnl: 13.42,
+    ts: SEED_NOW - 90 * MINUTE,
+    txDigest: "3Kf7nR2Wp9Lv5Tz1Bx8Cq4Hs0Aj6Em2Yd9Fk3Nc7Pr",
+  },
+  {
+    id: "trd_3",
+    symbol: "SOL",
+    side: "short",
+    sizeUsd: 1500,
+    oracleMid: 171.2,
+    fill: 171.16,
+    slippageBps: 0.0,
+    tiltBps: 2,
+    venue: "7K",
+    realizedPnl: 0,
+    ts: SEED_NOW - 40 * MINUTE,
+    txDigest: "5Pq3wT8Nm1Kz6Rv2Bx9Cs4Hd0Aj7Ef3Yk9Lc5Nr2Wp",
+  },
+];
+
+export function buildRuleBudgets(vault: {
+  startingEquity: number;
+  equity: number;
+  peakEquity: number;
+  tier: Tier;
+  intentCount: number;
+}): RuleBudget[] {
+  const { startingEquity, equity, peakEquity, tier, intentCount } = vault;
+
+  const ddFloor = peakEquity * (1 - tier.maxDrawdown);
+  const ddUsed = Math.max(0, peakEquity - equity);
+  const ddLimit = peakEquity - ddFloor;
+  const ddFrac = ddLimit > 0 ? Math.min(1, ddUsed / ddLimit) : 0;
+
+  const dailyLimit = startingEquity * tier.dailyLoss;
+  const dailyUsed = Math.max(0, startingEquity - equity);
+  const dailyFrac = dailyLimit > 0 ? Math.min(1, dailyUsed / dailyLimit) : 0;
+
+  const targetEquity = startingEquity * (1 + tier.profitTarget);
+  const targetGain = targetEquity - startingEquity;
+  const gainSoFar = Math.max(0, equity - startingEquity);
+  const targetFrac = targetGain > 0 ? Math.min(1, gainSoFar / targetGain) : 0;
+
+  const intentFrac = Math.min(1, intentCount / tier.intentCap);
+
+  const zone = (used: number) =>
+    used >= 0.9 ? "danger" : used >= 0.7 ? "warn" : "safe";
+
+  return [
+    {
+      kind: "drawdown",
+      label: "Max drawdown",
+      current: Number(ddUsed.toFixed(2)),
+      limit: Number(ddLimit.toFixed(2)),
+      used: ddFrac,
+      remaining: 1 - ddFrac,
+      zone: zone(ddFrac),
+      unit: "usd",
+      description: `Equity may not fall more than ${(tier.maxDrawdown * 100).toFixed(0)}% below its peak. Floor is $${ddFloor.toFixed(0)}.`,
+    },
+    {
+      kind: "dailyLoss",
+      label: "Daily loss",
+      current: Number(dailyUsed.toFixed(2)),
+      limit: Number(dailyLimit.toFixed(2)),
+      used: dailyFrac,
+      remaining: 1 - dailyFrac,
+      zone: zone(dailyFrac),
+      unit: "usd",
+      description: `Daily realized + unrealized loss may not exceed ${(tier.dailyLoss * 100).toFixed(0)}% of starting equity. Resets 00:00 UTC.`,
+    },
+    {
+      kind: "profitTarget",
+      label: "Profit target",
+      current: Number(gainSoFar.toFixed(2)),
+      limit: Number(targetGain.toFixed(2)),
+      used: targetFrac,
+      remaining: 1 - targetFrac,
+      zone: targetFrac >= 1 ? "safe" : targetFrac >= 0.5 ? "warn" : "danger",
+      unit: "usd",
+      description: `Reach +${(tier.profitTarget * 100).toFixed(0)}% on starting equity to pass. Target equity is $${targetEquity.toFixed(0)}.`,
+    },
+    {
+      kind: "intentCount",
+      label: "Trades",
+      current: intentCount,
+      limit: tier.intentCap,
+      used: intentFrac,
+      remaining: 1 - intentFrac,
+      zone: zone(intentFrac),
+      unit: "count",
+      description: `Up to ${tier.intentCap} trades per evaluation.`,
+    },
+  ];
+}
+
+export const DEMO_VAULT: VaultState = {
+  vaultId: DEMO_VAULT_ID,
+  tier: STARTER,
+  status: "active",
+  owner: DEMO_WALLET,
+  startingEquity: STARTER.shadowAllocation,
+  equity: lastEquity,
+  peakEquity,
+  positions: DEMO_POSITIONS,
+  rules: buildRuleBudgets({
+    startingEquity: STARTER.shadowAllocation,
+    equity: lastEquity,
+    peakEquity,
+    tier: STARTER,
+    intentCount: 3,
+  }),
+  dailyResetAt: SEED_NOW + 8 * HOUR,
+  inactiveAt: SEED_NOW + 7 * DAY,
+  startedAt: SEED_NOW - DAY,
+  triggerTrade: null,
+  violatedRule: null,
+  intentCount: 3,
+};
+
+export const DEMO_SBT: SbtState = {
+  owner: DEMO_WALLET,
+  level: 1,
+  passedTiers: ["Starter"],
+  lastLevelUpAt: SEED_NOW - 3 * DAY,
+  objectId:
+    "0x7c2e9a4f1b6d8053ae12c4b7d9f0a2c3e5d7b8f1a3c5e7d9b1f3a5c7e9d1b3a5",
+  cohort: "v1 Genesis",
+};
+
+const LEADERBOARD_NAMES = [
+  "satoshi.sui",
+  "vega",
+  "0xMomentum",
+  "quietalpha",
+  "delta_one",
+  "ronin",
+  "tabula",
+  "nordic",
+  "carrytrade",
+  "mecha",
+  "lowbeta",
+  "orbit",
+];
+
+export const DEMO_LEADERBOARD: LeaderboardEntry[] = Array.from(
+  { length: 12 },
+  (_, i) => {
+    const r = rng(900 + i);
+    const sbtLevel = (
+      i < 2 ? 3 : i < 6 ? 2 : 1
+    ) as LeaderboardEntry["sbtLevel"];
+    return {
+      rank: i + 1,
+      wallet:
+        `0x${(0xa0 + i).toString(16).padStart(2, "0")}${"f3c7d9b1a5e2".repeat(5)}`.slice(
+          0,
+          66,
+        ),
+      displayName: LEADERBOARD_NAMES[i] ?? null,
+      tier: sbtLevel === 3 ? "Pro" : sbtLevel === 2 ? "Basic" : "Starter",
+      sbtLevel,
+      shadowPnl: Number((18_000 * (1 - i / 14) * (0.9 + r() * 0.2)).toFixed(2)),
+      passes: Math.max(1, 6 - Math.floor(i / 2)),
+      consistency: Number((96 - i * 3.4 + r() * 4).toFixed(1)),
+    };
+  },
+);
+
+export const DEMO_PROFILE_EVALS: VaultSummary[] = [
+  {
+    vaultId: "vault_starter_001",
+    tier: "Starter",
+    status: "passed",
+    startedAt: SEED_NOW - 21 * DAY,
+    endedAt: SEED_NOW - 14 * DAY,
+    returnPct: 8.4,
+  },
+  {
+    vaultId: "vault_basic_001",
+    tier: "Basic",
+    status: "active",
+    startedAt: SEED_NOW - DAY,
+    endedAt: null,
+    returnPct: 2.1,
+  },
+  {
+    vaultId: "vault_starter_000",
+    tier: "Starter",
+    status: "failed",
+    startedAt: SEED_NOW - 40 * DAY,
+    endedAt: SEED_NOW - 38 * DAY,
+    returnPct: -6.2,
+  },
+];
+
+export function buildProfile(wallet: string): Profile {
+  return {
+    wallet,
+    displayName: wallet === DEMO_WALLET ? "satoshi.sui" : null,
+    joinedAt: SEED_NOW - 45 * DAY,
+    sbt: { ...DEMO_SBT, owner: wallet },
+    highestTier: "Basic",
+    evaluations: DEMO_PROFILE_EVALS,
+    shadowPnl: 14_280.42,
+    passes: 1,
+    fails: 1,
+    consistency: 87.3,
+  };
+}
+
+export const DEMO_COHORT: CohortStats = {
+  cohort: "v1 Genesis",
+  members: 248,
+  activeEvaluations: 73,
+  totalPasses: 41,
+  passRate: 0.31,
+  weekResetsAt: SEED_NOW + 3 * DAY + 4 * HOUR,
+  medianPasserReturnPct: 5.2,
+};
