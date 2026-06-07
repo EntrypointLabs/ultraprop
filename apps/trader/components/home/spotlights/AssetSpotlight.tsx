@@ -1,0 +1,131 @@
+"use client";
+
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { TVChart } from "@/components/charts/TVChart";
+import { AssetIcon, Badge, Button } from "@/components/ui";
+import { SEED_NOW } from "@/lib/mock/fixtures";
+import { usePrice } from "@/lib/mock/hooks";
+import type { Symbol } from "@/lib/mock/types";
+import { cn, formatPct, formatUsd } from "@/lib/utils";
+
+interface AssetSpotlightProps {
+  symbol: Symbol;
+}
+
+const ASSET_META: Record<Symbol, { name: string; desc: string; leverage: number }> = {
+  BTC: {
+    name: "Bitcoin",
+    desc: "The benchmark. BTC/USD is the most-traded pair in the evaluation universe.",
+    leverage: 10,
+  },
+  ETH: {
+    name: "Ethereum",
+    desc: "Deep liquidity, distinct from BTC. ETH/USD provides macro-uncorrelated setups.",
+    leverage: 10,
+  },
+  SOL: {
+    name: "Solana",
+    desc: "Higher volatility, tighter spreads. SOL/USD rewards precise risk management.",
+    leverage: 10,
+  },
+};
+
+export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
+  const tick = usePrice(symbol);
+  const meta = ASSET_META[symbol];
+
+  const sparkData = tick?.spark ?? [];
+  const now = SEED_NOW;
+  const interval = Math.floor((4 * 60 * 60 * 1000) / Math.max(sparkData.length - 1, 1));
+
+  const chartSeries =
+    sparkData.length > 1
+      ? [
+          {
+            data: sparkData.map((v, i) => ({
+              t: now - (sparkData.length - 1 - i) * interval,
+              v,
+            })),
+            type: "area" as const,
+            color: "#e5484d",
+            topColor: "rgba(229,72,77,0.25)",
+            bottomColor: "rgba(229,72,77,0.01)",
+            lineWidth: 2 as 1 | 2 | 3,
+          },
+        ]
+      : [];
+
+  const isUp = (tick?.change24h ?? 0) >= 0;
+  const price = tick?.price ?? 0;
+
+  return (
+    <div className="flex h-full flex-col gap-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="mb-1 text-xs font-medium uppercase tracking-widest text-text-muted">
+            Live market
+          </div>
+          <div className="flex items-center gap-2">
+            <AssetIcon symbol={symbol} size={28} />
+            <h2 className="text-xl font-bold tracking-tight text-text">
+              {symbol} / USD
+            </h2>
+            <Badge variant="leverage" className="tabular">
+              {meta.leverage}X
+            </Badge>
+          </div>
+          <p className="mt-1.5 text-sm text-text-muted">{meta.desc}</p>
+        </div>
+
+        <div className="shrink-0 text-right">
+          <div className="tabular text-2xl font-bold text-text">
+            {formatUsd(price, {
+              decimals: price > 10_000 ? 0 : price > 100 ? 2 : 4,
+            })}
+          </div>
+          <div
+            className={cn(
+              "tabular mt-0.5 text-sm font-medium",
+              isUp ? "text-up" : "text-down",
+            )}
+          >
+            {formatPct(tick?.change24h ?? 0, { sign: true })} 24h
+          </div>
+        </div>
+      </div>
+
+      {chartSeries.length > 0 && (
+        <div className="flex-1 min-h-[180px] rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
+          <TVChart
+            series={chartSeries}
+            height={200}
+            watermark={`${symbol} / USD`}
+            showTimeScale={true}
+            showPriceScale={true}
+            interactive={false}
+            precision={price > 10_000 ? 0 : 2}
+          />
+        </div>
+      )}
+
+      <div className="mt-auto flex items-center gap-2">
+        <Link href={`/start?symbol=${symbol}&side=long`} className="flex-1">
+          <Button variant="long" size="md" className="w-full gap-1.5">
+            Long {symbol}
+          </Button>
+        </Link>
+        <Link href={`/start?symbol=${symbol}&side=short`} className="flex-1">
+          <Button variant="short" size="md" className="w-full gap-1.5">
+            Short {symbol}
+          </Button>
+        </Link>
+        <Link href="/start">
+          <Button variant="ghost" size="icon" aria-label="Start evaluation">
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
