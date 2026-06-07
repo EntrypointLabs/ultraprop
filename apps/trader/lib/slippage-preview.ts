@@ -6,7 +6,7 @@ export const TILT_BPS = 2;
 /**
  * Shadow-quote venue. On Sui, fills are modeled against the 7K Protocol
  * aggregator, which routes across these DEXes for the best execution a real
- * trader would get. (Solana/Jupiter lands in the Phase 4 port.)
+ * trader would get.
  */
 export const VENUE = "7K";
 export const VENUE_ROUTE = ["Cetus", "Aftermath", "Turbos", "Kriya"];

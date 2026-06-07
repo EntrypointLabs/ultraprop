@@ -159,6 +159,5 @@ Applied after the initial swarm:
   `VENUE_ROUTE` and adds `venue`/`route` to `SlippagePreview`; `TradeRecord` carries `venue`. Surfaced
   in the trade ticket ("Fill preview · Pyth · 7K", a "Routed via 7K · 4 DEXes" row, venue in the oracle
   tooltip + info modal) and as a VENUE column in trade history (+ CSV).
-- **Sui-only.** The UI is Sui-only for now (matches the Phase 3 plan; Solana/Jupiter land in Phase 4).
-  No Solana wallet, no chain toggle, no cross-chain badges; addresses are Sui-style. (The only "SOL"
-  reference is the tradeable asset.)
+- **Sui-only.** The UI is Sui-only. No chain toggle, no cross-chain badges; addresses are Sui-style.
+  (The only "SOL" reference is the tradeable asset, a price market.)
