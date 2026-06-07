@@ -84,7 +84,7 @@ function FailedContent({ vaultId }: { vaultId: string }) {
           <Badge variant="outline">{vault.tier.name}</Badge>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-bold text-text tracking-tight">
+        <h1 className="text-balance text-3xl sm:text-4xl font-bold text-text tracking-tight">
           This evaluation has closed
         </h1>
 

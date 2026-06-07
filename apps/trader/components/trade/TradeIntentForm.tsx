@@ -491,6 +491,7 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
               type="number"
               min={1}
               step={50}
+              autoComplete="off"
               value={rawSize}
               onChange={(e) => setRawSize(e.target.value)}
               placeholder="0"

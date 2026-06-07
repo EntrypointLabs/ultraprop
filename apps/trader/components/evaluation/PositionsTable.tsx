@@ -97,7 +97,11 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                 </span>
               </Td>
               <Td>
-                <Button variant="danger" size="sm">
+                <Button
+                  variant="danger"
+                  size="sm"
+                  aria-label={`Close ${pos.symbol} ${pos.side} position`}
+                >
                   Close
                 </Button>
               </Td>

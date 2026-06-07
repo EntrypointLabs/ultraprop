@@ -116,6 +116,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
           {(["all", "long", "short"] as const).map((f) => (
             <button
               key={f}
+              type="button"
               onClick={() => setSideFilter(f)}
               className={[
                 "rounded-sm px-2.5 py-1 text-xs font-medium uppercase tracking-wide transition-colors",

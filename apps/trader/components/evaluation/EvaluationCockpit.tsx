@@ -82,7 +82,7 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
   const ddLimitUsd = ddRule ? ddRule.limit : 0;
 
   return (
-    <div className="mx-auto max-w-screen-xl space-y-4 px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">

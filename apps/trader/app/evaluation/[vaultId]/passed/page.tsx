@@ -67,7 +67,7 @@ function PassedContent({ vaultId }: { vaultId: string }) {
           </Badge>
         </div>
 
-        <h1 className="text-4xl sm:text-5xl font-bold text-text tracking-tight">
+        <h1 className="text-balance text-4xl sm:text-5xl font-bold text-text tracking-tight">
           {vault.tier.name} <span className="text-brand">Complete</span>
         </h1>
 

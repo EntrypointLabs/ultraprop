@@ -56,14 +56,14 @@ export function SbtLevelReveal({
       {/* SBT visual */}
       <div
         className={cn(
-          "relative transition-all duration-700 ease-out",
+          "relative transition-[opacity,transform] duration-700 ease-out",
           revealed ? "opacity-100 scale-100" : "opacity-0 scale-75",
         )}
       >
         {/* Outer glow ring */}
         <div
           className={cn(
-            "rounded-full border-2 p-1 transition-all duration-700",
+            "rounded-full border-2 p-1 transition-[box-shadow,border-color] duration-700",
             colors.ring,
             colors.glow,
           )}
@@ -124,7 +124,7 @@ export function SbtLevelReveal({
         {prevLevel < newLevel && (
           <div
             className={cn(
-              "absolute -top-2 -right-2 transition-all duration-500",
+              "absolute -top-2 -right-2 transition-[opacity,transform] duration-500",
               revealed ? "opacity-100 scale-100" : "opacity-0 scale-50",
             )}
             style={{ transitionDelay: "400ms" }}
@@ -139,12 +139,12 @@ export function SbtLevelReveal({
       {/* Text reveal */}
       <div
         className={cn(
-          "flex flex-col items-center gap-2 text-center transition-all duration-500",
+          "flex flex-col items-center gap-2 text-center transition-[opacity,transform] duration-500",
           revealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3",
         )}
         style={{ transitionDelay: "250ms" }}
       >
-        <h2 className="text-xl font-bold text-text">
+        <h2 className="text-balance text-xl font-bold text-text">
           v1 Genesis credential —{" "}
           <span className={colors.label}>Level {newLevel}</span>
         </h2>
