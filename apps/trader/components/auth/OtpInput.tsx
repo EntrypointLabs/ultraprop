@@ -8,6 +8,8 @@ interface OtpInputProps {
   onChange: (value: string) => void;
   length?: number;
   autoFocus?: boolean;
+  /** Marks every box invalid and nudges the row. */
+  error?: boolean;
 }
 
 export function OtpInput({
@@ -15,6 +17,7 @@ export function OtpInput({
   onChange,
   length = 4,
   autoFocus,
+  error,
 }: OtpInputProps) {
   const refs = React.useRef<(HTMLInputElement | null)[]>([]);
   const digits = Array.from({ length }, (_, i) => value[i] ?? "");
@@ -49,7 +52,7 @@ export function OtpInput({
   }
 
   return (
-    <div className="flex gap-3">
+    <div className={cn("flex gap-3", error && "auth-shake")}>
       {digits.map((digit, i) => (
         <input
           // eslint-disable-next-line react/no-array-index-key
@@ -66,10 +69,15 @@ export function OtpInput({
           onKeyDown={(e) => handleKeyDown(i, e)}
           onFocus={(e) => e.target.select()}
           aria-label={`Verification digit ${i + 1}`}
+          aria-invalid={error ? true : undefined}
           className={cn(
             "tabular h-16 min-w-0 flex-1 rounded-[var(--radius-lg)] border bg-surface text-center text-2xl font-semibold text-text outline-none transition-colors",
-            "focus:border-brand focus:ring-2 focus:ring-brand/30",
-            digit ? "border-border-soft" : "border-border",
+            error
+              ? "border-down focus:border-down focus:ring-2 focus:ring-down/30"
+              : cn(
+                  "focus:border-brand focus:ring-2 focus:ring-brand/30",
+                  digit ? "border-border-soft" : "border-border",
+                ),
           )}
         />
       ))}
