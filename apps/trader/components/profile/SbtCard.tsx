@@ -31,28 +31,28 @@ const LEVEL_META: Record<
 > = {
   0: {
     label: "Unranked",
-    color: "#6B6B73",
+    color: "var(--text-faint)",
     bgClass: "bg-surface-3",
     borderClass: "border-border",
     glowClass: "",
   },
   1: {
     label: "Starter",
-    color: "#34D399",
+    color: "var(--up)",
     bgClass: "bg-up/10",
     borderClass: "border-up/30",
     glowClass: "",
   },
   2: {
     label: "Basic",
-    color: "#e5484d",
+    color: "var(--violet)",
     bgClass: "bg-violet/10",
     borderClass: "border-violet/30",
     glowClass: "",
   },
   3: {
     label: "Pro",
-    color: "#f0686c",
+    color: "var(--brand)",
     bgClass: "bg-brand/10",
     borderClass: "border-brand/40",
     glowClass: "",
@@ -110,7 +110,7 @@ function SbtBadgeGraphic({ level }: { level: SbtLevel }) {
         className="absolute -bottom-1 -right-1 tabular rounded-sm px-1 py-0.5 text-xs font-semibold leading-none"
         style={{
           backgroundColor: meta.color,
-          color: level === 3 ? "#0A0A0C" : "#0A0A0C",
+          color: "var(--bg)",
         }}
       >
         L{level}
@@ -242,7 +242,7 @@ export function SbtCard({
                       key={t.id}
                       className={`tabular text-xs rounded-sm px-1.5 py-0.5 font-medium ${
                         earned
-                          ? "bg-violet/20 text-violet"
+                          ? "bg-violet/20 text-on-accent"
                           : "bg-surface-3 text-text-faint"
                       }`}
                     >

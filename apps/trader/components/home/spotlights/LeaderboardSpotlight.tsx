@@ -26,7 +26,7 @@ export function LeaderboardSpotlight() {
         v: Number((base + entry.shadowPnl * 0.7 * frac + entry.shadowPnl * noise).toFixed(2)),
       };
     });
-    const colors = ["#e5484d", "#34D399", "#F4C752"];
+    const colors = ["#e5484d", "#0c8051", "#b45309"];
     return {
       data,
       type: "line" as const,
