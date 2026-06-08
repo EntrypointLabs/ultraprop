@@ -1,3 +1,4 @@
+export { Chrome } from "@/components/shell/Chrome";
 export { Footer } from "@/components/shell/Footer";
 export { LoginModal } from "@/components/shell/LoginModal";
 export { Logo, type LogoProps } from "@/components/shell/Logo";
