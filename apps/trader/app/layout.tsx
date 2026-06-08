@@ -12,7 +12,7 @@ import {
   StoreHydration,
   ThemeScript,
 } from "@/components/shell";
-import { isTheme, THEME_COOKIE } from "@/lib/theme";
+import { isTheme, THEME_COOKIE } from "@/lib/theme-shared";
 
 const sans = Hanken_Grotesk({
   subsets: ["latin"],
