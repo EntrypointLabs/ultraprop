@@ -15,8 +15,6 @@ import {
 import type { TradeRecord } from "@/lib/mock/types";
 import { formatUsd } from "@/lib/utils";
 
-const SUI_EXPLORER = "https://suiexplorer.com/txblock";
-
 type SortKey =
   | "ts"
   | "symbol"
@@ -46,7 +44,7 @@ function SideBadge({ side }: { side: "long" | "short" }) {
 
 function mockCsvExport(trades: TradeRecord[]) {
   const header =
-    "id,symbol,side,sizeUsd,oracleMid,fill,slippageBps,tiltBps,venue,realizedPnl,ts,txDigest";
+    "id,symbol,side,sizeUsd,marketPrice,fill,slippageBps,tiltBps,realizedPnl,ts";
   const rows = trades.map((t) =>
     [
       t.id,
@@ -57,10 +55,8 @@ function mockCsvExport(trades: TradeRecord[]) {
       t.fill,
       t.slippageBps,
       t.tiltBps,
-      t.venue,
       t.realizedPnl,
       new Date(t.ts).toISOString(),
-      t.txDigest,
     ].join(","),
   );
   const csv = [header, ...rows].join("\n");
@@ -175,7 +171,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Size
               </Th>
-              <Th numeric>Market</Th>
+              <Th numeric>Mkt Price</Th>
               <Th
                 numeric
                 sortable
@@ -190,10 +186,9 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                 sortDir={sortDir4("slippageBps")}
                 onSort={() => toggleSort("slippageBps")}
               >
-                Slip
+                Impact
               </Th>
-              <Th numeric>Tilt</Th>
-              <Th>Venue</Th>
+              <Th numeric>Spread</Th>
               <Th
                 numeric
                 sortable
@@ -202,7 +197,6 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Realized PnL
               </Th>
-              <Th>Verify</Th>
             </Tr>
           </Thead>
           <Tbody>
@@ -252,23 +246,16 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                     </span>
                   </Td>
                   <Td numeric>
-                    <Tooltip content="Slippage bps applied at fill">
+                    <Tooltip content="Size impact bps at fill">
                       <span className="tabular text-text-muted">
                         {trade.slippageBps.toFixed(1)} bps
                       </span>
                     </Tooltip>
                   </Td>
                   <Td numeric>
-                    <Tooltip content="+2 bps house tilt, always against the trader">
+                    <Tooltip content="+2 bps desk spread, always against the trader">
                       <span className="tabular text-warn">
                         +{trade.tiltBps} bps
-                      </span>
-                    </Tooltip>
-                  </Td>
-                  <Td>
-                    <Tooltip content="Routed via the 7K aggregator — best of Cetus, Aftermath, Turbos, Kriya">
-                      <span className="inline-flex items-center rounded-sm bg-brand/10 px-1.5 py-0.5 text-xs font-semibold text-brand">
-                        {trade.venue}
                       </span>
                     </Tooltip>
                   </Td>
@@ -282,16 +269,6 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                         formatUsd(trade.realizedPnl, { sign: true })
                       )}
                     </span>
-                  </Td>
-                  <Td>
-                    <a
-                      href={`${SUI_EXPLORER}/${trade.txDigest}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-0.5 text-xs text-text-muted underline underline-offset-2 hover:text-violet"
-                    >
-                      Verify ↗
-                    </a>
                   </Td>
                 </Tr>
               );
