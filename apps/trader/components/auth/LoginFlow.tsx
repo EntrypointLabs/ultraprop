@@ -15,29 +15,46 @@ import { Button } from "@/components/ui/Button";
 import { useMockStore } from "@/lib/mock/store";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// Password the mock backend rejects, so the failure state is reachable in a demo.
+const REJECTED_PASSWORD = "wrong";
 
 export function LoginFlow() {
   const router = useRouter();
   const signIn = useMockStore((s) => s.signIn);
 
   const [email, setEmail] = React.useState("");
+  const [emailError, setEmailError] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [formError, setFormError] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
 
   const valid = EMAIL_RE.test(email.trim()) && password.length > 0;
 
-  function authenticate() {
-    if (submitting) return;
-    setSubmitting(true);
-    window.setTimeout(() => {
-      signIn();
-      router.push("/markets");
-    }, 700);
+  function complete() {
+    signIn();
+    router.push("/markets");
   }
 
-  function submit(e: React.FormEvent) {
+  function socialSignIn() {
+    if (submitting) return;
+    setSubmitting(true);
+    window.setTimeout(complete, 700);
+  }
+
+  function submitCredentials(e: React.SyntheticEvent) {
     e.preventDefault();
-    if (valid) authenticate();
+    if (!valid || submitting) return;
+    setFormError("");
+    setSubmitting(true);
+    // Simulate the credential check.
+    window.setTimeout(() => {
+      if (password.toLowerCase() === REJECTED_PASSWORD) {
+        setSubmitting(false);
+        setFormError("Incorrect email or password. Try again.");
+        return;
+      }
+      complete();
+    }, 700);
   }
 
   return (
@@ -47,7 +64,7 @@ export function LoginFlow() {
         subtitle="Sign in to pick up your evaluation."
       />
 
-      <SocialAuthButtons onSelect={authenticate} disabled={submitting} />
+      <SocialAuthButtons onSelect={socialSignIn} disabled={submitting} />
 
       <div className="my-5 flex items-center gap-3">
         <span className="h-px flex-1 bg-border" />
@@ -55,7 +72,15 @@ export function LoginFlow() {
         <span className="h-px flex-1 bg-border" />
       </div>
 
-      <form onSubmit={submit} noValidate>
+      <form onSubmit={submitCredentials} noValidate>
+        {formError && (
+          <p
+            role="alert"
+            className="mb-3 rounded-[var(--radius)] border border-down/40 bg-down/10 px-3 py-2 text-sm text-down"
+          >
+            {formError}
+          </p>
+        )}
         <div className="flex flex-col gap-3">
           <AuthField
             id="login-email"
@@ -66,7 +91,19 @@ export function LoginFlow() {
             autoFocus
             spellCheck={false}
             value={email}
-            onChange={setEmail}
+            error={emailError}
+            onChange={(v) => {
+              setEmail(v);
+              if (emailError) setEmailError("");
+              if (formError) setFormError("");
+            }}
+            onBlur={() =>
+              setEmailError(
+                email.trim() && !EMAIL_RE.test(email.trim())
+                  ? "Enter a valid email address."
+                  : "",
+              )
+            }
           />
           <AuthField
             id="login-password"
@@ -74,7 +111,10 @@ export function LoginFlow() {
             autoComplete="current-password"
             reveal
             value={password}
-            onChange={setPassword}
+            onChange={(v) => {
+              setPassword(v);
+              if (formError) setFormError("");
+            }}
           />
         </div>
         <div className="mt-2.5 flex justify-end">

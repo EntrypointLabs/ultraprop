@@ -22,6 +22,10 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const STEPS = ["email", "password", "verify"] as const;
 type Step = (typeof STEPS)[number];
 
+// Code that the mock verifier rejects, so the error state is reachable in a demo.
+const REJECTED_CODE = "0000";
+const RESEND_COOLDOWN_S = 20;
+
 const ctaClass = "mt-6 h-14 w-full rounded-full text-base";
 
 export function SignupFlow() {
@@ -30,8 +34,13 @@ export function SignupFlow() {
 
   const [step, setStep] = React.useState<Step>("email");
   const [email, setEmail] = React.useState("");
+  const [emailError, setEmailError] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [code, setCode] = React.useState("");
+  const [codeError, setCodeError] = React.useState("");
+  const [resentNote, setResentNote] = React.useState("");
+  const [otpNonce, setOtpNonce] = React.useState(0);
+  const [cooldown, setCooldown] = React.useState(0);
   const [sending, setSending] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -40,40 +49,76 @@ export function SignupFlow() {
   const passwordValid = isPasswordValid(password);
   const codeValid = code.length >= 4;
 
+  // Resend cooldown ticker.
+  React.useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = window.setInterval(
+      () => setCooldown((c) => Math.max(0, c - 1)),
+      1000,
+    );
+    return () => window.clearInterval(id);
+  }, [cooldown]);
+
   function back() {
     if (step === "verify") setStep("password");
     else if (step === "password") setStep("email");
     else router.push("/");
   }
 
-  function continueFromEmail(e: React.FormEvent) {
-    e.preventDefault();
-    if (emailValid) setStep("password");
+  function validateEmailOnBlur() {
+    setEmailError(
+      email.trim() && !emailValid ? "Enter a valid email address." : "",
+    );
   }
 
-  function continueFromPassword(e: React.FormEvent) {
+  function continueFromEmail(e: React.SyntheticEvent) {
+    e.preventDefault();
+    if (!emailValid) {
+      setEmailError("Enter a valid email address.");
+      return;
+    }
+    setStep("password");
+  }
+
+  function continueFromPassword(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!passwordValid || sending) return;
     setSending(true);
     // Simulate dispatching the verification email.
     window.setTimeout(() => {
       setSending(false);
+      setCooldown(RESEND_COOLDOWN_S);
       setStep("verify");
     }, 650);
   }
 
-  function finish(e: React.FormEvent) {
+  function finish(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!codeValid || submitting) return;
     setSubmitting(true);
+    setCodeError("");
+    setResentNote("");
+    // Simulate the verifier round-trip.
     window.setTimeout(() => {
+      if (code === REJECTED_CODE) {
+        setSubmitting(false);
+        setCodeError("That code didn't match. Check it and try again.");
+        setCode("");
+        setOtpNonce((n) => n + 1); // remount to refocus the first box
+        return;
+      }
       signIn();
       router.push("/markets");
     }, 700);
   }
 
   function resend() {
+    if (cooldown > 0 || submitting) return;
     setCode("");
+    setCodeError("");
+    setResentNote("A new code is on its way to your email.");
+    setOtpNonce((n) => n + 1);
+    setCooldown(RESEND_COOLDOWN_S);
   }
 
   return (
@@ -94,7 +139,12 @@ export function SignupFlow() {
               autoFocus
               spellCheck={false}
               value={email}
-              onChange={setEmail}
+              error={emailError}
+              onChange={(v) => {
+                setEmail(v);
+                if (emailError) setEmailError("");
+              }}
+              onBlur={validateEmailOnBlur}
             />
             <Button
               type="submit"
@@ -151,11 +201,29 @@ export function SignupFlow() {
               subtitle={
                 <>
                   We sent a 4-digit code to{" "}
-                  <span className="font-medium text-text">{email}</span>.
+                  <span className="break-all font-medium text-text">
+                    {email}
+                  </span>
+                  .
                 </>
               }
             />
-            <OtpInput value={code} onChange={setCode} length={4} autoFocus />
+            <OtpInput
+              key={otpNonce}
+              value={code}
+              onChange={(v) => {
+                setCode(v);
+                if (codeError) setCodeError("");
+              }}
+              error={!!codeError}
+              length={4}
+              autoFocus
+            />
+            {codeError && (
+              <p role="alert" className="mt-3 text-sm text-down">
+                {codeError}
+              </p>
+            )}
             <Button
               type="submit"
               variant="primary"
@@ -169,14 +237,29 @@ export function SignupFlow() {
               )}
             </Button>
             <p className="mt-5 text-center text-sm text-text-muted">
-              Didn&apos;t get it?{" "}
-              <button
-                type="button"
-                onClick={resend}
-                className="font-medium text-brand transition-colors hover:text-violet-hover"
-              >
-                Resend code
-              </button>
+              {cooldown > 0 ? (
+                <span className="text-text-faint">
+                  Resend available in {cooldown}s
+                </span>
+              ) : (
+                <>
+                  Didn&apos;t get it?{" "}
+                  <button
+                    type="button"
+                    onClick={resend}
+                    className="font-medium text-brand transition-colors hover:text-violet-hover"
+                  >
+                    Resend code
+                  </button>
+                </>
+              )}
+            </p>
+            <p
+              role="status"
+              aria-live="polite"
+              className="mt-2 min-h-5 text-center text-sm text-up"
+            >
+              {resentNote}
             </p>
           </form>
         )}
