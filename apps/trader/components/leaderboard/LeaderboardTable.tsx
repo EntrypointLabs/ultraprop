@@ -47,8 +47,8 @@ function RankCell({ rank }: { rank: number }) {
 
 function TierBadge({ tier }: { tier: string }) {
   const colorMap: Record<string, string> = {
-    Pro: "text-brand bg-brand/15",
-    Basic: "text-violet bg-violet/15",
+    Pro: "text-on-accent bg-brand/15",
+    Basic: "text-on-accent bg-violet/15",
     Starter: "text-text-muted bg-surface-3",
   };
   const cls = colorMap[tier] ?? colorMap.Starter;

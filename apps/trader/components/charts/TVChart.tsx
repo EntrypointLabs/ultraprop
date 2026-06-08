@@ -7,6 +7,8 @@ import type {
   UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
+import { getChartColors } from "@/lib/chart-colors";
+import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 export interface TVPoint {
@@ -47,18 +49,13 @@ export interface TVChartProps {
   className?: string;
 }
 
-const GRID = "#1c1c22";
-const AXIS = "#2a2a30";
-const TEXT = "#6b6b73";
-const ACCENT = "#e5484d";
-
 const toTime = (ms: number) => Math.floor(ms / 1000) as UTCTimestamp;
 
 /**
- * Dark TradingView-style chart (Lightweight Charts v5). Used for the equity
- * curve and the home spotlight price charts so they read like a real terminal:
- * faint grid, magnet crosshair with axis labels, last-value price tag, a soft
- * area gradient, and a faint corner watermark.
+ * TradingView-style chart (Lightweight Charts v5). Used for the equity curve
+ * and the home spotlight price charts so they read like a real terminal: faint
+ * grid, magnet crosshair with axis labels, last-value price tag, a soft area
+ * gradient, and a faint corner watermark. Colors track the active theme.
  */
 export function TVChart({
   series,
@@ -71,10 +68,14 @@ export function TVChart({
   precision = 2,
   className,
 }: TVChartProps) {
+  const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area" | "Line">[]>([]);
   const priceLineRef = useRef<IPriceLine[]>([]);
+  // latest colors for the create-once effect (first render correct)
+  const colorsRef = useRef(getChartColors(resolvedTheme));
+  colorsRef.current = getChartColors(resolvedTheme);
   // latest props for the create-once effect
   const propsRef = useRef({
     series,
@@ -106,6 +107,7 @@ export function TVChart({
       ({ createChart, AreaSeries, LineSeries, CrosshairMode }) => {
         if (destroyed || !containerRef.current) return;
         const p = propsRef.current;
+        const c = colorsRef.current;
 
         const chart = createChart(containerRef.current, {
           width: containerRef.current.clientWidth,
@@ -113,38 +115,38 @@ export function TVChart({
           autoSize: false,
           layout: {
             background: { color: "transparent" },
-            textColor: TEXT,
+            textColor: c.text,
             fontFamily: "var(--font-mono-face), ui-monospace, monospace",
             fontSize: 11,
             attributionLogo: false,
           },
           grid: {
-            vertLines: { color: GRID },
-            horzLines: { color: GRID },
+            vertLines: { color: c.grid },
+            horzLines: { color: c.grid },
           },
           crosshair: {
             mode: CrosshairMode.Magnet,
             vertLine: {
-              color: "#3a3a44",
+              color: c.crosshair,
               width: 1,
               style: 3,
-              labelBackgroundColor: ACCENT,
+              labelBackgroundColor: c.accent,
             },
             horzLine: {
-              color: "#3a3a44",
+              color: c.crosshair,
               width: 1,
               style: 3,
-              labelBackgroundColor: ACCENT,
+              labelBackgroundColor: c.accent,
             },
           },
           rightPriceScale: {
             visible: p.showPriceScale,
-            borderColor: AXIS,
+            borderColor: c.axis,
             scaleMargins: { top: 0.12, bottom: 0.12 },
           },
           timeScale: {
             visible: p.showTimeScale,
-            borderColor: AXIS,
+            borderColor: c.axis,
             timeVisible: true,
             secondsVisible: false,
             rightOffset: 4,
@@ -161,7 +163,7 @@ export function TVChart({
 
         chartRef.current = chart;
         seriesRef.current = p.series.map((s) => {
-          const color = s.color ?? ACCENT;
+          const color = s.color ?? c.accent;
           if (s.type === "line") {
             const ls = chart.addSeries(LineSeries, {
               color,
@@ -176,8 +178,8 @@ export function TVChart({
           }
           const as = chart.addSeries(AreaSeries, {
             lineColor: color,
-            topColor: s.topColor ?? "rgba(229,72,77,0.26)",
-            bottomColor: s.bottomColor ?? "rgba(229,72,77,0.01)",
+            topColor: s.topColor ?? c.gradientFrom,
+            bottomColor: s.bottomColor ?? c.gradientTo,
             lineWidth: s.lineWidth ?? 2,
             priceLineVisible: true,
             priceLineStyle: 2,
@@ -186,7 +188,7 @@ export function TVChart({
             crosshairMarkerVisible: true,
             crosshairMarkerRadius: 4,
             crosshairMarkerBorderColor: color,
-            crosshairMarkerBackgroundColor: "#0a0a0c",
+            crosshairMarkerBackgroundColor: c.markerBg,
           });
           as.setData(s.data.map((d) => ({ time: toTime(d.t), value: d.v })));
           return as;
@@ -228,6 +230,45 @@ export function TVChart({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Recolor an on-screen chart when the theme changes (no remount).
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const c = getChartColors(resolvedTheme);
+    chart.applyOptions({
+      layout: { textColor: c.text },
+      grid: {
+        vertLines: { color: c.grid },
+        horzLines: { color: c.grid },
+      },
+      crosshair: {
+        vertLine: { color: c.crosshair, labelBackgroundColor: c.accent },
+        horzLine: { color: c.crosshair, labelBackgroundColor: c.accent },
+      },
+      rightPriceScale: { borderColor: c.axis },
+      timeScale: { borderColor: c.axis },
+    });
+    series.forEach((s, i) => {
+      const api = seriesRef.current[i];
+      if (!api) return;
+      const color = s.color ?? c.accent;
+      if (s.type === "line") {
+        api.applyOptions({ color });
+        return;
+      }
+      api.applyOptions({
+        lineColor: color,
+        topColor: s.topColor ?? c.gradientFrom,
+        bottomColor: s.bottomColor ?? c.gradientTo,
+        priceLineColor: color,
+        crosshairMarkerBorderColor: color,
+        crosshairMarkerBackgroundColor: c.markerBg,
+      });
+    });
+    // series colors are reapplied here; the create-once effect owns initial setup
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedTheme]);
 
   // Stream the latest point of each series.
   useEffect(() => {

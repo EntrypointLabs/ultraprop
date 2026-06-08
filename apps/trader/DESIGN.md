@@ -30,42 +30,73 @@ feel hidden or rigged.
 | Onboarding "Welcome" modal | First-visit onboarding modal |
 | `● Online` status + Report-a-bug/Terms/Privacy footer | Same: connection status + footer |
 
-## Palette (CSS variables, dark only — no light mode, per scope)
+## Palette (CSS variables — dual theme: Dark + Institutional Light)
+
+The system ships **two faithful renderings of one palette**: the dark cockpit and an
+institutional-white light theme. Same semantic token *names*, same brand laws; only the
+values and how they resolve differ. The accent is a single confident **red** (lime/violet
+were never shipped). Both themes are WCAG 2.2 AA across body, large, and placeholder text.
+
+**Token mechanism (3 layers, Tailwind v4):**
+
+1. **Bridge** — `@theme inline { --color-bg: var(--bg); … }` so each utility resolves to a
+   value-layer var at runtime; Tailwind never bakes a static hex, so a class swap repaints
+   everything.
+2. **Value sets** — `:root` (and the explicit `.light` scope) hold the light values; `.dark`
+   holds the dark values. `color-scheme` flips with the class so native controls follow.
+3. **Static** — `@theme { … }` for theme-independent radii, type scale, and fonts.
+
+A **System / Light / Dark** control lives in the profile/settings menu. Default follows the
+OS, falling back to light. A cookie-read class on `<html>` + an inline pre-paint script make
+the first paint flash-free (SSR-safe).
 
 ```
+TOKEN          DARK        LIGHT       ROLE
 /* canvas */
---bg            #0A0A0C   /* app background */
---surface       #16161A   /* cards, table, nav */
---surface-2     #1F1F24   /* raised: inputs, hover, popovers */
---surface-3     #2A2A30   /* borders-as-fills, skeletons */
---border        #2A2A30   /* hairline borders */
---border-soft   #1E1E23
+--bg           #0A0A0C     #FCFCFD     app background (chroma-0 near-white in light)
+--surface      #16161A     #FFFFFF     cards, table, nav
+--surface-2    #1F1F24     #F4F4F6     raised: inputs, hover, popovers
+--surface-3    #2A2A30     #E9E9EE     borders-as-fills, skeletons
+--border       #2A2A30     #E7E7EC     hairline borders
+--border-soft  #1E1E23     #F0F0F3
 
-/* text */
---text          #F4F4F5   /* primary */
---text-muted    #A1A1AA   /* secondary / labels */
---text-faint    #6B6B73   /* tertiary / disabled */
+/* text — AA on every surface step in both themes */
+--text         #F4F4F5     #18181B     primary
+--text-muted   #A1A1AA     #56565F     secondary / labels
+--text-faint   #8C8C96     #71717A     tertiary / placeholders (dark lifted from #6B6B73 to clear AA)
 
-/* brand + action */
---brand         #D4F23E   /* electric lime — logo, leverage badge, brand emphasis */
---brand-ink     #0A0A0C   /* text on lime */
---violet        #6D5DFC   /* primary actions, Sign in, key CTAs */
---violet-hover  #5B4BEA
+/* accent + action — one confident red; brand aliases the action color */
+--brand        #E5484D     #DC3D42     logo, primary CTA fill, brand emphasis
+--brand-ink    #FFFFFF     #FFFFFF     text on the red fill
+--violet       #E5484D     #DC3D42     (kept as a name for legacy CTAs; resolves to the red)
+--violet-hover #D6383E     #C5343A
 
-/* P&L + state */
---up            #34D399   /* gains, Long, safe */
---down          #F87171   /* losses, Short, danger */
---warn          #F4C752   /* amber — Genesis/PENDING tags, "approaching breach" */
---info          #38BDF8
+/* P&L + state — re-tuned for the light canvas (dark keeps its brighter set) */
+--up           #34D399     #0C8051     gains, Long, safe (4.85:1 on #FCFCFD)
+--down         #F87171     #D4313A     losses, Short, danger (4.76:1)
+--warn         #F4C752     #B45309     amber warn (5.02:1 vs lime's 1.6:1 on white)
+--info         #38BDF8     #0369A1     info (sky-400 fails on white; deepened)
 
-/* rule-pill thresholds */
---pill-safe     var(--up)     /* > 30% budget remaining */
---pill-warn     var(--warn)   /* within 30% of breach */
---pill-danger   var(--down)   /* within 10% of breach */
+/* on-tint text — deeper label colors for text on a same-hue 15-20% tint (badges/chips).
+   In light the base hue can't clear 4.5:1 on its own tint; these do. In dark they equal
+   the base hues, so dark badge rendering is unchanged. */
+--on-up        #34D399     #085C3A
+--on-down      #F87171     #A51F27
+--on-warn      #F4C752     #8F4207
+--on-accent    #E5484D     #9E262C
+
+/* rule-pill thresholds (same semantic mapping in both) */
+--pill-safe    var(--up)      /* > 30% budget remaining */
+--pill-warn    var(--warn)    /* within 30% of breach */
+--pill-danger  var(--down)    /* within 10% of breach */
 ```
 
-Use HSL/oklch or hex via Tailwind v4 `@theme` tokens. Expose as semantic Tailwind colors
-(`bg-surface`, `text-muted`, `text-brand`, `bg-violet`, `text-up`, `text-down`, `text-warn`).
+Hex via Tailwind v4 `@theme` tokens (not OKLCH — a finite, contrast-audited set; identity
+parity wins). Expose as semantic Tailwind colors (`bg-surface`, `text-muted`, `bg-brand`,
+`text-up`, `text-down`, `text-warn`, `text-on-up`/`text-on-accent` for tinted chips). The
+light canvas is true chroma-0 "institutional white" — never a warm cream/sand near-white,
+which reads as the generic AI-SaaS default. Warmth is carried by the accent and type, never
+by a tinted body.
 
 ## Typography
 

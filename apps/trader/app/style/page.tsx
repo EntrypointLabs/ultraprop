@@ -36,7 +36,10 @@ import {
 } from "@/components/ui";
 import { DEMO_WALLET, INITIAL_PRICES, SEED_NOW } from "@/lib/mock/fixtures";
 import { slippagePreview } from "@/lib/slippage-preview";
+import { type ResolvedTheme, useTheme } from "@/lib/theme";
 import { formatPct, formatUsd } from "@/lib/utils";
+
+type PreviewMode = "side-by-side" | "active";
 
 function Section({
   title,
@@ -53,7 +56,7 @@ function Section({
   );
 }
 
-export default function StylePage() {
+function Primitives() {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [tab, setTab] = React.useState("equity");
   const [seg, setSeg] = React.useState("long");
@@ -68,14 +71,7 @@ export default function StylePage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl space-y-12 px-4 py-10 sm:px-6">
-      <header>
-        <h1 className="text-3xl font-semibold text-text">Style kitchen sink</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Every UI primitive in every variant. QA reference.
-        </p>
-      </header>
-
+    <div className="space-y-12">
       <Section title="Buttons">
         <Button variant="primary">Primary</Button>
         <Button variant="brand">Brand</Button>
@@ -338,6 +334,57 @@ export default function StylePage() {
           </p>
         </Modal>
       </Section>
+    </div>
+  );
+}
+
+function ThemePanel({ theme, label }: { theme: ResolvedTheme; label: string }) {
+  return (
+    <div
+      className={`${theme} flex-1 rounded-lg border border-border bg-bg p-6`}
+    >
+      <div className="mb-6 flex items-center gap-2">
+        <span className="inline-block size-2.5 rounded-full bg-violet" />
+        <span className="text-sm font-semibold uppercase tracking-wide text-text-muted">
+          {label}
+        </span>
+      </div>
+      <Primitives />
+    </div>
+  );
+}
+
+export default function StylePage() {
+  const { resolvedTheme } = useTheme();
+  const [mode, setMode] = React.useState<PreviewMode>("side-by-side");
+
+  return (
+    <div className="mx-auto max-w-[120rem] space-y-8 px-4 py-10 sm:px-6">
+      <header className="space-y-3">
+        <h1 className="text-3xl font-semibold text-text">Style kitchen sink</h1>
+        <p className="text-sm text-text-muted">
+          Every UI primitive in both themes. The QA surface for the
+          contrast/anti-slop pass and the dark screenshot-diff. Active theme:{" "}
+          <span className="text-text">{resolvedTheme}</span>.
+        </p>
+        <SegmentedControl
+          options={[
+            { value: "side-by-side", label: "Light | Dark" },
+            { value: "active", label: "Active theme" },
+          ]}
+          value={mode}
+          onValueChange={setMode}
+        />
+      </header>
+
+      {mode === "side-by-side" ? (
+        <div className="flex flex-col gap-6 xl:flex-row">
+          <ThemePanel theme="light" label="Light" />
+          <ThemePanel theme="dark" label="Dark" />
+        </div>
+      ) : (
+        <ThemePanel theme={resolvedTheme} label={resolvedTheme} />
+      )}
     </div>
   );
 }

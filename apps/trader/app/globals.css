@@ -1,37 +1,53 @@
 @import "tailwindcss";
 
-@theme {
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Layer A — semantic utility bridge. Each color utility resolves to a
+   value-layer var() at runtime; inline is required so Tailwind never bakes
+   a static hex and the class swap can repaint everything. */
+@theme inline {
   /* canvas */
-  --color-bg: #0a0a0c;
-  --color-surface: #16161a;
-  --color-surface-2: #1f1f24;
-  --color-surface-3: #2a2a30;
-  --color-border: #2a2a30;
-  --color-border-soft: #1e1e23;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-soft: var(--border-soft);
 
   /* text */
-  --color-text: #f4f4f5;
-  --color-text-muted: #a1a1aa;
-  --color-text-faint: #6b6b73;
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
 
   /* accent + action — single confident red; brand aliases the action color.
      Distinct from the softer P&L loss-red (--color-down) so brand never reads as "loss". */
-  --color-brand: #e5484d;
-  --color-brand-ink: #ffffff;
-  --color-violet: #e5484d;
-  --color-violet-hover: #d6383e;
+  --color-brand: var(--brand);
+  --color-brand-ink: var(--brand-ink);
+  --color-violet: var(--violet);
+  --color-violet-hover: var(--violet-hover);
 
   /* P&L + state */
-  --color-up: #34d399;
-  --color-down: #f87171;
-  --color-warn: #f4c752;
-  --color-info: #38bdf8;
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --color-warn: var(--warn);
+  --color-info: var(--info);
 
   /* rule-pill thresholds */
-  --color-pill-safe: #34d399;
-  --color-pill-warn: #f4c752;
-  --color-pill-danger: #f87171;
+  --color-pill-safe: var(--pill-safe);
+  --color-pill-warn: var(--pill-warn);
+  --color-pill-danger: var(--pill-danger);
 
+  /* on-tint text — deeper variants for label text sitting on a same-hue 15%
+     tint (badges). In light the base hue on its own tint can't clear 4.5:1;
+     these darker values do. In dark they equal the base hues (no change). */
+  --color-on-up: var(--on-up);
+  --color-on-down: var(--on-down);
+  --color-on-warn: var(--on-warn);
+  --color-on-accent: var(--on-accent);
+}
+
+/* Layer C — static, theme-independent tokens. */
+@theme {
   /* radii */
   --radius-sm: 6px;
   --radius: 10px;
@@ -55,8 +71,121 @@
   --font-mono: var(--font-mono-face), ui-monospace, "SFMono-Regular", monospace;
 }
 
+/* Layer B — per-theme value sets. Light is the default front door. */
 :root {
+  color-scheme: light;
+
+  /* canvas — chroma-0 near-white; no warm tint */
+  --bg: #fcfcfd;
+  --surface: #ffffff;
+  --surface-2: #f4f4f6;
+  --surface-3: #e9e9ee;
+  --border: #e7e7ec;
+  --border-soft: #f0f0f3;
+
+  /* text — chroma-0 zinc ramp, all AA on the light canvas */
+  --text: #18181b;
+  --text-muted: #56565f;
+  --text-faint: #71717a;
+
+  /* accent + action */
+  --brand: #dc3d42;
+  --brand-ink: #ffffff;
+  --violet: #dc3d42;
+  --violet-hover: #c5343a;
+
+  /* P&L + state — re-tuned for AA on white */
+  --up: #0c8051;
+  --down: #d4313a;
+  --warn: #b45309;
+  --info: #0369a1;
+
+  /* rule-pill thresholds */
+  --pill-safe: #0c8051;
+  --pill-warn: #b45309;
+  --pill-danger: #d4313a;
+
+  /* on-tint text (badge labels on a 15% same-hue tint) — AA on every light surface step */
+  --on-up: #085c3a;
+  --on-down: #a51f27;
+  --on-warn: #8f4207;
+  --on-accent: #9e262c;
+}
+
+/* Explicit light scope — mirrors :root so a subtree can be forced light even
+   under a global .dark <html> (the /style side-by-side preview relies on this). */
+.light {
+  color-scheme: light;
+
+  --bg: #fcfcfd;
+  --surface: #ffffff;
+  --surface-2: #f4f4f6;
+  --surface-3: #e9e9ee;
+  --border: #e7e7ec;
+  --border-soft: #f0f0f3;
+
+  --text: #18181b;
+  --text-muted: #56565f;
+  --text-faint: #71717a;
+
+  --brand: #dc3d42;
+  --brand-ink: #ffffff;
+  --violet: #dc3d42;
+  --violet-hover: #c5343a;
+
+  --up: #0c8051;
+  --down: #d4313a;
+  --warn: #b45309;
+  --info: #0369a1;
+
+  --pill-safe: #0c8051;
+  --pill-warn: #b45309;
+  --pill-danger: #d4313a;
+
+  --on-up: #085c3a;
+  --on-down: #a51f27;
+  --on-warn: #8f4207;
+  --on-accent: #9e262c;
+}
+
+.dark {
   color-scheme: dark;
+
+  /* canvas */
+  --bg: #0a0a0c;
+  --surface: #16161a;
+  --surface-2: #1f1f24;
+  --surface-3: #2a2a30;
+  --border: #2a2a30;
+  --border-soft: #1e1e23;
+
+  /* text — faint lifted from #6b6b73 (3.6:1) to clear AA */
+  --text: #f4f4f5;
+  --text-muted: #a1a1aa;
+  --text-faint: #8c8c96;
+
+  /* accent + action */
+  --brand: #e5484d;
+  --brand-ink: #ffffff;
+  --violet: #e5484d;
+  --violet-hover: #d6383e;
+
+  /* P&L + state */
+  --up: #34d399;
+  --down: #f87171;
+  --warn: #f4c752;
+  --info: #38bdf8;
+
+  /* rule-pill thresholds */
+  --pill-safe: #34d399;
+  --pill-warn: #f4c752;
+  --pill-danger: #f87171;
+
+  /* on-tint text equals the base hues in dark — badge rendering unchanged */
+  --on-up: #34d399;
+  --on-down: #f87171;
+  --on-warn: #f4c752;
+  --on-accent: #e5484d;
 }
 
 /* Anthropic Sans — body face. Drop the .woff2 files into apps/trader/public/fonts/
@@ -91,8 +220,8 @@
 }
 
 html {
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  background-color: var(--bg);
+  color: var(--text);
   font-size: 14px;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -100,8 +229,8 @@ html {
 }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  background-color: var(--bg);
+  color: var(--text);
   min-height: 100dvh;
 }
 
@@ -133,13 +262,13 @@ a,
 
 /* selection */
 ::selection {
-  background-color: color-mix(in oklab, var(--color-violet) 40%, transparent);
-  color: var(--color-text);
+  background-color: color-mix(in oklab, var(--violet) 40%, transparent);
+  color: var(--text);
 }
 
 /* focus ring */
 *:focus-visible {
-  outline: 2px solid var(--color-violet);
+  outline: 2px solid var(--violet);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
@@ -147,7 +276,7 @@ a,
 /* scrollbar */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-surface-3) transparent;
+  scrollbar-color: var(--surface-3) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
@@ -157,12 +286,12 @@ a,
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: var(--color-surface-3);
+  background-color: var(--surface-3);
   border-radius: var(--radius-full);
-  border: 2px solid var(--color-bg);
+  border: 2px solid var(--bg);
 }
 *::-webkit-scrollbar-thumb:hover {
-  background-color: #3a3a42;
+  background-color: var(--surface-3);
 }
 
 /* ---- Top rail ---- */
@@ -173,17 +302,17 @@ a,
   background-image:
     linear-gradient(
       45deg,
-      var(--color-violet) 25%,
+      var(--violet) 25%,
       transparent 25%,
       transparent 75%,
-      var(--color-violet) 75%
+      var(--violet) 75%
     ),
     linear-gradient(
       45deg,
-      var(--color-violet) 25%,
+      var(--violet) 25%,
       transparent 25%,
       transparent 75%,
-      var(--color-violet) 75%
+      var(--violet) 75%
     );
   background-size: 6px 6px;
   background-position:
@@ -192,22 +321,25 @@ a,
   opacity: 0.9;
 }
 
-/* A calm dark feature banner (onboarding / share card). No pixel checkerboard. */
+/* A calm dark feature banner (onboarding / share card). No pixel checkerboard.
+   Pinned to a fixed deep surface in both themes so the white --brand-ink text the
+   consumers render stays legible on the light canvas too — the motif is a dark
+   feature card, not a theme-flipping panel. */
 .pixel-banner {
   background:
     radial-gradient(
       120% 140% at 0% 0%,
-      color-mix(in oklab, var(--color-violet) 14%, transparent),
+      color-mix(in oklab, #e5484d 14%, transparent),
       transparent 60%
     ),
-    linear-gradient(135deg, var(--color-surface-2), var(--color-surface));
-  border: 1px solid var(--color-border);
+    linear-gradient(135deg, #1f1f24, #16161a);
+  border: 1px solid #2a2a30;
 }
 
 /* number tick flash */
 @keyframes flash-up {
   0% {
-    color: var(--color-up);
+    color: var(--up);
   }
   100% {
     color: inherit;
@@ -215,7 +347,7 @@ a,
 }
 @keyframes flash-down {
   0% {
-    color: var(--color-down);
+    color: var(--down);
   }
   100% {
     color: inherit;
