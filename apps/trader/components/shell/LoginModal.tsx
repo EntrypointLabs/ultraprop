@@ -1,30 +1,45 @@
 "use client";
 
+import { useLoginWithOAuth } from "@privy-io/react-auth";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import {
   EmailAuthButton,
+  type OAuthProvider,
   SocialAuthButtons,
 } from "@/components/auth/social";
 import { Modal } from "@/components/ui/Modal";
 import { useMockStore } from "@/lib/mock/store";
 
 /**
- * Entry point to auth. Social providers sign in instantly (mock OAuth); the
- * email option leaves the modal for the full-page `/signup` flow.
+ * Entry point to auth. Social providers run Privy OAuth; the email option
+ * leaves the modal for the full-page `/signup` flow.
  */
 export function LoginModal() {
   const router = useRouter();
   const open = useMockStore((s) => s.loginOpen);
   const close = useMockStore((s) => s.closeLogin);
-  const signIn = useMockStore((s) => s.signIn);
+  const { initOAuth, state } = useLoginWithOAuth({
+    onComplete: () => {
+      close();
+      router.push("/markets");
+    },
+  });
+  const oauthBusy = state.status === "loading";
 
   const firstButtonRef = React.useRef<HTMLButtonElement>(null);
 
   React.useEffect(() => {
     if (open) firstButtonRef.current?.focus();
   }, [open]);
+
+  function social(provider: OAuthProvider) {
+    if (oauthBusy) return;
+    initOAuth({ provider }).catch(() => {
+      /* surfaced by Privy; the modal stays open for retry */
+    });
+  }
 
   function goToSignup() {
     close();
@@ -60,7 +75,11 @@ export function LoginModal() {
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <SocialAuthButtons onSelect={signIn} firstRef={firstButtonRef} />
+          <SocialAuthButtons
+            onSelect={social}
+            disabled={oauthBusy}
+            firstRef={firstButtonRef}
+          />
           <EmailAuthButton onClick={goToSignup}>
             Sign up with Email
           </EmailAuthButton>

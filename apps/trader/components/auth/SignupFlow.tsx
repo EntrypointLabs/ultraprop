@@ -1,5 +1,6 @@
 "use client";
 
+import { useLoginWithEmail } from "@privy-io/react-auth";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -16,26 +17,29 @@ import {
   PasswordChecklist,
 } from "@/components/auth/PasswordChecklist";
 import { Button } from "@/components/ui/Button";
-import { useMockStore } from "@/lib/mock/store";
+import { authErrorMessage } from "@/lib/auth";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const STEPS = ["email", "password", "verify"] as const;
 type Step = (typeof STEPS)[number];
 
-// Code that the mock verifier rejects, so the error state is reachable in a demo.
-const REJECTED_CODE = "0000";
-const RESEND_COOLDOWN_S = 20;
-
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_S = 30;
 const ctaClass = "mt-6 h-14 w-full rounded-full text-base";
 
 export function SignupFlow() {
   const router = useRouter();
-  const signIn = useMockStore((s) => s.signIn);
+  // Privy authenticates by email OTP. The password collected below is for
+  // parity with the expected Kalshi-style flow; Privy itself is passwordless.
+  const { sendCode, loginWithCode } = useLoginWithEmail({
+    onComplete: () => router.push("/markets"),
+  });
 
   const [step, setStep] = React.useState<Step>("email");
   const [email, setEmail] = React.useState("");
   const [emailError, setEmailError] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [sendError, setSendError] = React.useState("");
   const [code, setCode] = React.useState("");
   const [codeError, setCodeError] = React.useState("");
   const [resentNote, setResentNote] = React.useState("");
@@ -47,9 +51,8 @@ export function SignupFlow() {
   const stepIndex = STEPS.indexOf(step);
   const emailValid = EMAIL_RE.test(email.trim());
   const passwordValid = isPasswordValid(password);
-  const codeValid = code.length >= 4;
+  const codeValid = code.length >= OTP_LENGTH;
 
-  // Resend cooldown ticker.
   React.useEffect(() => {
     if (cooldown <= 0) return;
     const id = window.setInterval(
@@ -80,45 +83,54 @@ export function SignupFlow() {
     setStep("password");
   }
 
-  function continueFromPassword(e: React.SyntheticEvent) {
+  async function continueFromPassword(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!passwordValid || sending) return;
     setSending(true);
-    // Simulate dispatching the verification email.
-    window.setTimeout(() => {
-      setSending(false);
+    setSendError("");
+    try {
+      await sendCode({ email: email.trim() });
       setCooldown(RESEND_COOLDOWN_S);
       setStep("verify");
-    }, 650);
+    } catch (err) {
+      setSendError(
+        authErrorMessage(err, "Could not send a code. Check the email and retry."),
+      );
+    } finally {
+      setSending(false);
+    }
   }
 
-  function finish(e: React.SyntheticEvent) {
+  async function finish(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!codeValid || submitting) return;
     setSubmitting(true);
     setCodeError("");
     setResentNote("");
-    // Simulate the verifier round-trip.
-    window.setTimeout(() => {
-      if (code === REJECTED_CODE) {
-        setSubmitting(false);
-        setCodeError("That code didn't match. Check it and try again.");
-        setCode("");
-        setOtpNonce((n) => n + 1); // remount to refocus the first box
-        return;
-      }
-      signIn();
-      router.push("/markets");
-    }, 700);
+    try {
+      await loginWithCode({ code });
+      // onComplete navigates to /markets; keep the button busy through nav.
+    } catch {
+      setSubmitting(false);
+      setCodeError("That code didn't match. Check it and try again.");
+      setCode("");
+      setOtpNonce((n) => n + 1);
+    }
   }
 
-  function resend() {
-    if (cooldown > 0 || submitting) return;
+  async function resend() {
+    if (cooldown > 0 || sending) return;
     setCode("");
     setCodeError("");
-    setResentNote("A new code is on its way to your email.");
-    setOtpNonce((n) => n + 1);
-    setCooldown(RESEND_COOLDOWN_S);
+    setResentNote("");
+    try {
+      await sendCode({ email: email.trim() });
+      setResentNote("A new code is on its way to your email.");
+      setOtpNonce((n) => n + 1);
+      setCooldown(RESEND_COOLDOWN_S);
+    } catch (err) {
+      setCodeError(authErrorMessage(err, "Could not resend the code."));
+    }
   }
 
   return (
@@ -167,7 +179,7 @@ export function SignupFlow() {
           <form onSubmit={continueFromPassword} noValidate>
             <AuthHeading
               title="Create a password"
-              subtitle="Keep it strong. You can sign in with it any time."
+              subtitle="Keep it strong. We'll email you a code to confirm it's you."
             />
             <AuthField
               id="signup-password"
@@ -176,9 +188,17 @@ export function SignupFlow() {
               autoFocus
               reveal
               value={password}
-              onChange={setPassword}
+              onChange={(v) => {
+                setPassword(v);
+                if (sendError) setSendError("");
+              }}
             />
             <PasswordChecklist password={password} className="mt-4" />
+            {sendError && (
+              <p role="alert" className="mt-3 text-sm text-down">
+                {sendError}
+              </p>
+            )}
             <Button
               type="submit"
               variant="primary"
@@ -200,7 +220,7 @@ export function SignupFlow() {
               title="Enter your code"
               subtitle={
                 <>
-                  We sent a 4-digit code to{" "}
+                  We sent a {OTP_LENGTH}-digit code to{" "}
                   <span className="break-all font-medium text-text">
                     {email}
                   </span>
@@ -216,7 +236,7 @@ export function SignupFlow() {
                 if (codeError) setCodeError("");
               }}
               error={!!codeError}
-              length={4}
+              length={OTP_LENGTH}
               autoFocus
             />
             {codeError && (

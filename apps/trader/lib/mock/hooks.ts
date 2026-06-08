@@ -1,12 +1,15 @@
 "use client";
 
+import { usePrivy, useLogout } from "@privy-io/react-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { suiWalletAddress } from "@/lib/auth";
 import {
   BASE_PRICES,
   buildProfile,
   buildRuleBudgets,
   DEMO_COHORT,
+  DEMO_WALLET,
   DEMO_EQUITY_CURVE,
   DEMO_LEADERBOARD,
   DEMO_POSITIONS,
@@ -38,20 +41,37 @@ import type {
 } from "@/lib/mock/types";
 
 /* ------------------------------------------------------------------ */
-/* Session — backed by the zustand mock store                          */
+/* Session — identity from Privy, balances/allowlist still mocked       */
 /* ------------------------------------------------------------------ */
 
 export function useSession(): {
   session: Session;
+  /** Opens the auth modal; real sign-in happens via Privy in the auth flow. */
   signIn: () => void;
   signOut: () => void;
   hydrated: boolean;
 } {
-  const session = useMockStore((s) => s.session);
-  const signIn = useMockStore((s) => s.signIn);
-  const signOut = useMockStore((s) => s.signOut);
-  const hydrated = useMockStore((s) => s.hydrated);
-  return { session, signIn, signOut, hydrated };
+  const { ready, authenticated, user } = usePrivy();
+  const { logout } = useLogout();
+  const openLogin = useMockStore((s) => s.openLogin);
+
+  const session: Session = authenticated
+    ? {
+        address: suiWalletAddress(user) ?? DEMO_WALLET,
+        chain: "sui",
+        balanceUsd: 0,
+        allowlisted: true,
+        status: "connected",
+      }
+    : {
+        address: null,
+        chain: "sui",
+        balanceUsd: 0,
+        allowlisted: false,
+        status: "disconnected",
+      };
+
+  return { session, signIn: openLogin, signOut: logout, hydrated: ready };
 }
 
 /* ------------------------------------------------------------------ */

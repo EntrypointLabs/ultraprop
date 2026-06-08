@@ -72,25 +72,36 @@ export function AuthProviderButton({
   );
 }
 
+export type OAuthProvider = "google" | "apple";
+
 /**
  * Google + Apple options shared by the entry modal and the login page.
- * `onSelect` fires for either provider (mock OAuth is instant).
+ * `onSelect` receives the chosen provider so the caller can drive Privy OAuth.
  */
 export function SocialAuthButtons({
   onSelect,
   disabled,
   firstRef,
 }: {
-  onSelect: () => void;
+  onSelect: (provider: OAuthProvider) => void;
   disabled?: boolean;
   firstRef?: React.Ref<HTMLButtonElement>;
 }) {
   return (
     <div className="flex flex-col gap-2.5">
-      <AuthProviderButton ref={firstRef} glyph={<GoogleGlyph />} onClick={onSelect} disabled={disabled}>
+      <AuthProviderButton
+        ref={firstRef}
+        glyph={<GoogleGlyph />}
+        onClick={() => onSelect("google")}
+        disabled={disabled}
+      >
         Continue with Google
       </AuthProviderButton>
-      <AuthProviderButton glyph={<AppleGlyph />} onClick={onSelect} disabled={disabled}>
+      <AuthProviderButton
+        glyph={<AppleGlyph />}
+        onClick={() => onSelect("apple")}
+        disabled={disabled}
+      >
         Continue with Apple
       </AuthProviderButton>
     </div>
