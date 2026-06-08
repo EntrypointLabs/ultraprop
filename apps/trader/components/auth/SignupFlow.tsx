@@ -238,7 +238,7 @@ export function SignupFlow() {
             </Button>
             <p className="mt-5 text-center text-sm text-text-muted">
               {cooldown > 0 ? (
-                <span className="text-text-faint">
+                <span className="text-text-muted">
                   Resend available in {cooldown}s
                 </span>
               ) : (

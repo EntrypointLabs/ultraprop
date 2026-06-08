@@ -99,7 +99,7 @@ export function AuthLegal({ className }: { className?: string }) {
   return (
     <p
       className={cn(
-        "mt-6 text-center text-xs leading-relaxed text-text-faint",
+        "mt-6 text-center text-xs leading-relaxed text-text-muted",
         className,
       )}
     >

@@ -68,7 +68,7 @@ export function LoginFlow() {
 
       <div className="my-5 flex items-center gap-3">
         <span className="h-px flex-1 bg-border" />
-        <span className="text-xs text-text-faint">or</span>
+        <span className="text-xs text-text-muted">or</span>
         <span className="h-px flex-1 bg-border" />
       </div>
 

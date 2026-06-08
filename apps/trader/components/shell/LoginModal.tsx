@@ -67,7 +67,7 @@ export function LoginModal() {
         </div>
 
 
-        <p className="mt-5 text-center text-[11px] leading-relaxed text-text-faint">
+        <p className="mt-5 text-center text-[11px] leading-relaxed text-text-muted">
           By continuing you agree to the{" "}
           <span className="text-text-muted">Terms</span> and{" "}
           <span className="text-text-muted">Privacy Policy</span>.
@@ -84,7 +84,7 @@ export function LoginModal() {
           </button>
         </p>
 
-        <p className="mt-5 text-center text-[11px] leading-relaxed text-text-faint"> Secured by{" "}
+        <p className="mt-5 text-center text-[11px] leading-relaxed text-text-muted"> Secured by{" "}
           <span className="text-text-muted">Privy</span>.</p>
       </div>
     </Modal>
