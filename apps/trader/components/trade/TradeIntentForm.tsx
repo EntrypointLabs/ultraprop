@@ -1,22 +1,19 @@
 "use client";
 
 import {
+  Activity,
   AlertTriangle,
   CheckCircle2,
   Clock,
   Info,
   TrendingDown,
   TrendingUp,
-  Zap,
 } from "lucide-react";
 import * as React from "react";
 import {
   AssetIcon,
   Badge,
   Button,
-  Card,
-  CardContent,
-  CardHeader,
   CardLabel,
   Input,
   Modal,
@@ -29,12 +26,7 @@ import {
   useVault,
 } from "@/lib/mock/hooks";
 import type { Side, Symbol, VaultState } from "@/lib/mock/types";
-import {
-  slippagePreview,
-  TILT_BPS,
-  VENUE,
-  VENUE_ROUTE,
-} from "@/lib/slippage-preview";
+import { slippagePreview, TILT_BPS } from "@/lib/slippage-preview";
 import { cn, formatNum, formatUsd } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
@@ -43,6 +35,9 @@ import { cn, formatNum, formatUsd } from "@/lib/utils";
 
 interface TradeIntentFormProps {
   vaultId: string;
+  /** When provided the form is controlled — internal asset tab row is hidden. */
+  symbol?: Symbol;
+  onSymbolChange?: (s: Symbol) => void;
 }
 
 type SubmitState =
@@ -59,7 +54,7 @@ type SubmitState =
   | { phase: "error"; message: string };
 
 /* -------------------------------------------------------------------------- */
-/* Symbol selector tab button                                                   */
+/* Symbol selector tab button (used only when uncontrolled)                    */
 /* -------------------------------------------------------------------------- */
 
 function SymbolTab({
@@ -186,36 +181,23 @@ function SlippageRow({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Oracle tooltip content                                                       */
+/* Price info tooltip content                                                   */
 /* -------------------------------------------------------------------------- */
 
-function OracleTooltipContent({
+function PriceTooltipContent({
   symbol,
   price,
-  ts,
 }: {
   symbol: Symbol;
   price: number;
-  ts: number;
 }) {
-  const ageMs = Date.now() - ts;
-  const ageSec = Math.floor(ageMs / 1000);
-
   return (
     <div className="flex flex-col gap-1.5 p-1">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-text">
-        <Zap className="h-3 w-3 text-brand" />
+        <Activity className="h-3 w-3 text-brand" />
         Market price · {symbol}/USD
       </div>
       <div className="flex flex-col gap-0.5">
-        <div className="flex justify-between gap-6 text-xs">
-          <span className="text-text-muted">Source</span>
-          <span className="text-text">Pyth Network</span>
-        </div>
-        <div className="flex justify-between gap-6 text-xs">
-          <span className="text-text-muted">Venue</span>
-          <span className="text-brand">{VENUE} aggregator</span>
-        </div>
         <div className="flex justify-between gap-6 text-xs">
           <span className="text-text-muted">Mid price</span>
           <span className="tabular text-text">
@@ -223,12 +205,8 @@ function OracleTooltipContent({
           </span>
         </div>
         <div className="flex justify-between gap-6 text-xs">
-          <span className="text-text-muted">Confidence</span>
-          <span className="tabular text-up">±0.03%</span>
-        </div>
-        <div className="flex justify-between gap-6 text-xs">
-          <span className="text-text-muted">Last update</span>
-          <span className="tabular text-text-muted">{ageSec}s ago</span>
+          <span className="text-text-muted">Desk spread</span>
+          <span className="tabular text-warn">+{TILT_BPS} bps</span>
         </div>
       </div>
     </div>
@@ -261,7 +239,7 @@ function ConfirmationFlash({
     <div className="flex items-start gap-3 rounded-[var(--radius-sm)] border border-up/30 bg-up/10 px-4 py-3">
       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-up" />
       <div className="flex flex-col gap-0.5">
-        <p className="text-sm font-semibold text-up">Intent submitted</p>
+        <p className="text-sm font-semibold text-up">Order submitted</p>
         <p className="text-xs text-text-muted">
           <span
             className={cn(
@@ -310,7 +288,7 @@ function RateLimitBanner({ until }: { until: number }) {
     <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-warn/30 bg-warn/10 px-3 py-2">
       <Clock className="h-3.5 w-3.5 shrink-0 text-warn" />
       <span className="text-xs text-warn">
-        Rate limit — next intent in{" "}
+        Rate limit — next order in{" "}
         <span className="tabular font-semibold">{secs}s</span>
       </span>
     </div>
@@ -340,29 +318,38 @@ const SIZE_PRESETS = [250, 500, 1000, 2500] as const;
 /* Main component                                                               */
 /* -------------------------------------------------------------------------- */
 
-export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
+export function TradeIntentForm({
+  vaultId,
+  symbol: symbolProp,
+  onSymbolChange,
+}: TradeIntentFormProps) {
   const vault: VaultState = useVault(vaultId);
   const { halted } = useDivergenceHalt();
   const { session } = useSession();
 
-  const [symbol, setSymbol] = React.useState<Symbol>("BTC");
+  const isControlled = symbolProp !== undefined;
+  const [symbolInternal, setSymbolInternal] = React.useState<Symbol>("BTC");
+  const symbol = isControlled ? symbolProp : symbolInternal;
+  const setSymbol = isControlled
+    ? (onSymbolChange ?? (() => {}))
+    : setSymbolInternal;
+
   const [side, setSide] = React.useState<Side>("long");
   const [rawSize, setRawSize] = React.useState("1000");
   const [submitState, setSubmitState] = React.useState<SubmitState>({
     phase: "idle",
   });
   const [lastSubmitAt, setLastSubmitAt] = React.useState<number | null>(null);
-  const [oracleInfoOpen, setOracleInfoOpen] = React.useState(false);
+  const [priceInfoOpen, setPriceInfoOpen] = React.useState(false);
 
   const tick = usePrice(symbol);
-  const oracleMid = tick?.price ?? 0;
-  const oracleTs = tick?.ts ?? 0;
+  const marketMid = tick?.price ?? 0;
 
   const sizeUsd = parseFloat(rawSize) || 0;
   const preview = React.useMemo(() => {
-    if (sizeUsd <= 0 || oracleMid <= 0) return null;
-    return slippagePreview({ symbol, side, sizeUsd, oracleMid });
-  }, [symbol, side, sizeUsd, oracleMid]);
+    if (sizeUsd <= 0 || marketMid <= 0) return null;
+    return slippagePreview({ symbol, side, sizeUsd, oracleMid: marketMid });
+  }, [symbol, side, sizeUsd, marketMid]);
 
   /* ------------------------------------------------------------------ */
   /* Disable conditions                                                   */
@@ -385,7 +372,7 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
     disabledReason = "Market data feed paused; trading suspended";
   else if (isVaultPaused) disabledReason = `Evaluation is ${vault.status}`;
   else if (isSizeInvalid) disabledReason = "Enter a position size";
-  else if (isRateLimited) disabledReason = null; // shown by rate-limit banner
+  else if (isRateLimited) disabledReason = null;
 
   const canSubmit =
     !isNotSignedIn &&
@@ -424,60 +411,52 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
     setSubmitState({ phase: "idle" });
   }, []);
 
-  /* ------------------------------------------------------------------ */
-  /* Leverage badge from tier                                             */
-  /* ------------------------------------------------------------------ */
-
-  const leverageLabel = `${vault.tier.leverage}X`;
+  const leverageLabel = `${vault.tier.leverage}×`;
 
   /* ------------------------------------------------------------------ */
   /* Render                                                               */
   /* ------------------------------------------------------------------ */
 
   return (
-    <Card className="flex w-full flex-col gap-0 overflow-hidden">
+    <div className="flex w-full flex-col gap-0 overflow-hidden">
       {/* Header */}
-      <CardHeader>
-        <div className="flex w-full items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CardLabel>Trade Intent</CardLabel>
-            <Badge variant="leverage">{leverageLabel}</Badge>
-            <Badge variant="tier">{vault.tier.name}</Badge>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-text-faint">
-              {vault.intentCount}/{vault.tier.intentCap} intents
-            </span>
-          </div>
+      <div className="flex w-full items-center justify-between px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            New Order
+          </span>
+          <Badge variant="leverage">{leverageLabel}</Badge>
         </div>
-      </CardHeader>
+        <span className="text-xs text-text-faint">
+          {vault.intentCount}/{vault.tier.intentCap} orders
+        </span>
+      </div>
 
-      <CardContent className="flex flex-col gap-4">
-        {/* Symbol picker */}
-        <div>
-          <CardLabel className="mb-2 block">Asset</CardLabel>
-          <div className="flex gap-1 rounded-[var(--radius)] border border-border bg-surface p-1">
-            {(["BTC", "ETH", "SOL"] as Symbol[]).map((s) => (
-              <SymbolTab
-                key={s}
-                symbol={s}
-                active={symbol === s}
-                onClick={() => setSymbol(s)}
-              />
-            ))}
+      <div className="flex flex-col gap-4 p-4">
+        {/* Symbol picker — only shown when uncontrolled */}
+        {!isControlled && (
+          <div>
+            <CardLabel className="mb-2 block">Asset</CardLabel>
+            <div className="flex gap-1 rounded-[var(--radius)] border border-border bg-surface p-1">
+              {(["BTC", "ETH", "SOL"] as Symbol[]).map((s) => (
+                <SymbolTab
+                  key={s}
+                  symbol={s}
+                  active={symbol === s}
+                  onClick={() => setSymbol(s)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Side toggle */}
-        <div>
-          <CardLabel className="mb-2 block">Direction</CardLabel>
-          <SideToggle value={side} onValueChange={setSide} />
-        </div>
+        <SideToggle value={side} onValueChange={setSide} />
 
         {/* Size input */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <CardLabel>Position size (USD)</CardLabel>
+            <CardLabel>Size (USD)</CardLabel>
             <span className="tabular text-xs text-text-faint">
               Max: {formatUsd(vault.tier.shadowAllocation, { decimals: 0 })}
             </span>
@@ -519,12 +498,9 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
           </div>
         </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* SLIPPAGE TRANSPARENCY PANEL                                       */}
-        {/* ---------------------------------------------------------------- */}
+        {/* Fill preview panel */}
         {preview && sizeUsd > 0 && (
           <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 px-3 py-3">
-            {/* Panel header */}
             <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -532,17 +508,13 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
                 </span>
                 <Tooltip
                   content={
-                    <OracleTooltipContent
-                      symbol={symbol}
-                      price={oracleMid}
-                      ts={oracleTs}
-                    />
+                    <PriceTooltipContent symbol={symbol} price={marketMid} />
                   }
                   side="top"
                 >
                   <button
                     type="button"
-                    onClick={() => setOracleInfoOpen(true)}
+                    onClick={() => setPriceInfoOpen(true)}
                     className="flex items-center text-text-faint transition-colors hover:text-text-muted"
                     aria-label="Price details"
                   >
@@ -553,32 +525,18 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
               <span className="text-xs text-text-faint">Market price</span>
             </div>
 
-            {/* Breakdown rows */}
             <div className="flex flex-col">
-              <div className="mb-1 flex items-center justify-between gap-2 rounded-sm bg-surface px-2 py-1.5">
-                <span className="text-xs text-text-faint">Routed via</span>
-                <Tooltip
-                  content={`${VENUE} aggregator — best execution across ${preview.route.join(" · ")}`}
-                >
-                  <span className="flex items-center gap-1 text-xs font-semibold text-brand">
-                    {preview.venue}
-                    <span className="font-normal text-text-faint">
-                      · {preview.route.length} DEXes
-                    </span>
-                  </span>
-                </Tooltip>
-              </div>
               <SlippageRow
-                label="Market mid"
+                label="Market price"
                 value={formatUsd(preview.oracleMid, { decimals: 2 })}
                 muted
               />
               <SlippageRow
                 label={
                   <span className="flex items-center gap-1">
-                    Size slippage
+                    Size impact
                     <Tooltip
-                      content={`Size-driven slippage based on order depth. ${formatNum(preview.slippageBps, 2)} bps for ${formatUsd(sizeUsd, { decimals: 0 })} notional.`}
+                      content={`Size-driven impact on fill price. ${formatNum(preview.slippageBps, 2)} bps for ${formatUsd(sizeUsd, { decimals: 0 })} notional.`}
                     >
                       <Info className="h-3 w-3" />
                     </Tooltip>
@@ -590,8 +548,8 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
               <SlippageRow
                 label={
                   <span className="flex items-center gap-1 text-warn">
-                    House tilt
-                    <Tooltip content="A fixed +2 bps spread charged on every trade, always against the trader. Applied on top of size slippage.">
+                    Desk spread
+                    <Tooltip content="A fixed +2 bps spread charged on every trade, always against the trader. Applied on top of size impact.">
                       <Info className="h-3 w-3" />
                     </Tooltip>
                   </span>
@@ -600,10 +558,8 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
                 warn
               />
 
-              {/* Divider + fill price */}
               <div className="my-1.5 border-t border-border-soft" />
 
-              {/* The critical line */}
               <div className="flex items-center justify-between py-1">
                 <span className="text-sm font-semibold text-text">
                   Your fill
@@ -626,7 +582,6 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
                 </div>
               </div>
 
-              {/* Total cost */}
               <div className="flex items-center justify-between border-t border-border-soft pt-2">
                 <span className="text-xs text-text-muted">Total cost</span>
                 <span className="tabular text-xs font-semibold text-text">
@@ -634,7 +589,6 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
                 </span>
               </div>
 
-              {/* Visual fill difference callout */}
               <div className="mt-2 flex items-center gap-1.5 rounded-sm bg-surface px-2 py-1.5">
                 <AlertTriangle className="h-3 w-3 shrink-0 text-warn" />
                 <span className="text-xs text-text-faint">
@@ -642,7 +596,7 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
                   <span className="tabular font-medium text-warn">
                     {formatNum(preview.slippageBps + TILT_BPS, 2)} bps
                   </span>{" "}
-                  worse than the market mid due to slippage + house tilt
+                  worse than market price
                 </span>
               </div>
             </div>
@@ -711,47 +665,41 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
           )}
         </Button>
 
-        {/* Footer note */}
         <p className="text-center text-xs text-text-faint">
           Simulated · No real funds · Evaluation account
         </p>
-      </CardContent>
+      </div>
 
-      {/* Oracle info modal */}
+      {/* Price info modal */}
       <Modal
-        open={oracleInfoOpen}
-        onClose={() => setOracleInfoOpen(false)}
+        open={priceInfoOpen}
+        onClose={() => setPriceInfoOpen(false)}
         title="How your fill price is set"
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-brand" />
+            <Activity className="h-5 w-5 text-brand" />
             <p className="text-sm font-semibold text-text">
               Market price · {symbol}/USD
             </p>
           </div>
           <p className="text-sm text-text-muted">
             All fills are computed from live market prices at the moment you
-            submit. The market mid is the raw aggregated price; slippage and the
-            house tilt are applied on top to produce your fill.
+            submit. Your fill = market price + size impact + a fixed desk spread.
+            The desk spread is always against the trader — there are no hidden
+            markups beyond what is shown here.
           </p>
           <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-3">
             <div className="grid grid-cols-2 gap-y-2 text-xs">
-              <span className="text-text-muted">Feed source</span>
-              <span className="tabular text-text">Pyth Network</span>
-              <span className="text-text-muted">Execution venue</span>
-              <span className="tabular text-brand">{VENUE} aggregator</span>
-              <span className="text-text-muted">Routes across</span>
-              <span className="tabular text-text">{VENUE_ROUTE.join(" · ")}</span>
-              <span className="text-text-muted">Current mid</span>
+              <span className="text-text-muted">Current market price</span>
               <span className="tabular text-text">
-                {formatUsd(oracleMid, { decimals: 2 })}
+                {formatUsd(marketMid, { decimals: 2 })}
               </span>
-              <span className="text-text-muted">Confidence band</span>
-              <span className="tabular text-up">±0.03%</span>
-              <span className="text-text-muted">Update interval</span>
-              <span className="tabular text-text">~400ms</span>
-              <span className="text-text-muted">House tilt</span>
+              <span className="text-text-muted">Size impact</span>
+              <span className="tabular text-text-muted">
+                proportional to order size
+              </span>
+              <span className="text-text-muted">Desk spread</span>
               <span className="tabular text-warn">
                 +{TILT_BPS} bps (always against trader)
               </span>
@@ -759,14 +707,13 @@ export function TradeIntentForm({ vaultId }: TradeIntentFormProps) {
           </div>
           <div className="rounded-sm border border-border-soft bg-surface px-3 py-2">
             <p className="text-xs text-text-faint">
-              The +{TILT_BPS} bps house tilt is a fixed spread applied to every
-              fill. For long positions, your fill price is higher than mid; for
-              short positions, lower. This is always disclosed pre-submit so
-              there are no surprises.
+              For long orders your fill is above market price; for short orders
+              it is below. The +{TILT_BPS} bps desk spread is always disclosed
+              before you submit so there are no surprises.
             </p>
           </div>
         </div>
       </Modal>
-    </Card>
+    </div>
   );
 }

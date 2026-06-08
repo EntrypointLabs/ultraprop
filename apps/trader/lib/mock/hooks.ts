@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BASE_PRICES,
   buildProfile,
@@ -17,6 +17,7 @@ import {
   SYMBOLS,
   TIERS,
 } from "@/lib/mock/fixtures";
+import { buildCandles, type Candle, type Timeframe } from "@/lib/mock/candles";
 import { useMockStore } from "@/lib/mock/store";
 import type {
   CohortStats,
@@ -315,6 +316,30 @@ export function useCohortStats(): CohortStats {
     staleTime: Infinity,
   });
   return data ?? DEMO_COHORT;
+}
+
+/* ------------------------------------------------------------------ */
+/* Candles — deterministic base series, last candle tracks live price  */
+/* ------------------------------------------------------------------ */
+
+export function useCandles(symbol: Symbol, tf: Timeframe): Candle[] {
+  // Memoize the base candle series so it only rebuilds when symbol/tf changes.
+  const base = useMemo(() => buildCandles(symbol, tf), [symbol, tf]);
+
+  const tick = usePrice(symbol);
+  const livePrice = tick?.price;
+
+  return useMemo(() => {
+    if (!livePrice || base.length === 0) return base;
+    const last = base[base.length - 1];
+    const updated: Candle = {
+      ...last,
+      close: livePrice,
+      high: Math.max(last.high, livePrice),
+      low: Math.min(last.low, livePrice),
+    };
+    return [...base.slice(0, -1), updated];
+  }, [base, livePrice]);
 }
 
 /* ------------------------------------------------------------------ */
