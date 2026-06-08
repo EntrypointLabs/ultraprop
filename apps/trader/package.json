@@ -14,11 +14,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mysten/sui": "^1.45.2",
+    "@privy-io/node": "^0.21.0",
     "@privy-io/react-auth": "^3.29.2",
     "@tanstack/react-query": "^5.101.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "jose": "^5.10.0",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^1.17.0",
     "next": "^15.5.19",
