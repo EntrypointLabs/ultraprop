@@ -12,12 +12,12 @@ export function ThemeControl() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm text-text-muted">Appearance</span>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs font-medium text-text-muted">Appearance</span>
       <div
         role="radiogroup"
         aria-label="Appearance"
-        className="inline-flex items-center gap-0.5 rounded-[var(--radius)] border border-border bg-surface p-0.5"
+        className="flex items-center gap-0.5 rounded-[var(--radius)] border border-border bg-surface-2 p-0.5"
       >
         {OPTIONS.map((opt) => {
           const active = opt.value === theme;
@@ -29,7 +29,7 @@ export function ThemeControl() {
               role="radio"
               aria-checked={active}
               onClick={() => setTheme(opt.value)}
-              className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-violet focus-visible:outline-offset-2 ${
+              className={`flex-1 rounded-sm px-2 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-violet focus-visible:outline-offset-2 ${
                 active
                   ? "bg-surface-3 text-text"
                   : "text-text-muted hover:text-text"
