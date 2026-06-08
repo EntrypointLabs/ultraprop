@@ -257,6 +257,44 @@ a,
   transform: translateY(0px);
 }
 
+/* per-step entrance for the auth flow (keyed on step change) */
+@keyframes auth-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.auth-step-in {
+  animation: auth-step-in 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* error nudge for the verification code row (reduced-motion handled globally) */
+@keyframes auth-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+.auth-shake {
+  animation: auth-shake 360ms cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -1,16 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "@/app/globals.css";
-import {
-  Footer,
-  LoginModal,
-  OnboardingModal,
-  PixelTopBorder,
-  Providers,
-  StaleFeedBanner,
-  StoreHydration,
-  TopNav,
-} from "@/components/shell";
+import { Chrome, Providers, StoreHydration } from "@/components/shell";
 
 const sans = Hanken_Grotesk({
   subsets: ["latin"],
@@ -63,13 +54,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           <StoreHydration />
-          <PixelTopBorder />
-          <TopNav />
-          <StaleFeedBanner />
-          <main id="main-content" className="flex-1">{children}</main>
-          <Footer />
-          <OnboardingModal />
-          <LoginModal />
+          <Chrome>{children}</Chrome>
         </Providers>
       </body>
     </html>
