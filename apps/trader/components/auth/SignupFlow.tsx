@@ -4,13 +4,13 @@ import { useLoginWithEmail } from "@privy-io/react-auth";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { AuthField } from "@/components/auth/AuthField";
 import {
   AuthHeading,
   AuthLegal,
   AuthSecondaryLink,
   AuthShell,
 } from "@/components/auth/AuthShell";
-import { AuthField } from "@/components/auth/AuthField";
 import { OtpInput } from "@/components/auth/OtpInput";
 import {
   isPasswordValid,
@@ -32,7 +32,7 @@ export function SignupFlow() {
   // Privy authenticates by email OTP. The password collected below is for
   // parity with the expected Kalshi-style flow; Privy itself is passwordless.
   const { sendCode, loginWithCode } = useLoginWithEmail({
-    onComplete: () => router.push("/markets"),
+    onComplete: () => router.push("/onboarding"),
   });
 
   const [step, setStep] = React.useState<Step>("email");
@@ -94,7 +94,10 @@ export function SignupFlow() {
       setStep("verify");
     } catch (err) {
       setSendError(
-        authErrorMessage(err, "Could not send a code. Check the email and retry."),
+        authErrorMessage(
+          err,
+          "Could not send a code. Check the email and retry.",
+        ),
       );
     } finally {
       setSending(false);

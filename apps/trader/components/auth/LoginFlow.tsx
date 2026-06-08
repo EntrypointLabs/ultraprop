@@ -4,15 +4,18 @@ import { useLoginWithEmail, useLoginWithOAuth } from "@privy-io/react-auth";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { AuthField } from "@/components/auth/AuthField";
 import {
   AuthHeading,
   AuthLegal,
   AuthSecondaryLink,
   AuthShell,
 } from "@/components/auth/AuthShell";
-import { AuthField } from "@/components/auth/AuthField";
 import { OtpInput } from "@/components/auth/OtpInput";
-import { type OAuthProvider, SocialAuthButtons } from "@/components/auth/social";
+import {
+  type OAuthProvider,
+  SocialAuthButtons,
+} from "@/components/auth/social";
 import { Button } from "@/components/ui/Button";
 import { authErrorMessage } from "@/lib/auth";
 
@@ -22,14 +25,19 @@ const RESEND_COOLDOWN_S = 30;
 
 export function LoginFlow() {
   const router = useRouter();
-  const toMarkets = () => router.push("/markets");
+  // After auth, route through onboarding; it opens a trading account for
+  // first-time traders and passes returning ones straight to the app.
+  const afterAuth = () => router.push("/onboarding");
 
   // Email OTP is the real factor; the password field is collected for parity
   // with the expected flow. Privy itself is passwordless.
-  const { sendCode, loginWithCode } = useLoginWithEmail({ onComplete: toMarkets });
+  const { sendCode, loginWithCode } = useLoginWithEmail({
+    onComplete: afterAuth,
+  });
   const { initOAuth, state: oauthState } = useLoginWithOAuth({
-    onComplete: toMarkets,
-    onError: (err) => setFormError(authErrorMessage(err, "Sign-in failed. Try again.")),
+    onComplete: afterAuth,
+    onError: (err) =>
+      setFormError(authErrorMessage(err, "Sign-in failed. Try again.")),
   });
 
   const [phase, setPhase] = React.useState<"form" | "verify">("form");
@@ -78,7 +86,10 @@ export function LoginFlow() {
       setPhase("verify");
     } catch (err) {
       setFormError(
-        authErrorMessage(err, "Could not send a code. Check your email and retry."),
+        authErrorMessage(
+          err,
+          "Could not send a code. Check your email and retry.",
+        ),
       );
     } finally {
       setSending(false);
@@ -216,7 +227,8 @@ export function LoginFlow() {
             subtitle={
               <>
                 We sent a {OTP_LENGTH}-digit code to{" "}
-                <span className="break-all font-medium text-text">{email}</span>.
+                <span className="break-all font-medium text-text">{email}</span>
+                .
               </>
             }
           />

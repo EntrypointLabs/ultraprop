@@ -23,7 +23,7 @@ export function LoginModal() {
   const { initOAuth, state } = useLoginWithOAuth({
     onComplete: () => {
       close();
-      router.push("/markets");
+      router.push("/onboarding");
     },
   });
   const oauthBusy = state.status === "loading";
@@ -85,7 +85,6 @@ export function LoginModal() {
           </EmailAuthButton>
         </div>
 
-
         <p className="mt-5 text-center text-[11px] leading-relaxed text-text-muted">
           By continuing you agree to the{" "}
           <span className="text-text-muted">Terms</span> and{" "}
@@ -103,8 +102,10 @@ export function LoginModal() {
           </button>
         </p>
 
-        <p className="mt-5 text-center text-[11px] leading-relaxed text-text-muted"> Secured by{" "}
-          <span className="text-text-muted">Privy</span>.</p>
+        <p className="mt-5 text-center text-[11px] leading-relaxed text-text-muted">
+          {" "}
+          Secured by <span className="text-text-muted">Privy</span>.
+        </p>
       </div>
     </Modal>
   );

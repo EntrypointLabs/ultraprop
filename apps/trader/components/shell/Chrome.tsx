@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import * as React from "react";
+import type * as React from "react";
 import { Footer } from "@/components/shell/Footer";
 import { LoginModal } from "@/components/shell/LoginModal";
 import { OnboardingModal } from "@/components/shell/OnboardingModal";
@@ -9,7 +9,7 @@ import { PixelTopBorder } from "@/components/shell/PixelTopBorder";
 import { StaleFeedBanner } from "@/components/shell/StaleFeedBanner";
 import { TopNav } from "@/components/shell/TopNav";
 
-const AUTH_PREFIXES = ["/signup", "/login"];
+const AUTH_PREFIXES = ["/signup", "/login", "/onboarding"];
 
 /**
  * Renders the app chrome (nav, footer, global modals) on normal routes and
