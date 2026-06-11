@@ -68,7 +68,7 @@ export default function StylePage() {
   });
 
   return (
-    <div className="mx-auto max-w-7xl space-y-12 px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-[1440px] space-y-12 px-4 py-10 sm:px-6">
       <header>
         <h1 className="text-3xl font-semibold text-text">Style kitchen sink</h1>
         <p className="mt-1 text-sm text-text-muted">

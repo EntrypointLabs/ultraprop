@@ -15,7 +15,7 @@ export function HomeScreen() {
   const showActive = session.status === "connected" && vault.status === "active";
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-[1440px] space-y-8 px-4 py-8 sm:px-6">
       {showActive && <ActiveEvalCard />}
 
       {/* Hero — spotlight carousel + rail */}

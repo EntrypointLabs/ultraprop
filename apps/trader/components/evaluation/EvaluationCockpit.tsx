@@ -258,7 +258,7 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
   const ddLimitUsd = ddRule ? ddRule.limit : 0;
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6">
       <div className="flex flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border bg-bg">
       {/* ── Market stats strip ─────────────────────────────────────────── */}
       <MarketStrip

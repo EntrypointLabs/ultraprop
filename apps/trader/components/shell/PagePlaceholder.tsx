@@ -16,7 +16,7 @@ export function PagePlaceholder({
   badge,
 }: PagePlaceholderProps) {
   return (
-    <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-24 sm:px-6">
+    <div className="mx-auto flex max-w-[1440px] items-center justify-center px-4 py-24 sm:px-6">
       <Card className="w-full max-w-md text-center">
         <CardContent className="flex flex-col items-center gap-3 py-10">
           {badge && <Badge variant="tier">{badge}</Badge>}

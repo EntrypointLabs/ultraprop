@@ -7,7 +7,7 @@ import { WeeklyHistory } from "@/components/points/WeeklyHistory";
 
 export default function PointsPage() {
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-12 px-4 py-10 sm:px-6">
+    <div className="mx-auto w-full max-w-[1440px] space-y-12 px-4 py-10 sm:px-6">
       {/* Hero */}
       <GenesisHero />
 
