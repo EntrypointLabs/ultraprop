@@ -1,16 +1,18 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { useDivergenceHalt } from "@/lib/mock/hooks";
+import { useConnection, useDivergenceHalt } from "@/lib/mock/hooks";
 
-const HALT_COPY =
-  "Market data feed interrupted; trading paused to protect your evaluation. Resumes automatically.";
+const STALE_COPY =
+  "Live market data is unavailable; trading is suspended until the oracle feed recovers.";
 
 export function StaleFeedBanner() {
+  const status = useConnection();
   const { halted, toggle } = useDivergenceHalt();
+  const stale = status === "stale";
 
-  if (!halted) {
-    // dev affordance: a tiny corner toggle so QA can engage the halt.
+  if (!stale) {
+    // dev affordance: a tiny corner toggle so QA can simulate a feed halt.
     return (
       <button
         type="button"
@@ -29,14 +31,16 @@ export function StaleFeedBanner() {
       className="sticky top-14 z-30 flex items-center justify-center gap-2 border-b border-warn/40 bg-warn/15 px-4 py-2 text-sm text-warn"
     >
       <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-      <span>{HALT_COPY}</span>
-      <button
-        type="button"
-        onClick={toggle}
-        className="ml-3 rounded-sm border border-warn/40 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warn/80 transition-colors hover:text-warn"
-      >
-        dev: resume
-      </button>
+      <span>{STALE_COPY}</span>
+      {halted && (
+        <button
+          type="button"
+          onClick={toggle}
+          className="ml-3 rounded-sm border border-warn/40 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warn/80 transition-colors hover:text-warn"
+        >
+          dev: resume
+        </button>
+      )}
     </div>
   );
 }

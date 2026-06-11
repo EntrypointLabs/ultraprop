@@ -20,6 +20,7 @@ import {
   Tooltip,
 } from "@/components/ui";
 import {
+  useConnection,
   useDivergenceHalt,
   usePrice,
   useSession,
@@ -27,7 +28,7 @@ import {
 } from "@/lib/mock/hooks";
 import type { Side, Symbol, VaultState } from "@/lib/mock/types";
 import { slippagePreview, TILT_BPS } from "@/lib/slippage-preview";
-import { cn, formatNum, formatUsd } from "@/lib/utils";
+import { cn, formatNum, formatUsd, formatUsdOrDash } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
 /* Local types                                                                  */
@@ -67,9 +68,9 @@ function SymbolTab({
   onClick: () => void;
 }) {
   const tick = usePrice(symbol);
-  const price = tick?.price ?? 0;
-  const change = tick?.change24h ?? 0;
-  const up = change >= 0;
+  const price = tick?.price ?? null;
+  const change = tick?.change24h ?? null;
+  const up = (change ?? 0) >= 0;
 
   return (
     <button
@@ -87,8 +88,13 @@ function SymbolTab({
         <AssetIcon symbol={symbol} size={16} />
         <span className="text-sm font-semibold">{symbol}</span>
       </div>
-      <span className={cn("tabular text-xs", up ? "text-up" : "text-down")}>
-        {formatUsd(price, { decimals: price > 100 ? 0 : 2 })}
+      <span
+        className={cn(
+          "tabular text-xs",
+          price == null ? "text-text-faint" : up ? "text-up" : "text-down",
+        )}
+      >
+        {formatUsdOrDash(price, { decimals: (price ?? 0) > 100 ? 0 : 2 })}
       </span>
     </button>
   );
@@ -326,6 +332,7 @@ export function TradeIntentForm({
   const vault: VaultState = useVault(vaultId);
   const { halted } = useDivergenceHalt();
   const { session } = useSession();
+  const connection = useConnection();
 
   const isControlled = symbolProp !== undefined;
   const [symbolInternal, setSymbolInternal] = React.useState<Symbol>("BTC");
@@ -343,11 +350,11 @@ export function TradeIntentForm({
   const [priceInfoOpen, setPriceInfoOpen] = React.useState(false);
 
   const tick = usePrice(symbol);
-  const marketMid = tick?.price ?? 0;
+  const marketMid = tick?.price ?? null;
 
   const sizeUsd = parseFloat(rawSize) || 0;
   const preview = React.useMemo(() => {
-    if (sizeUsd <= 0 || marketMid <= 0) return null;
+    if (sizeUsd <= 0 || marketMid == null || marketMid <= 0) return null;
     return slippagePreview({ symbol, side, sizeUsd, oracleMid: marketMid });
   }, [symbol, side, sizeUsd, marketMid]);
 
@@ -361,7 +368,9 @@ export function TradeIntentForm({
   const isRateLimited = rateLimitUntil !== null && Date.now() < rateLimitUntil;
 
   const isVaultPaused = vault.status !== "active";
-  const isFeedStale = halted;
+  // No live oracle price (or a stale/halted feed) -> never quote or fill.
+  const isPriceUnavailable = marketMid == null || marketMid <= 0;
+  const isFeedStale = halted || connection === "stale";
   const isNotSignedIn = !session.address;
   const isSizeInvalid = sizeUsd <= 0;
   const isSubmitting = submitState.phase === "submitting";
@@ -369,7 +378,9 @@ export function TradeIntentForm({
   let disabledReason: string | null = null;
   if (isNotSignedIn) disabledReason = "Sign in to trade";
   else if (isFeedStale)
-    disabledReason = "Market data feed paused; trading suspended";
+    disabledReason = "Market data feed unavailable; trading suspended";
+  else if (isPriceUnavailable)
+    disabledReason = "Waiting for a live oracle price…";
   else if (isVaultPaused) disabledReason = `Evaluation is ${vault.status}`;
   else if (isSizeInvalid) disabledReason = "Enter a position size";
   else if (isRateLimited) disabledReason = null;
@@ -377,6 +388,7 @@ export function TradeIntentForm({
   const canSubmit =
     !isNotSignedIn &&
     !isFeedStale &&
+    !isPriceUnavailable &&
     !isVaultPaused &&
     !isSizeInvalid &&
     !isRateLimited &&
@@ -508,7 +520,10 @@ export function TradeIntentForm({
                 </span>
                 <Tooltip
                   content={
-                    <PriceTooltipContent symbol={symbol} price={marketMid} />
+                    <PriceTooltipContent
+                      symbol={symbol}
+                      price={preview.oracleMid}
+                    />
                   }
                   side="top"
                 >
@@ -685,15 +700,15 @@ export function TradeIntentForm({
           </div>
           <p className="text-sm text-text-muted">
             All fills are computed from live market prices at the moment you
-            submit. Your fill = market price + size impact + a fixed desk spread.
-            The desk spread is always against the trader — there are no hidden
-            markups beyond what is shown here.
+            submit. Your fill = market price + size impact + a fixed desk
+            spread. The desk spread is always against the trader — there are no
+            hidden markups beyond what is shown here.
           </p>
           <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-3">
             <div className="grid grid-cols-2 gap-y-2 text-xs">
               <span className="text-text-muted">Current market price</span>
               <span className="tabular text-text">
-                {formatUsd(marketMid, { decimals: 2 })}
+                {formatUsdOrDash(marketMid, { decimals: 2 })}
               </span>
               <span className="text-text-muted">Size impact</span>
               <span className="tabular text-text-muted">
