@@ -45,7 +45,7 @@ export default function LeaderboardPage() {
           <h1 className="text-balance text-2xl font-semibold tracking-tight text-text">
             Leaderboard
           </h1>
-          <span className="rounded-sm bg-warn/15 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warn">
+          <span className="rounded-sm bg-warn/15 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-on-warn">
             v1 Genesis
           </span>
         </div>

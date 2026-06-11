@@ -1,16 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { Hanken_Grotesk, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import {
+  Hanken_Grotesk,
+  JetBrains_Mono,
+  Space_Grotesk,
+} from "next/font/google";
+import { cookies } from "next/headers";
 import "@/app/globals.css";
 import {
-  Footer,
-  LoginModal,
-  OnboardingModal,
-  PixelTopBorder,
+  Chrome,
   Providers,
-  StaleFeedBanner,
   StoreHydration,
-  TopNav,
+  ThemeScript,
 } from "@/components/shell";
+import { isTheme, THEME_COOKIE } from "@/lib/theme-shared";
 
 const sans = Hanken_Grotesk({
   subsets: ["latin"],
@@ -40,22 +42,33 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0A0A0C",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fcfcfd" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0c" },
+  ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieValue = (await cookies()).get(THEME_COOKIE)?.value;
+  const theme = isTheme(cookieValue) ? cookieValue : "system";
+  const isDark = theme === "dark";
+
   return (
     <html
       lang="en"
-      className={`dark ${sans.variable} ${display.variable} ${mono.variable}`}
+      suppressHydrationWarning
+      className={`${isDark ? "dark " : ""}${sans.variable} ${display.variable} ${mono.variable}`}
+      style={{ colorScheme: isDark ? "dark" : "light" }}
     >
+      <head>
+        <ThemeScript />
+      </head>
       <body className="flex min-h-dvh flex-col bg-bg text-text antialiased">
-        <Providers>
+        <Providers initialTheme={theme}>
           <a
             href="#main-content"
             className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:text-text focus:outline-2 focus:outline-violet"
@@ -63,13 +76,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           <StoreHydration />
-          <PixelTopBorder />
-          <TopNav />
-          <StaleFeedBanner />
-          <main id="main-content" className="flex-1">{children}</main>
-          <Footer />
-          <OnboardingModal />
-          <LoginModal />
+          <Chrome>{children}</Chrome>
         </Providers>
       </body>
     </html>

@@ -89,7 +89,7 @@ export function LeaderboardMobileCards({
                 <span className="truncate text-sm font-medium text-text">
                   {entry.displayName ?? shortAddress(entry.wallet, 4, 4)}
                 </span>
-                <span className="shrink-0 rounded-sm bg-violet/15 px-1 py-0.5 text-xs font-semibold uppercase text-violet">
+                <span className="shrink-0 rounded-sm bg-violet/15 px-1 py-0.5 text-xs font-semibold uppercase text-on-accent">
                   {entry.tier}
                 </span>
               </div>

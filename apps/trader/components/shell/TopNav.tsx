@@ -1,8 +1,9 @@
 "use client";
 
-import { ChevronDown, Gift, HelpCircle, User } from "lucide-react";
+import { ChevronDown, Gift, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AccountMenu } from "@/components/shell/AccountMenu";
 import { Logo } from "@/components/shell/Logo";
 import { Button } from "@/components/ui/Button";
 import { Identicon } from "@/components/ui/Identicon";
@@ -82,23 +83,19 @@ export function TopNav() {
             <div className="h-9 w-24 animate-pulse rounded-[var(--radius)] bg-surface-2" />
           ) : signedIn ? (
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={signOut}
+              <Link
+                href={`/profile/${session.address}`}
                 className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-border bg-surface-2 px-3 py-1.5 text-sm transition-colors hover:bg-surface-3"
               >
                 <Identicon address={session.address ?? ""} size={18} />
                 <span className="tabular hidden sm:inline">
                   {shortAddress(session.address ?? "")}
                 </span>
-              </button>
-              <Link
-                href={`/profile/${session.address}`}
-                aria-label="Profile"
-                className="rounded-sm p-2 text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
-              >
-                <User className="h-4 w-4" aria-hidden="true" />
               </Link>
+              <AccountMenu
+                address={session.address ?? ""}
+                onSignOut={signOut}
+              />
             </div>
           ) : (
             <Button variant="primary" size="sm" onClick={openLogin}>

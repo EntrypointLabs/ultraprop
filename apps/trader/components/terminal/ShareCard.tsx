@@ -71,14 +71,14 @@ export function ShareCard({ vault, sbt, className }: ShareCardProps) {
                 {tierName} <span className="text-up">Passed</span>
               </h3>
             </div>
-            <div className="rounded-full border border-up/30 bg-up/15 px-3 py-1.5 text-up text-sm font-semibold tabular">
+            <div className="rounded-full border border-up/30 bg-up/15 px-3 py-1.5 text-on-up text-sm font-semibold tabular">
               +{returnPct.toFixed(2)}%
             </div>
           </div>
 
           <div className="mt-3 flex items-center gap-3">
             <div className="rounded-sm border border-violet/30 bg-violet/10 px-2 py-1">
-              <span className="text-xs uppercase tracking-wide text-violet font-semibold">
+              <span className="text-xs uppercase tracking-wide text-on-accent font-semibold">
                 Credential Level {sbt.level} — {levelName}
               </span>
             </div>

@@ -81,5 +81,9 @@ Target **WCAG 2.2 AA**. Body text clears 4.5:1, large/bold text 3:1; placeholder
 contrast. Visible focus rings on every interactive element; modals close on Esc and trap focus;
 sortable headers and toggles are real buttons. Full `prefers-reduced-motion` alternatives for every
 animation (number-flash, live-pulse, confetti, reveals). Color is never the sole signal: P&L and
-rule-zone state always pair the green/red with a sign or label. The product is dark-only by decision,
-so muted-gray text on tinted dark surfaces must be checked against 4.5:1 rather than assumed.
+rule-zone state always pair the green/red with a sign or label. The product ships two themes —
+a dark cockpit and an institutional-white light theme (System/Light/Dark in settings; OS-aware,
+flash-free). AA is a gate in both: muted text on tinted surfaces must be checked against 4.5:1 in
+each theme — gray on near-black *and* gray on near-white — rather than assumed, and same-hue label
+text on a tinted badge uses a deeper on-tint color so it still clears 4.5:1. Light follows the same
+calm, institutional, restrained law as dark; it is the same desk with the lights on, not a recolor.

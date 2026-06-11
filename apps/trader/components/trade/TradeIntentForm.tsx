@@ -114,7 +114,7 @@ function SideToggle({
         className={cn(
           "flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border py-2.5 text-sm font-semibold transition-colors",
           value === "long"
-            ? "border-up bg-up/20 text-up"
+            ? "border-up bg-up/20 text-on-up"
             : "border-border bg-transparent text-text-muted hover:border-up/40 hover:text-up",
         )}
       >
@@ -128,7 +128,7 @@ function SideToggle({
         className={cn(
           "flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border py-2.5 text-sm font-semibold transition-colors",
           value === "short"
-            ? "border-down bg-down/20 text-down"
+            ? "border-down bg-down/20 text-on-down"
             : "border-border bg-transparent text-text-muted hover:border-down/40 hover:text-down",
         )}
       >
@@ -488,7 +488,7 @@ export function TradeIntentForm({
                 className={cn(
                   "flex-1 rounded-sm border py-1 text-xs transition-colors",
                   rawSize === String(preset)
-                    ? "border-violet/50 bg-violet/15 text-violet"
+                    ? "border-violet/50 bg-violet/15 text-on-accent"
                     : "border-border bg-transparent text-text-faint hover:border-border-soft hover:text-text-muted",
                 )}
               >
