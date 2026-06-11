@@ -8,13 +8,17 @@ export type VaultStatus = "active" | "passed" | "failed" | "inactive";
 
 export interface PriceTick {
   symbol: Symbol;
-  /** oracle mid price in USD */
-  price: number;
-  /** 24h percent change, e.g. -1.42 */
-  change24h: number;
-  /** recent prices for the sparkline, oldest -> newest */
+  /** oracle spot in USD; null when the feed has no live value (loading/outage) */
+  price: number | null;
+  /** 24h percent change; null until the 24h history loads or if unavailable */
+  change24h: number | null;
+  /** recent oracle closes for the sparkline, oldest -> newest; empty when unknown */
   spark: number[];
-  /** epoch ms of this tick */
+  /** trailing-24h high in USD; null when unknown */
+  high24h: number | null;
+  /** trailing-24h low in USD; null when unknown */
+  low24h: number | null;
+  /** epoch ms of this tick; 0 when there is no live data */
   ts: number;
 }
 

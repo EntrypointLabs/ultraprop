@@ -37,7 +37,12 @@ import {
 import { DEMO_WALLET, INITIAL_PRICES, SEED_NOW } from "@/lib/mock/fixtures";
 import { slippagePreview } from "@/lib/slippage-preview";
 import { type ResolvedTheme, useTheme } from "@/lib/theme";
-import { formatPct, formatUsd } from "@/lib/utils";
+import {
+  formatPct,
+  formatPctOrDash,
+  formatUsd,
+  formatUsdOrDash,
+} from "@/lib/utils";
 
 type PreviewMode = "side-by-side" | "active";
 
@@ -307,12 +312,14 @@ function Primitives() {
                       {p.symbol}
                     </span>
                   </Td>
-                  <Td numeric>{formatUsd(p.price)}</Td>
+                  <Td numeric>{formatUsdOrDash(p.price)}</Td>
                   <Td
                     numeric
-                    className={p.change24h >= 0 ? "text-up" : "text-down"}
+                    className={
+                      (p.change24h ?? 0) >= 0 ? "text-up" : "text-down"
+                    }
                   >
-                    {formatPct(p.change24h)}
+                    {formatPctOrDash(p.change24h)}
                   </Td>
                 </Tr>
               ))}
