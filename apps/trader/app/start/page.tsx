@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function StartPage() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6">
       {/* Hero intro */}
       <div className="mb-10">
         <div className="flex items-center gap-2 mb-3">

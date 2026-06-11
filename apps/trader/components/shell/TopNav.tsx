@@ -27,7 +27,7 @@ export function TopNav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur">
-      <nav className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
+      <nav className="mx-auto flex h-14 max-w-[1440px] items-center gap-4 px-4 sm:px-6">
         <Link href="/" className="shrink-0">
           <Logo />
         </Link>

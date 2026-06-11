@@ -40,7 +40,7 @@ export function Footer() {
   const connection = useConnection();
   return (
     <footer className="mt-auto border-t border-border bg-bg">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-4 py-4 text-xs sm:flex-row sm:px-6">
+      <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between gap-3 px-4 py-4 text-xs sm:flex-row sm:px-6">
         <ConnectionDot status={connection} />
         <div className="flex items-center gap-4">
           <a href="#" className={`inline-flex items-center gap-1 ${TEXT_LINK}`}>
