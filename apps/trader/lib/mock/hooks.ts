@@ -1,26 +1,25 @@
 "use client";
 
-import { usePrivy, useLogout } from "@privy-io/react-auth";
+import { useLogout, usePrivy } from "@privy-io/react-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { suiWalletAddress } from "@/lib/auth";
+import { buildCandles, type Candle, type Timeframe } from "@/lib/mock/candles";
 import {
   BASE_PRICES,
   buildProfile,
-  buildRuleBudgets,
   DEMO_COHORT,
-  DEMO_WALLET,
   DEMO_EQUITY_CURVE,
   DEMO_LEADERBOARD,
   DEMO_POSITIONS,
   DEMO_SBT,
   DEMO_TRADES,
   DEMO_VAULT,
+  DEMO_WALLET,
   INITIAL_PRICES,
   SYMBOLS,
   TIERS,
 } from "@/lib/mock/fixtures";
-import { buildCandles, type Candle, type Timeframe } from "@/lib/mock/candles";
 import { useMockStore } from "@/lib/mock/store";
 import type {
   CohortStats,
@@ -163,100 +162,33 @@ export function useTiers(): Tier[] {
 /* ------------------------------------------------------------------ */
 
 export function useVault(vaultId: string): VaultState {
-  const qc = useQueryClient();
+  // Pure reader — `usePaperEngine` is the sole writer of this key.
   const { data } = useQuery({
     queryKey: ["vault", vaultId],
     queryFn: () => DEMO_VAULT,
     initialData: DEMO_VAULT,
     staleTime: Infinity,
   });
-
-  useEffect(() => {
-    if (DEMO_VAULT.status !== "active") return;
-    const id = setInterval(() => {
-      qc.setQueryData<VaultState>(["vault", vaultId], (cur) => {
-        const v = cur ?? DEMO_VAULT;
-        const equity = Number(
-          (v.equity * (1 + (Math.random() - 0.47) * 0.0015)).toFixed(2),
-        );
-        const peakEquity = Math.max(v.peakEquity, equity);
-        return {
-          ...v,
-          equity,
-          peakEquity,
-          rules: buildRuleBudgets({
-            startingEquity: v.startingEquity,
-            equity,
-            peakEquity,
-            tier: v.tier,
-            intentCount: v.intentCount,
-          }),
-        };
-      });
-    }, 2000);
-    return () => clearInterval(id);
-  }, [qc, vaultId]);
-
   return data ?? DEMO_VAULT;
 }
 
 export function useEquityCurve(vaultId: string): EquityPoint[] {
-  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["equity", vaultId],
     queryFn: () => DEMO_EQUITY_CURVE,
     initialData: DEMO_EQUITY_CURVE,
     staleTime: Infinity,
   });
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      qc.setQueryData<EquityPoint[]>(["equity", vaultId], (cur) => {
-        const points = cur ?? DEMO_EQUITY_CURVE;
-        const last = points[points.length - 1];
-        const next: EquityPoint = {
-          ts: Date.now(),
-          equity: Number(
-            (last.equity * (1 + (Math.random() - 0.47) * 0.0015)).toFixed(2),
-          ),
-        };
-        return [...points.slice(-191), next];
-      });
-    }, 2000);
-    return () => clearInterval(id);
-  }, [qc, vaultId]);
-
   return data ?? DEMO_EQUITY_CURVE;
 }
 
 export function usePositions(vaultId: string): Position[] {
-  const qc = useQueryClient();
-  const prices = usePrices();
   const { data } = useQuery({
     queryKey: ["positions", vaultId],
     queryFn: () => DEMO_POSITIONS,
     initialData: DEMO_POSITIONS,
     staleTime: Infinity,
   });
-
-  useEffect(() => {
-    qc.setQueryData<Position[]>(["positions", vaultId], (cur) =>
-      (cur ?? DEMO_POSITIONS).map((pos) => {
-        const tick = prices.find((p) => p.symbol === pos.symbol);
-        if (!tick) return pos;
-        const markPrice = tick.price;
-        const dir = pos.side === "long" ? 1 : -1;
-        const pnlPct = ((markPrice - pos.entryPrice) / pos.entryPrice) * dir;
-        return {
-          ...pos,
-          markPrice,
-          unrealizedPnl: Number((pos.sizeUsd * pnlPct).toFixed(2)),
-          unrealizedPnlPct: Number((pnlPct * 100).toFixed(2)),
-        };
-      }),
-    );
-  }, [qc, vaultId, prices]);
-
   return data ?? DEMO_POSITIONS;
 }
 

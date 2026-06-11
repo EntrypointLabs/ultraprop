@@ -15,6 +15,8 @@ import { formatPct, formatUsd } from "@/lib/utils";
 
 interface PositionsTableProps {
   positions: Position[];
+  /** Close a position at the current mark, booking realized P&L. */
+  onClose?: (id: string) => void;
 }
 
 function SideBadge({ side }: { side: "long" | "short" }) {
@@ -30,7 +32,7 @@ function SideBadge({ side }: { side: "long" | "short" }) {
   );
 }
 
-export function PositionsTable({ positions }: PositionsTableProps) {
+export function PositionsTable({ positions, onClose }: PositionsTableProps) {
   if (positions.length === 0) {
     return (
       <div className="flex h-24 items-center justify-center text-sm text-text-faint">
@@ -101,6 +103,7 @@ export function PositionsTable({ positions }: PositionsTableProps) {
                   variant="danger"
                   size="sm"
                   aria-label={`Close ${pos.symbol} ${pos.side} position`}
+                  onClick={() => onClose?.(pos.id)}
                 >
                   Close
                 </Button>

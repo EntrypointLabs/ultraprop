@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { DailyResetCountdown } from "@/components/evaluation/DailyResetCountdown";
 import { DrawdownGauge } from "@/components/evaluation/DrawdownGauge";
 import { PositionsTable } from "@/components/evaluation/PositionsTable";
@@ -21,6 +22,7 @@ import {
   useVault,
 } from "@/lib/mock/hooks";
 import type { Symbol } from "@/lib/mock/types";
+import { usePaperEngine } from "@/lib/sim/usePaperEngine";
 import { cn, formatPct, formatUsd } from "@/lib/utils";
 
 // SSR-safe: Lightweight Charts requires the browser canvas API
@@ -123,7 +125,8 @@ function MarketStrip({
   // Derive 24h volume + range from the mock data (base price ± change).
   const basePrice = price / (1 + change24h / 100);
   const absChange = price - basePrice;
-  const vol24h = price * (symbol === "BTC" ? 18_400 : symbol === "ETH" ? 92_000 : 1_240_000);
+  const vol24h =
+    price * (symbol === "BTC" ? 18_400 : symbol === "ETH" ? 92_000 : 1_240_000);
 
   // 24h high / low approximated from the daily candle
   const dailyRange24hLow = Math.min(basePrice, price) * 0.992;
@@ -239,10 +242,22 @@ interface EvaluationCockpitProps {
 }
 
 export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
+  const router = useRouter();
+  const { submitOrder, closePosition } = usePaperEngine(vaultId);
   const vault = useVault(vaultId);
   const equityCurve = useEquityCurve(vaultId);
   const positions = usePositions(vaultId);
   const trades = useTradeHistory(vaultId);
+
+  // The engine flips status on breach/pass — route to the matching terminal screen.
+  useEffect(() => {
+    if (vault.status === "passed")
+      router.replace(`/evaluation/${vaultId}/passed`);
+    else if (vault.status === "failed")
+      router.replace(`/evaluation/${vaultId}/failed`);
+    else if (vault.status === "inactive")
+      router.replace(`/evaluation/${vaultId}/inactive`);
+  }, [vault.status, vaultId, router]);
 
   const [symbol, setSymbol] = useState<Symbol>("BTC");
   const [timeframe, setTimeframe] = useState<Timeframe>("1H");
@@ -300,6 +315,7 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
             vaultId={vaultId}
             symbol={symbol}
             onSymbolChange={setSymbol}
+            onSubmitOrder={submitOrder}
           />
         </div>
       </div>
@@ -338,12 +354,10 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
       {/* ── Bottom panel content ───────────────────────────────────────── */}
       <div className="min-h-[220px] bg-surface px-4 py-4">
         {activeTab === "positions" && (
-          <PositionsTable positions={positions} />
+          <PositionsTable positions={positions} onClose={closePosition} />
         )}
 
-        {activeTab === "history" && (
-          <TradeHistory trades={trades} />
-        )}
+        {activeTab === "history" && <TradeHistory trades={trades} />}
 
         {activeTab === "account" && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">

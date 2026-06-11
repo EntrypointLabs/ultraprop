@@ -14,6 +14,7 @@ import type {
   VaultState,
   VaultSummary,
 } from "@/lib/mock/types";
+import { evaluateRules } from "@/lib/sim/engine";
 
 /**
  * Fixed reference epoch used to seed all time-based fixtures so server render
@@ -246,80 +247,27 @@ export const DEMO_TRADES: TradeRecord[] = [
   },
 ];
 
+/**
+ * Build the rule budgets for the seed vault. Delegates to the engine's
+ * canonical static-drawdown rule logic so the SSR seed and the live engine
+ * never disagree. `peakEquity` is accepted for back-compat but no longer used
+ * (drawdown is a static floor off starting equity).
+ */
 export function buildRuleBudgets(vault: {
   startingEquity: number;
   equity: number;
-  peakEquity: number;
+  peakEquity?: number;
+  dailyAnchorEquity?: number;
   tier: Tier;
   intentCount: number;
 }): RuleBudget[] {
-  const { startingEquity, equity, peakEquity, tier, intentCount } = vault;
-
-  const ddFloor = peakEquity * (1 - tier.maxDrawdown);
-  const ddUsed = Math.max(0, peakEquity - equity);
-  const ddLimit = peakEquity - ddFloor;
-  const ddFrac = ddLimit > 0 ? Math.min(1, ddUsed / ddLimit) : 0;
-
-  const dailyLimit = startingEquity * tier.dailyLoss;
-  const dailyUsed = Math.max(0, startingEquity - equity);
-  const dailyFrac = dailyLimit > 0 ? Math.min(1, dailyUsed / dailyLimit) : 0;
-
-  const targetEquity = startingEquity * (1 + tier.profitTarget);
-  const targetGain = targetEquity - startingEquity;
-  const gainSoFar = Math.max(0, equity - startingEquity);
-  const targetFrac = targetGain > 0 ? Math.min(1, gainSoFar / targetGain) : 0;
-
-  const intentFrac = Math.min(1, intentCount / tier.intentCap);
-
-  const zone = (used: number) =>
-    used >= 0.9 ? "danger" : used >= 0.7 ? "warn" : "safe";
-
-  return [
-    {
-      kind: "drawdown",
-      label: "Max drawdown",
-      current: Number(ddUsed.toFixed(2)),
-      limit: Number(ddLimit.toFixed(2)),
-      used: ddFrac,
-      remaining: 1 - ddFrac,
-      zone: zone(ddFrac),
-      unit: "usd",
-      description: `Equity may not fall more than ${(tier.maxDrawdown * 100).toFixed(0)}% below its peak. Floor is $${ddFloor.toFixed(0)}.`,
-    },
-    {
-      kind: "dailyLoss",
-      label: "Daily loss",
-      current: Number(dailyUsed.toFixed(2)),
-      limit: Number(dailyLimit.toFixed(2)),
-      used: dailyFrac,
-      remaining: 1 - dailyFrac,
-      zone: zone(dailyFrac),
-      unit: "usd",
-      description: `Daily realized + unrealized loss may not exceed ${(tier.dailyLoss * 100).toFixed(0)}% of starting equity. Resets 00:00 UTC.`,
-    },
-    {
-      kind: "profitTarget",
-      label: "Profit target",
-      current: Number(gainSoFar.toFixed(2)),
-      limit: Number(targetGain.toFixed(2)),
-      used: targetFrac,
-      remaining: 1 - targetFrac,
-      zone: targetFrac >= 1 ? "safe" : targetFrac >= 0.5 ? "warn" : "danger",
-      unit: "usd",
-      description: `Reach +${(tier.profitTarget * 100).toFixed(0)}% on starting equity to pass. Target equity is $${targetEquity.toFixed(0)}.`,
-    },
-    {
-      kind: "intentCount",
-      label: "Trades",
-      current: intentCount,
-      limit: tier.intentCap,
-      used: intentFrac,
-      remaining: 1 - intentFrac,
-      zone: zone(intentFrac),
-      unit: "count",
-      description: `Up to ${tier.intentCap} trades per evaluation.`,
-    },
-  ];
+  return evaluateRules({
+    startingEquity: vault.startingEquity,
+    equity: vault.equity,
+    dailyAnchorEquity: vault.dailyAnchorEquity ?? vault.startingEquity,
+    tier: vault.tier,
+    intentCount: vault.intentCount,
+  });
 }
 
 export const DEMO_VAULT: VaultState = {

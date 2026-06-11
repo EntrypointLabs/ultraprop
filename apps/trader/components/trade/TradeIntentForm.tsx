@@ -38,6 +38,12 @@ interface TradeIntentFormProps {
   /** When provided the form is controlled — internal asset tab row is hidden. */
   symbol?: Symbol;
   onSymbolChange?: (s: Symbol) => void;
+  /** Opens a notional position in the paper-trading engine on confirmed submit. */
+  onSubmitOrder?: (intent: {
+    symbol: Symbol;
+    side: Side;
+    sizeUsd: number;
+  }) => void;
 }
 
 type SubmitState =
@@ -322,6 +328,7 @@ export function TradeIntentForm({
   vaultId,
   symbol: symbolProp,
   onSymbolChange,
+  onSubmitOrder,
 }: TradeIntentFormProps) {
   const vault: VaultState = useVault(vaultId);
   const { halted } = useDivergenceHalt();
@@ -394,6 +401,11 @@ export function TradeIntentForm({
     const capturedSize = sizeUsd;
     setSubmitState({ phase: "submitting" });
     setTimeout(() => {
+      onSubmitOrder?.({
+        symbol: capturedSymbol,
+        side: capturedSide,
+        sizeUsd: capturedSize,
+      });
       setSubmitState({
         phase: "confirmed",
         symbol: capturedSymbol,
@@ -405,7 +417,7 @@ export function TradeIntentForm({
       setLastSubmitAt(Date.now());
       setRawSize("1000");
     }, 650);
-  }, [canSubmit, preview, symbol, side, sizeUsd]);
+  }, [canSubmit, preview, symbol, side, sizeUsd, onSubmitOrder]);
 
   const dismissConfirmation = React.useCallback(() => {
     setSubmitState({ phase: "idle" });
@@ -685,9 +697,9 @@ export function TradeIntentForm({
           </div>
           <p className="text-sm text-text-muted">
             All fills are computed from live market prices at the moment you
-            submit. Your fill = market price + size impact + a fixed desk spread.
-            The desk spread is always against the trader — there are no hidden
-            markups beyond what is shown here.
+            submit. Your fill = market price + size impact + a fixed desk
+            spread. The desk spread is always against the trader — there are no
+            hidden markups beyond what is shown here.
           </p>
           <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-3">
             <div className="grid grid-cols-2 gap-y-2 text-xs">
