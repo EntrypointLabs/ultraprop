@@ -2,10 +2,9 @@
 
 import { usePrivy, useLogout } from "@privy-io/react-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { suiWalletAddress } from "@/lib/auth";
 import {
-  BASE_PRICES,
   buildProfile,
   buildRuleBudgets,
   DEMO_COHORT,
@@ -16,11 +15,15 @@ import {
   DEMO_SBT,
   DEMO_TRADES,
   DEMO_VAULT,
-  INITIAL_PRICES,
   SYMBOLS,
   TIERS,
 } from "@/lib/mock/fixtures";
-import { buildCandles, type Candle, type Timeframe } from "@/lib/mock/candles";
+import {
+  fetchDailyHistory,
+  fetchLatestPrices,
+  type OracleHistory,
+  type OraclePrice,
+} from "@/lib/oracle/pyth";
 import { useMockStore } from "@/lib/mock/store";
 import type {
   CohortStats,
@@ -90,48 +93,83 @@ export function useDivergenceHalt(): {
 }
 
 /* ------------------------------------------------------------------ */
-/* Live-tick engine: seeded initial data, jitter only in client effect */
+/* Live oracle prices — Pyth Hermes spot + Benchmarks 24h history       */
 /* ------------------------------------------------------------------ */
 
-function jitterPrice(prev: PriceTick): PriceTick {
-  // bounded random walk around the base price; client-only.
-  const drift = (Math.random() - 0.5) * 0.0009;
-  const price = Number(
-    (prev.price * (1 + drift)).toFixed(prev.price > 1000 ? 1 : 4),
-  );
-  const base = BASE_PRICES[prev.symbol];
-  const _change24h = Number(
-    (((price - base) / base) * 100 + prev.change24h * 0.0).toFixed(2),
-  );
-  const spark = [...prev.spark.slice(1), price];
-  return {
-    ...prev,
-    price,
-    change24h: Number((prev.change24h + drift * 100).toFixed(2)),
-    spark,
-    ts: Date.now(),
-  };
+/** Latest spot for every market, refreshed straight off the oracle. */
+function useOracleLatest() {
+  return useQuery({
+    queryKey: ["oracle", "latest"],
+    queryFn: ({ signal }) => fetchLatestPrices(SYMBOLS, signal),
+    refetchInterval: 2500,
+    staleTime: 2500,
+  });
+}
+
+/** Trailing-24h hourly closes per market (sparkline + 24h change basis). */
+function useOracleHistory() {
+  return useQuery({
+    queryKey: ["oracle", "history"],
+    queryFn: async ({ signal }) => {
+      const nowSec = Math.floor(Date.now() / 1000);
+      const entries = await Promise.all(
+        SYMBOLS.map(
+          async (s) =>
+            [
+              s,
+              await fetchDailyHistory(s, nowSec, signal).catch(() => null),
+            ] as const,
+        ),
+      );
+      const out: Partial<Record<Symbol, OracleHistory>> = {};
+      for (const [s, h] of entries) if (h) out[s] = h;
+      return out;
+    },
+    refetchInterval: 5 * 60_000,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * Build a `PriceTick` per market from live oracle data only. There is no
+ * synthetic fallback: until the oracle responds (or if it fails), price and
+ * change24h are null and the UI must render an explicit "unavailable" state
+ * rather than a stale or fabricated number. This keeps server render and first
+ * client paint aligned (both have no data) with no hydration drift.
+ */
+function composeTicks(
+  latest: OraclePrice[] | undefined,
+  history: Partial<Record<Symbol, OracleHistory>> | undefined,
+): PriceTick[] {
+  return SYMBOLS.map((symbol) => {
+    const live = latest?.find((p) => p.symbol === symbol);
+    const hist = history?.[symbol];
+    const price = live?.price ?? null;
+    const change24h =
+      price != null && hist?.price24hAgo
+        ? Number(
+            (((price - hist.price24hAgo) / hist.price24hAgo) * 100).toFixed(2),
+          )
+        : null;
+    const spark = hist && hist.closes.length > 1 ? hist.closes.slice(-32) : [];
+    return {
+      symbol,
+      price,
+      change24h,
+      spark,
+      high24h: hist?.high24h ?? null,
+      low24h: hist?.low24h ?? null,
+      ts: live?.publishTime ?? 0,
+    };
+  });
 }
 
 export function usePrices(symbols?: Symbol[]): PriceTick[] {
-  const qc = useQueryClient();
-  const { data } = useQuery({
-    queryKey: ["prices"],
-    queryFn: () => INITIAL_PRICES,
-    initialData: INITIAL_PRICES,
-    staleTime: Infinity,
-  });
+  const { data: latest } = useOracleLatest();
+  const { data: history } = useOracleHistory();
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      qc.setQueryData<PriceTick[]>(["prices"], (cur) =>
-        (cur ?? INITIAL_PRICES).map(jitterPrice),
-      );
-    }, 1500);
-    return () => clearInterval(id);
-  }, [qc]);
+  const list = useMemo(() => composeTicks(latest, history), [latest, history]);
 
-  const list = data ?? INITIAL_PRICES;
   if (!symbols || symbols.length === 0) return list;
   return list.filter((p) => symbols.includes(p.symbol));
 }
@@ -243,7 +281,9 @@ export function usePositions(vaultId: string): Position[] {
     qc.setQueryData<Position[]>(["positions", vaultId], (cur) =>
       (cur ?? DEMO_POSITIONS).map((pos) => {
         const tick = prices.find((p) => p.symbol === pos.symbol);
-        if (!tick) return pos;
+        // No live oracle price -> leave the position untouched rather than
+        // mark it against a stale value.
+        if (tick?.price == null) return pos;
         const markPrice = tick.price;
         const dir = pos.side === "long" ? 1 : -1;
         const pnlPct = ((markPrice - pos.entryPrice) / pos.entryPrice) * dir;
@@ -339,46 +379,27 @@ export function useCohortStats(): CohortStats {
 }
 
 /* ------------------------------------------------------------------ */
-/* Candles — deterministic base series, last candle tracks live price  */
+/* Connection status — reflects real oracle health (or a manual halt)   */
 /* ------------------------------------------------------------------ */
 
-export function useCandles(symbol: Symbol, tf: Timeframe): Candle[] {
-  // Memoize the base candle series so it only rebuilds when symbol/tf changes.
-  const base = useMemo(() => buildCandles(symbol, tf), [symbol, tf]);
-
-  const tick = usePrice(symbol);
-  const livePrice = tick?.price;
-
-  return useMemo(() => {
-    if (!livePrice || base.length === 0) return base;
-    const last = base[base.length - 1];
-    const updated: Candle = {
-      ...last,
-      close: livePrice,
-      high: Math.max(last.high, livePrice),
-      low: Math.min(last.low, livePrice),
-    };
-    return [...base.slice(0, -1), updated];
-  }, [base, livePrice]);
-}
-
-/* ------------------------------------------------------------------ */
-/* Connection status — cycles to feel live; halted forces "stale"      */
-/* ------------------------------------------------------------------ */
+/** Live oracle data is treated as stale if it hasn't refreshed in this window. */
+const ORACLE_STALE_MS = 30_000;
 
 export function useConnection(): ConnectionStatus {
   const halted = useMockStore((s) => s.divergenceHalt);
-  const [status, setStatus] = useState<ConnectionStatus>("live");
-  const tick = useRef(0);
+  const { data, isError, dataUpdatedAt } = useOracleLatest();
+  const [, force] = useState(0);
 
+  // The query only re-renders on a fetch — which is exactly what stops when the
+  // feed dies — so re-evaluate staleness on a steady cadence of our own.
   useEffect(() => {
-    const id = setInterval(() => {
-      tick.current += 1;
-      // brief reconnecting blip every ~20s, otherwise live.
-      setStatus(tick.current % 13 === 0 ? "reconnecting" : "live");
-    }, 1500);
+    const id = setInterval(() => force((n) => n + 1), 2000);
     return () => clearInterval(id);
   }, []);
 
-  return halted ? "stale" : status;
+  if (halted) return "stale";
+  if (isError) return "stale";
+  if (!data || data.length === 0) return "reconnecting";
+  if (Date.now() - dataUpdatedAt > ORACLE_STALE_MS) return "stale";
+  return "live";
 }

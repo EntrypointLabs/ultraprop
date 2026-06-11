@@ -9,19 +9,23 @@ import { RulePills } from "@/components/evaluation/RulePills";
 import { TradeHistory } from "@/components/evaluation/TradeHistory";
 import { TradeIntentForm } from "@/components/trade";
 import { AssetIcon, Badge, ConnectionDot, Skeleton } from "@/components/ui";
-import type { Timeframe } from "@/lib/mock/candles";
 import {
-  useCandles,
   useConnection,
   useEquityCurve,
-  useMarkets,
   usePositions,
   usePrice,
   useTradeHistory,
   useVault,
 } from "@/lib/mock/hooks";
 import type { Symbol } from "@/lib/mock/types";
-import { cn, formatPct, formatUsd } from "@/lib/utils";
+import {
+  cn,
+  formatPct,
+  formatPctOrDash,
+  formatUsd,
+  formatUsdOrDash,
+  VALUE_UNAVAILABLE,
+} from "@/lib/utils";
 
 // SSR-safe: Lightweight Charts requires the browser canvas API
 const EquityCurve = dynamic(
@@ -35,10 +39,10 @@ const EquityCurve = dynamic(
   },
 );
 
-const MarketChart = dynamic(
+const TradingViewChart = dynamic(
   () =>
-    import("@/components/charts/MarketChart").then((m) => ({
-      default: m.MarketChart,
+    import("@/components/charts/TradingViewChart").then((m) => ({
+      default: m.TradingViewChart,
     })),
   {
     ssr: false,
@@ -72,9 +76,9 @@ function AssetPill({
   onClick: () => void;
 }) {
   const tick = usePrice(symbol);
-  const price = tick?.price ?? 0;
-  const change = tick?.change24h ?? 0;
-  const up = change >= 0;
+  const price = tick?.price ?? null;
+  const change = tick?.change24h ?? null;
+  const up = (change ?? 0) >= 0;
 
   return (
     <button
@@ -90,8 +94,13 @@ function AssetPill({
     >
       <AssetIcon symbol={symbol} size={14} />
       <span className="text-xs font-semibold">{symbol}</span>
-      <span className={cn("tabular text-xs", up ? "text-up" : "text-down")}>
-        {formatUsd(price, { decimals: price > 100 ? 0 : 2 })}
+      <span
+        className={cn(
+          "tabular text-xs",
+          price == null ? "text-text-faint" : up ? "text-up" : "text-down",
+        )}
+      >
+        {formatUsdOrDash(price, { decimals: (price ?? 0) > 100 ? 0 : 2 })}
       </span>
     </button>
   );
@@ -110,24 +119,25 @@ function MarketStrip({
   onSymbolChange: (s: Symbol) => void;
   vaultId: string;
 }) {
-  const markets = useMarkets();
   const tick = usePrice(symbol);
   const vault = useVault(vaultId);
   const connStatus = useConnection();
 
-  const price = tick?.price ?? 0;
-  const change24h = tick?.change24h ?? 0;
-  const up = change24h >= 0;
-  const changeTone = up ? "text-up" : "text-down";
+  const price = tick?.price ?? null;
+  const change24h = tick?.change24h ?? null;
+  const up = (change24h ?? 0) >= 0;
+  const changeTone =
+    change24h == null ? "text-text-faint" : up ? "text-up" : "text-down";
 
-  // Derive 24h volume + range from the mock data (base price ± change).
-  const basePrice = price / (1 + change24h / 100);
-  const absChange = price - basePrice;
-  const vol24h = price * (symbol === "BTC" ? 18_400 : symbol === "ETH" ? 92_000 : 1_240_000);
+  // Absolute 24h move in USD, derived from the live price and real % change.
+  const absChange =
+    price != null && change24h != null
+      ? price - price / (1 + change24h / 100)
+      : null;
 
-  // 24h high / low approximated from the daily candle
-  const dailyRange24hLow = Math.min(basePrice, price) * 0.992;
-  const dailyRange24hHigh = Math.max(basePrice, price) * 1.008;
+  // Real trailing-24h high / low straight from the oracle history.
+  const dailyRange24hLow = tick?.low24h ?? null;
+  const dailyRange24hHigh = tick?.high24h ?? null;
 
   const returnPct =
     ((vault.equity - vault.startingEquity) / vault.startingEquity) * 100;
@@ -161,7 +171,7 @@ function MarketStrip({
         <div className="flex flex-col">
           <span className="text-xs text-text-faint">Mark</span>
           <span className="tabular text-sm font-semibold text-text">
-            {formatUsd(price, { decimals: price > 100 ? 1 : 2 })}
+            {formatUsdOrDash(price, { decimals: (price ?? 0) > 100 ? 1 : 2 })}
           </span>
         </div>
 
@@ -169,22 +179,18 @@ function MarketStrip({
         <div className="flex flex-col">
           <span className="text-xs text-text-faint">24h Change</span>
           <span className={cn("tabular text-sm font-semibold", changeTone)}>
-            {up ? "+" : ""}
-            {formatUsd(absChange, { decimals: price > 100 ? 1 : 2 })}{" "}
-            <span className="text-xs font-normal">
-              ({up ? "+" : ""}
-              {change24h.toFixed(2)}%)
-            </span>
-          </span>
-        </div>
-
-        {/* 24h volume */}
-        <div className="flex flex-col">
-          <span className="text-xs text-text-faint">24h Volume</span>
-          <span className="tabular text-sm font-medium text-text-muted">
-            {vol24h >= 1_000_000_000
-              ? `$${(vol24h / 1_000_000_000).toFixed(2)}B`
-              : `$${(vol24h / 1_000_000).toFixed(1)}M`}
+            {absChange != null && change24h != null ? (
+              <>
+                {up ? "+" : ""}
+                {formatUsd(absChange, { decimals: (price ?? 0) > 100 ? 1 : 2 })}{" "}
+                <span className="text-xs font-normal">
+                  ({up ? "+" : ""}
+                  {change24h.toFixed(2)}%)
+                </span>
+              </>
+            ) : (
+              VALUE_UNAVAILABLE
+            )}
           </span>
         </div>
 
@@ -192,9 +198,13 @@ function MarketStrip({
         <div className="flex flex-col">
           <span className="text-xs text-text-faint">24h Range</span>
           <span className="tabular text-sm font-medium text-text-muted">
-            {formatUsd(dailyRange24hLow, { decimals: price > 100 ? 0 : 2 })}
+            {formatUsdOrDash(dailyRange24hLow, {
+              decimals: (price ?? 0) > 100 ? 0 : 2,
+            })}
             {" – "}
-            {formatUsd(dailyRange24hHigh, { decimals: price > 100 ? 0 : 2 })}
+            {formatUsdOrDash(dailyRange24hHigh, {
+              decimals: (price ?? 0) > 100 ? 0 : 2,
+            })}
           </span>
         </div>
 
@@ -245,10 +255,7 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
   const trades = useTradeHistory(vaultId);
 
   const [symbol, setSymbol] = useState<Symbol>("BTC");
-  const [timeframe, setTimeframe] = useState<Timeframe>("1H");
   const [activeTab, setActiveTab] = useState<BottomTab>("positions");
-
-  const candles = useCandles(symbol, timeframe);
 
   const { tier, startingEquity, peakEquity, rules } = vault;
 
@@ -260,133 +267,127 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6">
       <div className="flex flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border bg-bg">
-      {/* ── Market stats strip ─────────────────────────────────────────── */}
-      <MarketStrip
-        symbol={symbol}
-        onSymbolChange={setSymbol}
-        vaultId={vaultId}
-      />
+        {/* ── Market stats strip ─────────────────────────────────────────── */}
+        <MarketStrip
+          symbol={symbol}
+          onSymbolChange={setSymbol}
+          vaultId={vaultId}
+        />
 
-      {/* ── Main trading grid ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px]">
-        {/* LEFT: chart + risk strip */}
-        <div className="flex flex-col border-r border-border">
-          {/* Candlestick chart */}
-          <div className="border-b border-border bg-surface">
-            <MarketChart
+        {/* ── Main trading grid ──────────────────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px]">
+          {/* LEFT: chart + risk strip */}
+          <div className="flex flex-col border-r border-border">
+            {/* Candlestick chart — real TradingView feed on the Pyth oracle */}
+            <div className="h-[460px] border-b border-border bg-surface">
+              <TradingViewChart symbol={symbol} />
+            </div>
+
+            {/* Risk / compliance strip — always visible beside the chart */}
+            <div className="border-b border-border bg-surface px-4 py-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-text-faint">
+                  Compliance
+                </span>
+                <span className="text-xs text-text-faint">
+                  click to inspect
+                </span>
+              </div>
+              <RulePills rules={rules} />
+            </div>
+          </div>
+
+          {/* RIGHT: order entry */}
+          <div className="flex flex-col border-b border-border bg-surface">
+            <TradeIntentForm
+              vaultId={vaultId}
               symbol={symbol}
-              candles={candles}
-              timeframe={timeframe}
-              onTimeframeChange={setTimeframe}
-              height={460}
+              onSymbolChange={setSymbol}
             />
           </div>
-
-          {/* Risk / compliance strip — always visible beside the chart */}
-          <div className="border-b border-border bg-surface px-4 py-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-text-faint">
-                Compliance
-              </span>
-              <span className="text-xs text-text-faint">click to inspect</span>
-            </div>
-            <RulePills rules={rules} />
-          </div>
         </div>
 
-        {/* RIGHT: order entry */}
-        <div className="flex flex-col border-b border-border bg-surface">
-          <TradeIntentForm
-            vaultId={vaultId}
-            symbol={symbol}
-            onSymbolChange={setSymbol}
-          />
-        </div>
-      </div>
-
-      {/* ── Bottom tab strip ───────────────────────────────────────────── */}
-      <div className="border-b border-border bg-surface">
-        <div className="flex items-center gap-0">
-          {BOTTOM_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "border-b-2 px-5 py-3 text-xs font-medium transition-colors",
-                activeTab === tab.id
-                  ? "border-brand text-text"
-                  : "border-transparent text-text-muted hover:text-text",
-              )}
-            >
-              {tab.label}
-              {tab.id === "positions" && positions.length > 0 && (
-                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
-                  {positions.length}
-                </span>
-              )}
-              {tab.id === "history" && trades.length > 0 && (
-                <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
-                  {trades.length}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Bottom panel content ───────────────────────────────────────── */}
-      <div className="min-h-[220px] bg-surface px-4 py-4">
-        {activeTab === "positions" && (
-          <PositionsTable positions={positions} />
-        )}
-
-        {activeTab === "history" && (
-          <TradeHistory trades={trades} />
-        )}
-
-        {activeTab === "account" && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">
-            <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-faint">
-                Equity curve
-              </div>
-              <EquityCurve
-                data={equityCurve}
-                startingEquity={startingEquity}
-                peakEquity={peakEquity}
-                maxDrawdown={tier.maxDrawdown}
-                profitTarget={tier.profitTarget}
-                className="w-full"
-              />
-            </div>
-            <div className="flex flex-col items-center justify-center rounded-[var(--radius)] border border-border bg-surface-2 p-4">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-faint">
-                Drawdown
-              </div>
-              <DrawdownGauge
-                currentDd={ddCurrentUsd}
-                maxDd={ddLimitUsd}
-                fraction={ddFraction}
-              />
-              <div className="mt-3 space-y-1 text-center text-xs text-text-muted">
-                <div>
-                  <span className="tabular font-semibold text-text">
-                    {formatUsd(ddCurrentUsd)}
-                  </span>{" "}
-                  used
-                </div>
-                <div>
-                  limit{" "}
-                  <span className="tabular font-semibold text-text">
-                    {formatUsd(ddLimitUsd)}
+        {/* ── Bottom tab strip ───────────────────────────────────────────── */}
+        <div className="border-b border-border bg-surface">
+          <div className="flex items-center gap-0">
+            {BOTTOM_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "border-b-2 px-5 py-3 text-xs font-medium transition-colors",
+                  activeTab === tab.id
+                    ? "border-brand text-text"
+                    : "border-transparent text-text-muted hover:text-text",
+                )}
+              >
+                {tab.label}
+                {tab.id === "positions" && positions.length > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
+                    {positions.length}
                   </span>
+                )}
+                {tab.id === "history" && trades.length > 0 && (
+                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
+                    {trades.length}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Bottom panel content ───────────────────────────────────────── */}
+        <div className="min-h-[220px] bg-surface px-4 py-4">
+          {activeTab === "positions" && (
+            <PositionsTable positions={positions} />
+          )}
+
+          {activeTab === "history" && <TradeHistory trades={trades} />}
+
+          {activeTab === "account" && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-faint">
+                  Equity curve
+                </div>
+                <EquityCurve
+                  data={equityCurve}
+                  startingEquity={startingEquity}
+                  peakEquity={peakEquity}
+                  maxDrawdown={tier.maxDrawdown}
+                  profitTarget={tier.profitTarget}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex flex-col items-center justify-center rounded-[var(--radius)] border border-border bg-surface-2 p-4">
+                <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-faint">
+                  Drawdown
+                </div>
+                <DrawdownGauge
+                  currentDd={ddCurrentUsd}
+                  maxDd={ddLimitUsd}
+                  fraction={ddFraction}
+                />
+                <div className="mt-3 space-y-1 text-center text-xs text-text-muted">
+                  <div>
+                    <span className="tabular font-semibold text-text">
+                      {formatUsd(ddCurrentUsd)}
+                    </span>{" "}
+                    used
+                  </div>
+                  <div>
+                    limit{" "}
+                    <span className="tabular font-semibold text-text">
+                      {formatUsd(ddLimitUsd)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       </div>
     </div>
   );

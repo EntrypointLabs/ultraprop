@@ -78,7 +78,7 @@ export function HeroCarousel() {
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Slide content */}
-      <div className="flex-1 p-5 min-h-[460px]">
+      <div className="flex-1 p-5 min-h-[520px]">
         <SlideContent id={SLIDES[current].id} />
       </div>
 
