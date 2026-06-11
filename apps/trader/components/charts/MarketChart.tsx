@@ -6,8 +6,10 @@ import type {
   UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
+import { getChartColors } from "@/lib/chart-colors";
 import type { Candle, Timeframe } from "@/lib/mock/candles";
 import { TIMEFRAMES } from "@/lib/mock/candles";
+import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 interface MarketChartProps {
@@ -19,15 +21,6 @@ interface MarketChartProps {
   className?: string;
 }
 
-const GRID = "#1c1c22";
-const AXIS = "#2a2a30";
-const TEXT = "#6b6b73";
-const ACCENT = "#e5484d";
-const UP = "#34d399";
-const DOWN = "#f87171";
-const UP_VOL = "rgba(52,211,153,0.4)";
-const DOWN_VOL = "rgba(248,113,113,0.4)";
-
 const toTime = (ms: number) => Math.floor(ms / 1000) as UTCTimestamp;
 
 export function MarketChart({
@@ -38,6 +31,7 @@ export function MarketChart({
   height = 460,
   className,
 }: MarketChartProps) {
+  const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -46,6 +40,10 @@ export function MarketChart({
   // Keep latest data in a ref so the create-once effect can access it.
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
+
+  // Latest colors for the create-once effect (first render correct).
+  const colorsRef = useRef(getChartColors(resolvedTheme));
+  colorsRef.current = getChartColors(resolvedTheme);
 
   // Create chart once.
   useEffect(() => {
@@ -57,6 +55,7 @@ export function MarketChart({
     import("lightweight-charts").then(
       ({ createChart, CandlestickSeries, HistogramSeries, CrosshairMode }) => {
         if (destroyed || !containerRef.current) return;
+        const c = colorsRef.current;
 
         const chart = createChart(containerRef.current, {
           width: containerRef.current.clientWidth,
@@ -64,38 +63,38 @@ export function MarketChart({
           autoSize: false,
           layout: {
             background: { color: "transparent" },
-            textColor: TEXT,
+            textColor: c.text,
             fontFamily: "var(--font-mono-face), ui-monospace, monospace",
             fontSize: 11,
             attributionLogo: false,
           },
           grid: {
-            vertLines: { color: GRID },
-            horzLines: { color: GRID },
+            vertLines: { color: c.grid },
+            horzLines: { color: c.grid },
           },
           crosshair: {
             mode: CrosshairMode.Magnet,
             vertLine: {
-              color: "#3a3a44",
+              color: c.crosshair,
               width: 1,
               style: 3,
-              labelBackgroundColor: ACCENT,
+              labelBackgroundColor: c.accent,
             },
             horzLine: {
-              color: "#3a3a44",
+              color: c.crosshair,
               width: 1,
               style: 3,
-              labelBackgroundColor: ACCENT,
+              labelBackgroundColor: c.accent,
             },
           },
           rightPriceScale: {
             visible: true,
-            borderColor: AXIS,
+            borderColor: c.axis,
             scaleMargins: { top: 0.08, bottom: 0.22 },
           },
           timeScale: {
             visible: true,
-            borderColor: AXIS,
+            borderColor: c.axis,
             timeVisible: true,
             secondsVisible: false,
             rightOffset: 4,
@@ -108,15 +107,15 @@ export function MarketChart({
 
         // Candlestick series.
         const cs = chart.addSeries(CandlestickSeries, {
-          upColor: UP,
-          downColor: DOWN,
-          borderUpColor: UP,
-          borderDownColor: DOWN,
-          wickUpColor: UP,
-          wickDownColor: DOWN,
+          upColor: c.up,
+          downColor: c.down,
+          borderUpColor: c.up,
+          borderDownColor: c.down,
+          wickUpColor: c.up,
+          wickDownColor: c.down,
           priceLineVisible: true,
           priceLineStyle: 2,
-          priceLineColor: ACCENT,
+          priceLineColor: c.accent,
           lastValueVisible: true,
         });
 
@@ -146,10 +145,10 @@ export function MarketChart({
           })),
         );
         vs.setData(
-          data.map((c) => ({
-            time: toTime(c.t),
-            value: c.volume,
-            color: c.close >= c.open ? UP_VOL : DOWN_VOL,
+          data.map((d) => ({
+            time: toTime(d.t),
+            value: d.volume,
+            color: d.close >= d.open ? c.upVol : c.downVol,
           })),
         );
 
@@ -177,11 +176,50 @@ export function MarketChart({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Recolor an on-screen chart when the theme changes (no remount).
+  useEffect(() => {
+    const chart = chartRef.current;
+    const cs = candleSeriesRef.current;
+    const vs = volSeriesRef.current;
+    if (!chart || !cs || !vs) return;
+    const c = getChartColors(resolvedTheme);
+    chart.applyOptions({
+      layout: { textColor: c.text },
+      grid: {
+        vertLines: { color: c.grid },
+        horzLines: { color: c.grid },
+      },
+      crosshair: {
+        vertLine: { color: c.crosshair, labelBackgroundColor: c.accent },
+        horzLine: { color: c.crosshair, labelBackgroundColor: c.accent },
+      },
+      rightPriceScale: { borderColor: c.axis },
+      timeScale: { borderColor: c.axis },
+    });
+    cs.applyOptions({
+      upColor: c.up,
+      downColor: c.down,
+      borderUpColor: c.up,
+      borderDownColor: c.down,
+      wickUpColor: c.up,
+      wickDownColor: c.down,
+      priceLineColor: c.accent,
+    });
+    vs.setData(
+      candlesRef.current.map((d) => ({
+        time: toTime(d.t),
+        value: d.volume,
+        color: d.close >= d.open ? c.upVol : c.downVol,
+      })),
+    );
+  }, [resolvedTheme]);
+
   // Live-update last candle whenever data changes.
   useEffect(() => {
     const cs = candleSeriesRef.current;
     const vs = volSeriesRef.current;
     if (!cs || !vs || candles.length === 0) return;
+    const c = getChartColors(resolvedTheme);
     const last = candles[candles.length - 1];
     cs.update({
       time: toTime(last.t),
@@ -193,9 +231,9 @@ export function MarketChart({
     vs.update({
       time: toTime(last.t),
       value: last.volume,
-      color: last.close >= last.open ? UP_VOL : DOWN_VOL,
+      color: last.close >= last.open ? c.upVol : c.downVol,
     });
-  }, [candles]);
+  }, [candles, resolvedTheme]);
 
   // Rebuild chart data when timeframe changes (the candles array is a new ref).
   const prevTfRef = useRef(timeframe);
@@ -205,24 +243,25 @@ export function MarketChart({
     const cs = candleSeriesRef.current;
     const vs = volSeriesRef.current;
     if (!cs || !vs || candles.length === 0) return;
+    const c = getChartColors(resolvedTheme);
     cs.setData(
-      candles.map((c) => ({
-        time: toTime(c.t),
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
+      candles.map((d) => ({
+        time: toTime(d.t),
+        open: d.open,
+        high: d.high,
+        low: d.low,
+        close: d.close,
       })),
     );
     vs.setData(
-      candles.map((c) => ({
-        time: toTime(c.t),
-        value: c.volume,
-        color: c.close >= c.open ? UP_VOL : DOWN_VOL,
+      candles.map((d) => ({
+        time: toTime(d.t),
+        value: d.volume,
+        color: d.close >= d.open ? c.upVol : c.downVol,
       })),
     );
     chartRef.current?.timeScale().fitContent();
-  }, [timeframe, candles]);
+  }, [timeframe, candles, resolvedTheme]);
 
   return (
     <div className={cn("relative flex flex-col", className)}>

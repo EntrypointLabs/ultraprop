@@ -22,7 +22,7 @@ function SideBadge({ side }: { side: "long" | "short" }) {
     <span
       className={[
         "inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
-        side === "long" ? "bg-up/15 text-up" : "bg-down/15 text-down",
+        side === "long" ? "bg-up/15 text-on-up" : "bg-down/15 text-on-down",
       ].join(" ")}
     >
       {side === "long" ? "Long" : "Short"}

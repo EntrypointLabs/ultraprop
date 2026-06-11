@@ -10,12 +10,12 @@ import { LeaderboardSpotlight } from "./spotlights/LeaderboardSpotlight";
 import { TopTraderSpotlight } from "./spotlights/TopTraderSpotlight";
 
 const SLIDES = [
+  { id: "cohort", label: "Cohort" },
   { id: "leaderboard", label: "Leaderboard" },
   { id: "top-trader", label: "Top trader" },
   { id: "btc", label: "BTC" },
   { id: "eth", label: "ETH" },
   { id: "sol", label: "SOL" },
-  { id: "cohort", label: "Cohort" },
 ] as const;
 
 type SlideId = (typeof SLIDES)[number]["id"];
