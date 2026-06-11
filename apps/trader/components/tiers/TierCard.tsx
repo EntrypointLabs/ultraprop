@@ -19,7 +19,7 @@ const TIER_DESCRIPTIONS: Record<Tier["id"], string> = {
   starter:
     "Begin your evaluation. Trade BTC/ETH/SOL in simulation with automatic rule enforcement.",
   basic:
-    "Elevated capital, tighter rules. Prove consistency before stepping up.",
+    "Elevated capital, tighter rules. Prove consistency before stepping up to next level.",
   pro: "Maximum account size. Reserved for traders who have proven themselves at every level.",
 };
 
