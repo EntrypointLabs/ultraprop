@@ -148,7 +148,8 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
   }));
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 space-y-6">
+      {/* Header */}
       <ProfileHeader profile={profile} wallet={wallet} />
 
       <div className="mt-6 lg:hidden">
