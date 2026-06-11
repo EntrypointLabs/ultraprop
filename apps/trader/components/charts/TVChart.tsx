@@ -37,7 +37,7 @@ export interface TVPriceLineSpec {
 export interface TVChartProps {
   series: TVSeriesSpec[];
   priceLines?: TVPriceLineSpec[];
-  height?: number;
+  height?: number | "full";
   /** faint background watermark, TradingView-style (e.g. "BTC / USD") */
   watermark?: string;
   showTimeScale?: boolean;
@@ -111,8 +111,8 @@ export function TVChart({
 
         const chart = createChart(containerRef.current, {
           width: containerRef.current.clientWidth,
-          height: p.height,
-          autoSize: false,
+          height: isNaN(Number(p.height)) ? 0 : Number(p.height),
+          autoSize: p.height === "full",
           layout: {
             background: { color: "transparent" },
             textColor: c.text,
@@ -298,7 +298,7 @@ export function TVChart({
   }, [priceLines]);
 
   return (
-    <div className={cn("relative", className)} style={{ minHeight: height }}>
+    <div className={cn("relative h-full", className)} style={{ minHeight: height === "full" ? "100%" : height }}>
       {watermark && (
         <span
           aria-hidden
@@ -307,7 +307,7 @@ export function TVChart({
           {watermark}
         </span>
       )}
-      <div ref={containerRef} style={{ height }} aria-label="Price chart" />
+      <div ref={containerRef} style={{ height: height === "full" ? "100%" : height }} aria-label="Price chart" />
     </div>
   );
 }

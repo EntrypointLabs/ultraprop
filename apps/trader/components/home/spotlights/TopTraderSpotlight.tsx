@@ -79,7 +79,7 @@ export function TopTraderSpotlight() {
         <div className="flex-1 rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
           <TVChart
             series={chartSeries}
-            height={160}
+            height={"full"}
             watermark="Equity"
             showTimeScale={true}
             showPriceScale={true}

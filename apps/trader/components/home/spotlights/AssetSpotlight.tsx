@@ -99,7 +99,7 @@ export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
         <div className="flex-1 min-h-[180px] rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
           <TVChart
             series={chartSeries}
-            height={200}
+            height={"full"}
             watermark={`${symbol} / USD`}
             showTimeScale={true}
             showPriceScale={true}
