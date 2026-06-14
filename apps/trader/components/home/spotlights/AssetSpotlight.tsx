@@ -7,13 +7,16 @@ import { AssetIcon, Badge, Button } from "@/components/ui";
 import { SEED_NOW } from "@/lib/mock/fixtures";
 import { usePrice } from "@/lib/mock/hooks";
 import type { Symbol } from "@/lib/mock/types";
-import { cn, formatPct, formatUsd } from "@/lib/utils";
+import { cn, formatPctOrDash, formatUsdOrDash } from "@/lib/utils";
 
 interface AssetSpotlightProps {
   symbol: Symbol;
 }
 
-const ASSET_META: Record<Symbol, { name: string; desc: string; leverage: number }> = {
+const ASSET_META: Record<
+  Symbol,
+  { name: string; desc: string; leverage: number }
+> = {
   BTC: {
     name: "Bitcoin",
     desc: "The benchmark. BTC/USD is the most-traded pair in the evaluation universe.",
@@ -37,7 +40,9 @@ export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
 
   const sparkData = tick?.spark ?? [];
   const now = SEED_NOW;
-  const interval = Math.floor((4 * 60 * 60 * 1000) / Math.max(sparkData.length - 1, 1));
+  const interval = Math.floor(
+    (4 * 60 * 60 * 1000) / Math.max(sparkData.length - 1, 1),
+  );
 
   const chartSeries =
     sparkData.length > 1
@@ -56,8 +61,9 @@ export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
         ]
       : [];
 
-  const isUp = (tick?.change24h ?? 0) >= 0;
-  const price = tick?.price ?? 0;
+  const price = tick?.price ?? null;
+  const change = tick?.change24h ?? null;
+  const isUp = (change ?? 0) >= 0;
 
   return (
     <div className="flex h-full flex-col gap-5">
@@ -80,32 +86,41 @@ export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
 
         <div className="shrink-0 text-right">
           <div className="tabular text-2xl font-bold text-text">
-            {formatUsd(price, {
-              decimals: price > 10_000 ? 0 : price > 100 ? 2 : 4,
+            {formatUsdOrDash(price, {
+              decimals:
+                price == null ? 2 : price > 10_000 ? 0 : price > 100 ? 2 : 4,
             })}
           </div>
           <div
             className={cn(
               "tabular mt-0.5 text-sm font-medium",
-              isUp ? "text-up" : "text-down",
+              change == null
+                ? "text-text-faint"
+                : isUp
+                  ? "text-up"
+                  : "text-down",
             )}
           >
-            {formatPct(tick?.change24h ?? 0, { sign: true })} 24h
+            {formatPctOrDash(change, { sign: true })} 24h
           </div>
         </div>
       </div>
 
-      {chartSeries.length > 0 && (
-        <div className="flex-1 min-h-[180px] rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
+      {chartSeries.length > 0 ? (
+        <div className="flex-1 min-h-0 rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
           <TVChart
             series={chartSeries}
-            height={200}
+            height={"full"}
             watermark={`${symbol} / USD`}
             showTimeScale={true}
             showPriceScale={true}
             interactive={false}
-            precision={price > 10_000 ? 0 : 2}
+            precision={(price ?? 0) > 10_000 ? 0 : 2}
           />
+        </div>
+      ) : (
+        <div className="flex flex-1 min-h-0 items-center justify-center rounded-[var(--radius)] border border-border bg-surface-2 text-xs text-text-faint">
+          Awaiting live market feed…
         </div>
       )}
 

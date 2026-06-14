@@ -69,6 +69,8 @@ export const INITIAL_PRICES: PriceTick[] = [
     price: BASE_PRICES.BTC,
     change24h: 2.14,
     spark: seededSpark(101, BASE_PRICES.BTC, 32, 0.01),
+    high24h: null,
+    low24h: null,
     ts: SEED_NOW,
   },
   {
@@ -76,6 +78,8 @@ export const INITIAL_PRICES: PriceTick[] = [
     price: BASE_PRICES.ETH,
     change24h: -1.42,
     spark: seededSpark(202, BASE_PRICES.ETH, 32, 0.014),
+    high24h: null,
+    low24h: null,
     ts: SEED_NOW,
   },
   {
@@ -83,6 +87,8 @@ export const INITIAL_PRICES: PriceTick[] = [
     price: BASE_PRICES.SOL,
     change24h: 4.83,
     spark: seededSpark(303, BASE_PRICES.SOL, 32, 0.02),
+    high24h: null,
+    low24h: null,
     ts: SEED_NOW,
   },
 ];

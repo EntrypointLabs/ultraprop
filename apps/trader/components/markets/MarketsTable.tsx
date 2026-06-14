@@ -19,22 +19,13 @@ import {
 } from "@/components/ui";
 import { useMarkets } from "@/lib/mock/hooks";
 import type { PriceTick, Symbol } from "@/lib/mock/types";
-import { cn, formatPct, formatUsd } from "@/lib/utils";
+import { cn, formatPctOrDash, formatUsdOrDash } from "@/lib/utils";
 
-const ASSET_META: Record<
-  Symbol,
-  { name: string; leverage: number; volume24h: number }
-> = {
-  BTC: { name: "Bitcoin", leverage: 10, volume24h: 2_840_000_000 },
-  ETH: { name: "Ethereum", leverage: 10, volume24h: 1_120_000_000 },
-  SOL: { name: "Solana", leverage: 10, volume24h: 430_000_000 },
+const ASSET_META: Record<Symbol, { name: string; leverage: number }> = {
+  BTC: { name: "Bitcoin", leverage: 10 },
+  ETH: { name: "Ethereum", leverage: 10 },
+  SOL: { name: "Solana", leverage: 10 },
 };
-
-function formatVolume(v: number): string {
-  if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(2)}B`;
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(0)}M`;
-  return `$${v.toLocaleString()}`;
-}
 
 interface MarketRowProps {
   tick: PriceTick;
@@ -42,12 +33,15 @@ interface MarketRowProps {
   onToggleFav: () => void;
 }
 
-function usePrevPrice(price: number) {
+function usePrevPrice(price: number | null) {
   const prev = React.useRef(price);
   const [flashClass, setFlashClass] = React.useState("");
 
   React.useEffect(() => {
-    if (price === prev.current) return;
+    if (price == null || prev.current == null || price === prev.current) {
+      prev.current = price;
+      return;
+    }
     const cls = price > prev.current ? "flash-up" : "flash-down";
     setFlashClass(cls);
     prev.current = price;
@@ -60,7 +54,8 @@ function usePrevPrice(price: number) {
 
 function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
   const meta = ASSET_META[tick.symbol];
-  const isUp = tick.change24h >= 0;
+  const hasChange = tick.change24h != null;
+  const isUp = (tick.change24h ?? 0) >= 0;
   const flashClass = usePrevPrice(tick.price);
 
   const longHref = `/start?symbol=${tick.symbol}&side=long`;
@@ -96,9 +91,21 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
 
       {/* Oracle price */}
       <Td numeric>
-        <span className={cn("tabular text-sm font-semibold", flashClass)}>
-          {formatUsd(tick.price, {
-            decimals: tick.price > 10_000 ? 1 : tick.price > 100 ? 2 : 4,
+        <span
+          className={cn(
+            "tabular text-sm font-semibold",
+            tick.price == null ? "text-text-faint" : flashClass,
+          )}
+        >
+          {formatUsdOrDash(tick.price, {
+            decimals:
+              tick.price == null
+                ? 2
+                : tick.price > 10_000
+                  ? 1
+                  : tick.price > 100
+                    ? 2
+                    : 4,
           })}
         </span>
       </Td>
@@ -108,17 +115,10 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
         <span
           className={cn(
             "tabular text-sm font-medium",
-            isUp ? "text-up" : "text-down",
+            !hasChange ? "text-text-faint" : isUp ? "text-up" : "text-down",
           )}
         >
-          {formatPct(tick.change24h, { sign: true })}
-        </span>
-      </Td>
-
-      {/* Volume */}
-      <Td numeric className="hidden md:table-cell">
-        <span className="tabular text-sm text-text-muted">
-          {formatVolume(meta.volume24h)}
+          {formatPctOrDash(tick.change24h, { sign: true })}
         </span>
       </Td>
 
@@ -129,7 +129,7 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
           width={80}
           height={28}
           fill
-          tone={isUp ? "up" : "down"}
+          tone={!hasChange ? "neutral" : isUp ? "up" : "down"}
         />
       </Td>
 
@@ -175,7 +175,8 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
 /** Mobile stacked card fallback for small screens */
 function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
   const meta = ASSET_META[tick.symbol];
-  const isUp = tick.change24h >= 0;
+  const hasChange = tick.change24h != null;
+  const isUp = (tick.change24h ?? 0) >= 0;
   const flashClass = usePrevPrice(tick.price);
 
   return (
@@ -202,18 +203,34 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
               <div className="text-xs text-text-muted">{meta.name}</div>
             </div>
             <div className="text-right">
-              <div className={cn("tabular text-sm font-semibold", flashClass)}>
-                {formatUsd(tick.price, {
-                  decimals: tick.price > 10_000 ? 1 : tick.price > 100 ? 2 : 4,
+              <div
+                className={cn(
+                  "tabular text-sm font-semibold",
+                  tick.price == null ? "text-text-faint" : flashClass,
+                )}
+              >
+                {formatUsdOrDash(tick.price, {
+                  decimals:
+                    tick.price == null
+                      ? 2
+                      : tick.price > 10_000
+                        ? 1
+                        : tick.price > 100
+                          ? 2
+                          : 4,
                 })}
               </div>
               <div
                 className={cn(
                   "tabular text-xs",
-                  isUp ? "text-up" : "text-down",
+                  !hasChange
+                    ? "text-text-faint"
+                    : isUp
+                      ? "text-up"
+                      : "text-down",
                 )}
               >
-                {formatPct(tick.change24h, { sign: true })}
+                {formatPctOrDash(tick.change24h, { sign: true })}
               </div>
             </div>
           </div>
@@ -224,7 +241,7 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
               width={72}
               height={22}
               fill
-              tone={isUp ? "up" : "down"}
+              tone={!hasChange ? "neutral" : isUp ? "up" : "down"}
             />
             <div className="flex items-center gap-1.5">
               <Badge variant="leverage">{meta.leverage}X</Badge>
@@ -293,9 +310,6 @@ export function MarketsTable({
               <Th numeric className="hidden sm:table-cell">
                 24h
               </Th>
-              <Th numeric className="hidden md:table-cell">
-                Volume
-              </Th>
               <Th className="hidden lg:table-cell">Trend</Th>
               <Th className="hidden xl:table-cell">Feed</Th>
               <Th className="text-right">Trade</Th>
@@ -304,7 +318,7 @@ export function MarketsTable({
           <Tbody>
             {filtered.length === 0 ? (
               <Tr>
-                <Td colSpan={8} className="py-10 text-center text-text-muted">
+                <Td colSpan={7} className="py-10 text-center text-text-muted">
                   No markets match your filter.
                 </Td>
               </Tr>

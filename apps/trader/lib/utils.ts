@@ -38,3 +38,20 @@ export function formatNum(value: number, decimals = 2): string {
     maximumFractionDigits: decimals,
   });
 }
+
+/** Shown wherever a live oracle value is missing — never a fabricated number. */
+export const VALUE_UNAVAILABLE = "—";
+
+export function formatUsdOrDash(
+  value: number | null | undefined,
+  opts: { decimals?: number; sign?: boolean } = {},
+): string {
+  return value == null ? VALUE_UNAVAILABLE : formatUsd(value, opts);
+}
+
+export function formatPctOrDash(
+  value: number | null | undefined,
+  opts: { sign?: boolean; decimals?: number } = {},
+): string {
+  return value == null ? VALUE_UNAVAILABLE : formatPct(value, opts);
+}

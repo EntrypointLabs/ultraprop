@@ -76,10 +76,10 @@ export function TopTraderSpotlight() {
 
       {/* Equity curve */}
       {chartSeries.length > 0 && (
-        <div className="flex-1 rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
+        <div className="flex-1 min-h-0 rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
           <TVChart
             series={chartSeries}
-            height={160}
+            height={"full"}
             watermark="Equity"
             showTimeScale={true}
             showPriceScale={true}

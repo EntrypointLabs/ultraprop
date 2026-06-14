@@ -52,10 +52,10 @@ export function LeaderboardSpotlight() {
       <PodiumStrip top3={top3} axis="shadowPnl" />
 
       {chartSeries.length > 0 && (
-        <div className="rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
+        <div className="flex-1 min-h-0 rounded-[var(--radius)] overflow-hidden border border-border bg-surface-2">
           <TVChart
             series={chartSeries}
-            height={100}
+            height={"full"}
             watermark="Simulated P&L"
             showTimeScale={false}
             showPriceScale={false}
