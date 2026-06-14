@@ -4,13 +4,13 @@ import { useState } from "react";
 import { MarketsTable } from "@/components/markets/MarketsTable";
 import { Card, CardHeader, CardLabel, ConnectionDot } from "@/components/ui";
 import { useConnection } from "@/lib/mock/hooks";
-import type { Symbol } from "@/lib/mock/types";
+import type { MarketId } from "@/lib/mock/types";
 
 export function HomeMarketsTable() {
   const connStatus = useConnection();
-  const [favorites, setFavorites] = useState<Set<Symbol>>(new Set(["BTC"]));
+  const [favorites, setFavorites] = useState<Set<MarketId>>(new Set(["BTC"]));
 
-  function toggleFav(sym: Symbol) {
+  function toggleFav(sym: MarketId) {
     setFavorites((prev) => {
       const next = new Set(prev);
       if (next.has(sym)) next.delete(sym);

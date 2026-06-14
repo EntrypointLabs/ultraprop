@@ -1,42 +1,20 @@
-import type { Symbol } from "@/lib/mock/types";
-
-/**
- * Pyth price-feed IDs for the spot pairs the evaluation trades. These are the
- * canonical mainnet Crypto.<SYM>/USD feeds — the same oracle Sui settlement
- * reads, so the prices shown here are the prices a fill is marked against.
- */
-export const PYTH_FEED_IDS: Record<Symbol, string> = {
-  BTC: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
-  ETH: "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
-  SOL: "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
-};
-
-/** TradingView symbol for each pair, served off the Pyth data source. */
-export const PYTH_TV_SYMBOL: Record<Symbol, string> = {
-  BTC: "PYTH:BTCUSD",
-  ETH: "PYTH:ETHUSD",
-  SOL: "PYTH:SOLUSD",
-};
-
-/** Pyth Benchmarks symbol used by the TradingView UDF history shim. */
-const PYTH_BENCHMARK_SYMBOL: Record<Symbol, string> = {
-  BTC: "Crypto.BTC/USD",
-  ETH: "Crypto.ETH/USD",
-  SOL: "Crypto.SOL/USD",
-};
+import { getMarket, MARKET_CATALOG } from "@/lib/mock/markets";
+import type { MarketId } from "@/lib/mock/types";
 
 const HERMES = "https://hermes.pyth.network";
 const BENCHMARKS = "https://benchmarks.pyth.network";
 
-const ID_TO_SYMBOL = new Map<string, Symbol>(
-  Object.entries(PYTH_FEED_IDS).map(([sym, id]) => [
-    id.replace(/^0x/, "").toLowerCase(),
-    sym as Symbol,
-  ]),
+/**
+ * Map a Pyth feed id (lowercased, no 0x) back to its market id. Built from the
+ * catalog so adding a market with a feed id is the only place a new pair is
+ * declared — there is no parallel id->symbol table to keep in sync.
+ */
+const ID_TO_MARKET = new Map<string, MarketId>(
+  MARKET_CATALOG.map((m) => [m.pythFeedId.replace(/^0x/, "").toLowerCase(), m.id]),
 );
 
 export interface OraclePrice {
-  symbol: Symbol;
+  symbol: MarketId;
   /** spot price in USD */
   price: number;
   /** epoch ms of the oracle publish time */
@@ -44,7 +22,7 @@ export interface OraclePrice {
 }
 
 export interface OracleHistory {
-  symbol: Symbol;
+  symbol: MarketId;
   /** hourly closes over the trailing 24h, oldest -> newest, USD */
   closes: number[];
   /** spot price ~24h ago, used to derive the 24h change */
@@ -64,13 +42,15 @@ function scale(price: string, expo: number): number {
   return Number(price) * 10 ** expo;
 }
 
-/** Latest oracle spot for each requested symbol, in one Hermes request. */
+/** Latest oracle spot for each requested market, in one Hermes request. */
 export async function fetchLatestPrices(
-  symbols: Symbol[],
+  ids: MarketId[],
   signal?: AbortSignal,
 ): Promise<OraclePrice[]> {
-  const query = symbols
-    .map((s) => `ids[]=${encodeURIComponent(PYTH_FEED_IDS[s])}`)
+  const query = ids
+    .map((id) => getMarket(id)?.pythFeedId)
+    .filter((feed): feed is string => Boolean(feed))
+    .map((feed) => `ids[]=${encodeURIComponent(feed)}`)
     .join("&");
   const res = await fetch(`${HERMES}/v2/updates/price/latest?${query}`, {
     signal,
@@ -79,7 +59,7 @@ export async function fetchLatestPrices(
   const json = (await res.json()) as { parsed: HermesParsed[] };
   const out: OraclePrice[] = [];
   for (const p of json.parsed ?? []) {
-    const symbol = ID_TO_SYMBOL.get(p.id.toLowerCase());
+    const symbol = ID_TO_MARKET.get(p.id.toLowerCase());
     if (!symbol) continue;
     out.push({
       symbol,
@@ -104,14 +84,16 @@ interface UdfHistory {
  * sparkline and derive the 24h change against the live spot.
  */
 export async function fetchDailyHistory(
-  symbol: Symbol,
+  id: MarketId,
   nowSec: number,
   signal?: AbortSignal,
 ): Promise<OracleHistory | null> {
+  const benchmarkSymbol = getMarket(id)?.pythBenchmarkSymbol;
+  if (!benchmarkSymbol) return null;
   const from = nowSec - 24 * 60 * 60;
   const url =
     `${BENCHMARKS}/v1/shims/tradingview/history` +
-    `?symbol=${encodeURIComponent(PYTH_BENCHMARK_SYMBOL[symbol])}` +
+    `?symbol=${encodeURIComponent(benchmarkSymbol)}` +
     `&resolution=60&from=${from}&to=${nowSec}`;
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`Benchmarks ${res.status}`);
@@ -121,7 +103,7 @@ export async function fetchDailyHistory(
   const highs = json.h ?? closes;
   const lows = json.l ?? closes;
   return {
-    symbol,
+    symbol: id,
     closes,
     price24hAgo: json.o?.[0] ?? closes[0],
     high24h: Math.max(...highs),

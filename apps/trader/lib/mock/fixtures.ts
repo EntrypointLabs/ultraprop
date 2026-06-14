@@ -1,14 +1,15 @@
+import { MARKET_IDS } from "@/lib/mock/markets";
 import type {
   CohortStats,
   EquityPoint,
   LeaderboardEntry,
+  MarketId,
   Position,
   PriceTick,
   Profile,
   RuleBudget,
   SbtState,
   Session,
-  Symbol,
   Tier,
   TradeRecord,
   VaultState,
@@ -55,13 +56,14 @@ function seededSpark(
   return out;
 }
 
-export const BASE_PRICES: Record<Symbol, number> = {
+export const BASE_PRICES: Record<MarketId, number> = {
   BTC: 68_420.5,
   ETH: 3_512.18,
   SOL: 168.42,
 };
 
-export const SYMBOLS: Symbol[] = ["BTC", "ETH", "SOL"];
+/** The market ids the live oracle layer fetches. Derived from the catalog. */
+export const SYMBOLS: MarketId[] = MARKET_IDS;
 
 export const INITIAL_PRICES: PriceTick[] = [
   {
