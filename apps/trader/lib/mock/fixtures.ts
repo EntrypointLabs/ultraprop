@@ -1,4 +1,3 @@
-import { MARKET_IDS } from "@/lib/mock/markets";
 import type {
   CohortStats,
   EquityPoint,
@@ -57,38 +56,39 @@ function seededSpark(
 }
 
 export const BASE_PRICES: Record<MarketId, number> = {
-  BTC: 68_420.5,
-  ETH: 3_512.18,
-  SOL: 168.42,
+  "hyperliquid:BTC": 68_420.5,
+  "hyperliquid:ETH": 3_512.18,
+  "hyperliquid:SOL": 168.42,
 };
 
-/** The market ids the live oracle layer fetches. Derived from the catalog. */
-export const SYMBOLS: MarketId[] = MARKET_IDS;
-
+/**
+ * Seed marks for SSR / first client paint. The live HL marks query replaces
+ * these post-hydration; until then `usePaperEngine` marks against this snapshot.
+ */
 export const INITIAL_PRICES: PriceTick[] = [
   {
-    symbol: "BTC",
-    price: BASE_PRICES.BTC,
+    symbol: "hyperliquid:BTC",
+    price: BASE_PRICES["hyperliquid:BTC"],
     change24h: 2.14,
-    spark: seededSpark(101, BASE_PRICES.BTC, 32, 0.01),
+    spark: seededSpark(101, BASE_PRICES["hyperliquid:BTC"], 32, 0.01),
     high24h: null,
     low24h: null,
     ts: SEED_NOW,
   },
   {
-    symbol: "ETH",
-    price: BASE_PRICES.ETH,
+    symbol: "hyperliquid:ETH",
+    price: BASE_PRICES["hyperliquid:ETH"],
     change24h: -1.42,
-    spark: seededSpark(202, BASE_PRICES.ETH, 32, 0.014),
+    spark: seededSpark(202, BASE_PRICES["hyperliquid:ETH"], 32, 0.014),
     high24h: null,
     low24h: null,
     ts: SEED_NOW,
   },
   {
-    symbol: "SOL",
-    price: BASE_PRICES.SOL,
+    symbol: "hyperliquid:SOL",
+    price: BASE_PRICES["hyperliquid:SOL"],
     change24h: 4.83,
-    spark: seededSpark(303, BASE_PRICES.SOL, 32, 0.02),
+    spark: seededSpark(303, BASE_PRICES["hyperliquid:SOL"], 32, 0.02),
     high24h: null,
     low24h: null,
     ts: SEED_NOW,
@@ -188,22 +188,22 @@ const peakEquity = Math.max(...DEMO_EQUITY_CURVE.map((p) => p.equity));
 export const DEMO_POSITIONS: Position[] = [
   {
     id: "pos_1",
-    symbol: "BTC",
+    symbol: "hyperliquid:BTC",
     side: "long",
     sizeUsd: 4200,
     entryPrice: 67_980.0,
-    markPrice: BASE_PRICES.BTC,
+    markPrice: BASE_PRICES["hyperliquid:BTC"],
     unrealizedPnl: 27.18,
     unrealizedPnlPct: 0.65,
     openedAt: SEED_NOW - 2 * HOUR,
   },
   {
     id: "pos_2",
-    symbol: "SOL",
+    symbol: "hyperliquid:SOL",
     side: "short",
     sizeUsd: 1500,
     entryPrice: 171.2,
-    markPrice: BASE_PRICES.SOL,
+    markPrice: BASE_PRICES["hyperliquid:SOL"],
     unrealizedPnl: 24.36,
     unrealizedPnlPct: 1.62,
     openedAt: SEED_NOW - 40 * MINUTE,
@@ -213,7 +213,7 @@ export const DEMO_POSITIONS: Position[] = [
 export const DEMO_TRADES: TradeRecord[] = [
   {
     id: "trd_1",
-    symbol: "BTC",
+    symbol: "hyperliquid:BTC",
     side: "long",
     sizeUsd: 4200,
     oracleMid: 67_980.0,
@@ -227,7 +227,7 @@ export const DEMO_TRADES: TradeRecord[] = [
   },
   {
     id: "trd_2",
-    symbol: "ETH",
+    symbol: "hyperliquid:ETH",
     side: "long",
     sizeUsd: 2000,
     oracleMid: 3_488.4,
@@ -241,7 +241,7 @@ export const DEMO_TRADES: TradeRecord[] = [
   },
   {
     id: "trd_3",
-    symbol: "SOL",
+    symbol: "hyperliquid:SOL",
     side: "short",
     sizeUsd: 1500,
     oracleMid: 171.2,

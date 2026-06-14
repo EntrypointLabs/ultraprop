@@ -10,11 +10,11 @@ export type VaultStatus = "active" | "passed" | "failed" | "inactive";
 
 export interface PriceTick {
   symbol: MarketId;
-  /** oracle spot in USD; null when the feed has no live value (loading/outage) */
+  /** mark price in USD; null when the feed has no live value (loading/outage) */
   price: number | null;
   /** 24h percent change; null until the 24h history loads or if unavailable */
   change24h: number | null;
-  /** recent oracle closes for the sparkline, oldest -> newest; empty when unknown */
+  /** recent closes for the sparkline, oldest -> newest; empty when unknown */
   spark: number[];
   /** trailing-24h high in USD; null when unknown */
   high24h: number | null;
@@ -22,6 +22,12 @@ export interface PriceTick {
   low24h: number | null;
   /** epoch ms of this tick; 0 when there is no live data */
   ts: number;
+  /** venue mark price (drives PnL/marks); null when unavailable */
+  markPx?: number | null;
+  /** venue oracle price; null when unavailable */
+  oraclePx?: number | null;
+  /** venue mid price; null on thin books — always guard before use */
+  midPx?: number | null;
 }
 
 export interface Tier {

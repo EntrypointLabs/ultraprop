@@ -22,6 +22,7 @@ import {
 import {
   useConnection,
   useDivergenceHalt,
+  useMarketCatalog,
   usePrice,
   useSession,
   useVault,
@@ -361,7 +362,25 @@ export function TradeIntentForm({
   const tick = usePrice(symbol);
   const marketMid = tick?.price ?? null;
 
+  // Effective usable leverage = min(per-market venue cap, tier flat cap). Falls
+  // to the market cap when a low-leverage perp's max sits BELOW the tier cap.
+  const catalog = useMarketCatalog();
+  const market = React.useMemo(
+    () => catalog.find((m) => m.id === symbol || m.symbol === symbol),
+    [catalog, symbol],
+  );
+  const effectiveLeverageCap = Math.min(
+    market?.maxLeverage ?? vault.tier.leverage,
+    vault.tier.leverage,
+  );
+
   const sizeUsd = parseFloat(rawSize) || 0;
+  // USD-notional order → implied leverage against the tier's shadow allocation.
+  const impliedLeverage =
+    vault.tier.shadowAllocation > 0
+      ? sizeUsd / vault.tier.shadowAllocation
+      : 0;
+  const isOverLeverageCap = impliedLeverage > effectiveLeverageCap;
   const preview = React.useMemo(() => {
     if (sizeUsd <= 0 || marketMid == null || marketMid <= 0) return null;
     return slippagePreview({ marketId: symbol, side, sizeUsd, oracleMid: marketMid });
@@ -392,6 +411,8 @@ export function TradeIntentForm({
     disabledReason = "Waiting for a live oracle price…";
   else if (isVaultPaused) disabledReason = `Evaluation is ${vault.status}`;
   else if (isSizeInvalid) disabledReason = "Enter a position size";
+  else if (isOverLeverageCap)
+    disabledReason = `Leverage exceeds ${effectiveLeverageCap}× cap for ${market?.symbol ?? symbol}`;
   else if (isRateLimited) disabledReason = null;
 
   const canSubmit =
@@ -400,6 +421,7 @@ export function TradeIntentForm({
     !isPriceUnavailable &&
     !isVaultPaused &&
     !isSizeInvalid &&
+    !isOverLeverageCap &&
     !isRateLimited &&
     !isSubmitting;
 
@@ -408,7 +430,7 @@ export function TradeIntentForm({
   /* ------------------------------------------------------------------ */
 
   const handleSubmit = React.useCallback(() => {
-    if (!canSubmit || !preview) return;
+    if (!canSubmit || !preview || isOverLeverageCap) return;
     const capturedSymbol = symbol;
     const capturedSide = side;
     const capturedFill = preview.fill;
@@ -431,13 +453,15 @@ export function TradeIntentForm({
       setLastSubmitAt(Date.now());
       setRawSize("1000");
     }, 650);
-  }, [canSubmit, preview, symbol, side, sizeUsd, onSubmitOrder]);
+  }, [canSubmit, preview, isOverLeverageCap, symbol, side, sizeUsd, onSubmitOrder]);
 
   const dismissConfirmation = React.useCallback(() => {
     setSubmitState({ phase: "idle" });
   }, []);
 
-  const leverageLabel = `${vault.tier.leverage}×`;
+  // The real usable cap (per-market venue cap clamped to the tier cap), not the
+  // flat tier cap — so a low-leverage perp shows its lower ceiling.
+  const leverageLabel = `${effectiveLeverageCap}×`;
 
   /* ------------------------------------------------------------------ */
   /* Render                                                               */

@@ -1,120 +1,165 @@
 /**
- * The static market catalog: the open, data-driven replacement for the old
- * closed three-symbol union. Market identity is a string `MarketId` resolved
- * through `MARKET_CATALOG`, and every former per-symbol exhaustive map
- * (book depth, Pyth feed id, TradingView/benchmark symbols) is now a field on
- * `Market`, read via `getMarket`.
+ * The market catalog. Identity is a venue-qualified string `MarketId`
+ * ("hyperliquid:BTC"); every former per-symbol map (book depth, leverage cap)
+ * is a field on `Market`, read via `getMarket`.
  *
- * `MarketId` is the venue ticker ("BTC"/"ETH"/"SOL") so the live Pyth lookups
- * keyed on ticker stay stable. The catalog holds only the markets that have a
- * real Pyth feed; prices themselves are live and nullable (see `PriceTick`), so
- * there are no seeded prices or volatility factors here. The list is a hand-
- * seeded snapshot — no clocks, no `Math.random` at module scope — so server and
- * first client render stay identical.
+ * The catalog is LIVE but indexer-fronted: the full Hyperliquid perp universe is
+ * served by our own `/api/catalog` route (which calls Hyperliquid server-side),
+ * fetched client-side via `useMarketCatalog`, and pushed in via `setLiveCatalog`.
+ * The browser never touches Hyperliquid directly. A small static `SEED_CATALOG`
+ * (BTC/ETH/SOL) backs SSR and first client paint so server and first render stay
+ * identical — the live universe only replaces it post-hydration, via the catalog
+ * query, so there is no hydration mismatch. The many synchronous `getMarket(id)`
+ * / `decimalsFor` call sites keep working because they resolve against
+ * `liveCatalog ?? SEED_CATALOG`.
+ *
+ * This is the ONE canonical FE `Market` shape. Venue-derived fields (id, venue,
+ * symbol, base, displayName, szDecimals, tickSize, maxLeverage, maker, taker,
+ * fundingIntervalMs, isDelisted) come from the live `@shared/venues` catalog;
+ * sim-only fields (name, depthUsd, volFactor, volume24h) keep their snapshot
+ * defaults. `useMarketCatalog` merges live onto snapshot to produce this type.
  */
 
-/** Market identity — the venue ticker, e.g. "BTC". */
+import type { Market as VenueMarket, VenueId } from "@shared/venues";
+
+/** Market identity — venue-qualified, e.g. "hyperliquid:BTC". */
 export type MarketId = string;
 
-export interface Market {
-  /** canonical id (the ticker), e.g. "BTC" */
-  id: MarketId;
-  /** venue-native ticker, e.g. "BTC" */
-  symbol: string;
-  /** underlying base asset, e.g. "BTC" */
-  base: string;
-  /** UI pair label, e.g. "BTC-PERP" */
-  displayName: string;
-  /** human name, e.g. "Bitcoin" */
+/**
+ * The single FE market record. Extends the `@shared/venues` venue DTO with the
+ * sim-only fields the venue does not supply (name, depthUsd, volFactor,
+ * volume24h), so the live DTO merges onto a snapshot to produce this shape.
+ */
+export interface Market extends VenueMarket {
+  /** human name; HL exposes only the ticker, so this mirrors it (sim-only) */
   name: string;
-  /** size precision in coins */
-  szDecimals: number;
-  /** price increment; drives display decimals (replaces the price>100 heuristic) */
-  tickSize: number;
-  /** venue max leverage cap (real per-market cap, carried as data) */
-  maxLeverage: number;
-  /** book depth in USD used by slippagePreview (replaces DEPTH_USD) */
+  /** book depth in USD used by slippagePreview (HL gives none; sim-only) */
   depthUsd: number;
-  /** Pyth Hermes price-feed id for the Crypto.<SYM>/USD mainnet feed */
-  pythFeedId: string;
-  /** TradingView symbol served off the Pyth data source, e.g. "PYTH:BTCUSD" */
-  pythTvSymbol: string;
-  /** Pyth Benchmarks symbol for the TradingView UDF history shim */
-  pythBenchmarkSymbol: string;
+  /** sim volatility multiplier (sim-only) */
+  volFactor: number;
+  /** 24h notional volume in USD shown in tables (sim-only) */
+  volume24h: number;
 }
 
+/** Sim-only defaults for a live market that has no snapshot match. */
+export const DEFAULT_SIM_FIELDS: {
+  depthUsd: number;
+  volFactor: number;
+  volume24h: number;
+} = {
+  depthUsd: 1_000_000,
+  volFactor: 1,
+  volume24h: 0,
+};
+
 /**
- * Static market snapshot. Only the markets that have a real Pyth oracle feed
- * (BTC/ETH/SOL). The depth, feed id, TV symbol and benchmark symbol are the
- * exact values the codebase used before, folded out of their per-symbol maps.
- * `maxLeverage` uses real per-market venue caps (not the legacy flat 10).
+ * Static seed: BTC/ETH/SOL with their real HL `maxLeverage` (40/25/20) and
+ * `szDecimals`. Backs SSR and the first client render until the live HL
+ * universe arrives. No clocks, no `Math.random` at module scope, so server and
+ * first client render are identical. Ids are venue-qualified.
  */
-export const MARKET_CATALOG: Market[] = [
+export const SEED_CATALOG: Market[] = [
   {
-    id: "BTC",
+    id: "hyperliquid:BTC",
+    venue: "hyperliquid",
     symbol: "BTC",
     base: "BTC",
     displayName: "BTC-PERP",
-    name: "Bitcoin",
+    name: "BTC",
     szDecimals: 5,
-    tickSize: 0.5,
+    tickSize: 10 ** -(6 - 5),
     maxLeverage: 40,
+    maker: 0.00015,
+    taker: 0.00045,
+    fundingIntervalMs: 3_600_000,
+    isDelisted: false,
     depthUsd: 4_000_000,
-    pythFeedId:
-      "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
-    pythTvSymbol: "PYTH:BTCUSD",
-    pythBenchmarkSymbol: "Crypto.BTC/USD",
+    volFactor: 1,
+    volume24h: 0,
   },
   {
-    id: "ETH",
+    id: "hyperliquid:ETH",
+    venue: "hyperliquid",
     symbol: "ETH",
     base: "ETH",
     displayName: "ETH-PERP",
-    name: "Ethereum",
+    name: "ETH",
     szDecimals: 4,
-    tickSize: 0.01,
+    tickSize: 10 ** -(6 - 4),
     maxLeverage: 25,
+    maker: 0.00015,
+    taker: 0.00045,
+    fundingIntervalMs: 3_600_000,
+    isDelisted: false,
     depthUsd: 2_000_000,
-    pythFeedId:
-      "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
-    pythTvSymbol: "PYTH:ETHUSD",
-    pythBenchmarkSymbol: "Crypto.ETH/USD",
+    volFactor: 1,
+    volume24h: 0,
   },
   {
-    id: "SOL",
+    id: "hyperliquid:SOL",
+    venue: "hyperliquid",
     symbol: "SOL",
     base: "SOL",
     displayName: "SOL-PERP",
-    name: "Solana",
+    name: "SOL",
     szDecimals: 2,
-    tickSize: 0.001,
+    tickSize: 10 ** -(6 - 2),
     maxLeverage: 20,
+    maker: 0.00015,
+    taker: 0.00045,
+    fundingIntervalMs: 3_600_000,
+    isDelisted: false,
     depthUsd: 750_000,
-    pythFeedId:
-      "0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
-    pythTvSymbol: "PYTH:SOLUSD",
-    pythBenchmarkSymbol: "Crypto.SOL/USD",
+    volFactor: 1,
+    volume24h: 0,
   },
 ];
 
-/** Every market id, in catalog order. For code that needs the ticker list. */
-export const MARKET_IDS: MarketId[] = MARKET_CATALOG.map((m) => m.id);
+/**
+ * The live HL universe once fetched. Null on the server and before the catalog
+ * query resolves; `getMarket`/the catalog readers fall back to `SEED_CATALOG`
+ * until it lands. Set CLIENT-SIDE by the catalog query on success.
+ */
+let liveCatalog: Market[] | null = null;
+
+/** Publish the live HL universe. Called by `useMarketCatalog` on success. */
+export function setLiveCatalog(markets: Market[]): void {
+  liveCatalog = markets.length > 0 ? markets : null;
+}
+
+/** The active catalog: the live HL universe if present, else the static seed. */
+export function getCatalog(): Market[] {
+  return liveCatalog ?? SEED_CATALOG;
+}
+
+/** Every market id in the active catalog. */
+export const MARKET_IDS: MarketId[] = SEED_CATALOG.map((m) => m.id);
 
 /** The default market the cockpit/trade form open on. */
-export const DEFAULT_MARKET_ID: MarketId = MARKET_CATALOG[0].id;
+export const DEFAULT_MARKET_ID: MarketId = "hyperliquid:BTC";
 
-/** Resolve a market by its id. Returns undefined for unknown ids. */
+/** Resolve a market by its id against the live catalog (or the seed). */
 export function getMarket(id: MarketId): Market | undefined {
-  return MARKET_CATALOG.find((m) => m.id === id);
+  return getCatalog().find((m) => m.id === id);
+}
+
+/** The bare venue ticker for a market id, e.g. "hyperliquid:BTC" → "BTC". */
+export function coinOf(id: MarketId): string {
+  return id.includes(":") ? id.slice(id.indexOf(":") + 1) : id;
 }
 
 /**
- * Display decimals for a market, derived from its `tickSize`. Replaces every
- * `price > 100 ? … : …` magnitude heuristic so low-priced perps format
- * correctly. A 0.5 tick resolves to 1 decimal; exact powers of ten
- * (0.01 -> 2, 0.001 -> 3) are unaffected.
+ * Display decimals for a market, derived from `szDecimals` (HL has no tick
+ * size). Start from HL's price-precision rule `6 - szDecimals`, then clamp so a
+ * formatted price never shows more than 5 significant figures.
  */
-export function decimalsFor(market: Market | undefined): number {
-  if (!market || market.tickSize <= 0) return 2;
-  return Math.max(0, Math.ceil(-Math.log10(market.tickSize)));
+export function decimalsFor(market: Market | undefined, price?: number): number {
+  if (!market) return 2;
+  const base = Math.max(0, 6 - market.szDecimals);
+  if (price == null || !Number.isFinite(price) || price <= 0) return base;
+  const intDigits = Math.max(1, Math.floor(Math.log10(price)) + 1);
+  const maxFractionForFiveSig = Math.max(0, 5 - intDigits);
+  return Math.min(base, maxFractionForFiveSig);
 }
+
+export type { VenueId };
