@@ -1,0 +1,76 @@
+"use client";
+
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect } from "react";
+import { DEMO_WALLET, INITIAL_PRICES, TIERS } from "@/lib/mock/fixtures";
+import { usePrices, useSession } from "@/lib/mock/hooks";
+import type { PriceTick } from "@/lib/mock/types";
+import { type OrderIntent, toVaultState, useSimStore } from "./store";
+
+const DEFAULT_TIER = TIERS[0]; // Starter — the single demo evaluation's tier
+
+/**
+ * The paper-trading controller and the SINGLE writer of the evaluation caches.
+ * It lazily opens the evaluation, advances the simulation on every price tick
+ * (mark-to-market → equity → rules → breach/pass), and mirrors the persisted
+ * sim record into the React Query keys the dashboard already reads
+ * (`["vault"|"positions"|"trades"|"equity", vaultId]`). A real engine/indexer
+ * can later replace this writer without touching a single component.
+ *
+ * Mount it once where the cockpit lives; it returns the order actions.
+ */
+export function usePaperEngine(vaultId: string): {
+  submitOrder: (intent: OrderIntent) => void;
+  closePosition: (positionId: string) => void;
+} {
+  const qc = useQueryClient();
+  const prices = usePrices(); // re-renders this hook every price tick
+  const { session } = useSession();
+  const hydrated = useSimStore((s) => s.hydrated);
+  const owner = session.address ?? DEMO_WALLET;
+
+  const sync = useCallback(() => {
+    const sim = useSimStore.getState().vaults[vaultId];
+    if (!sim) return;
+    qc.setQueryData(["vault", vaultId], toVaultState(sim));
+    qc.setQueryData(["positions", vaultId], sim.positions);
+    qc.setQueryData(["trades", vaultId], sim.trades);
+    qc.setQueryData(["equity", vaultId], sim.equityCurve);
+  }, [qc, vaultId]);
+
+  // Open (idempotent) + advance the sim on each tick, then mirror into the cache.
+  useEffect(() => {
+    if (!hydrated) return;
+    const store = useSimStore.getState();
+    store.startEvaluation(vaultId, DEFAULT_TIER, owner, Date.now());
+    store.tick(vaultId, prices, Date.now());
+    sync();
+  }, [hydrated, prices, vaultId, owner, sync]);
+
+  const livePrices = useCallback(
+    () => qc.getQueryData<PriceTick[]>(["prices"]) ?? INITIAL_PRICES,
+    [qc],
+  );
+
+  const submitOrder = useCallback(
+    (intent: OrderIntent) => {
+      useSimStore
+        .getState()
+        .submitOrder(vaultId, intent, livePrices(), Date.now());
+      sync();
+    },
+    [vaultId, livePrices, sync],
+  );
+
+  const closePosition = useCallback(
+    (positionId: string) => {
+      useSimStore
+        .getState()
+        .closePosition(vaultId, positionId, livePrices(), Date.now());
+      sync();
+    },
+    [vaultId, livePrices, sync],
+  );
+
+  return { submitOrder, closePosition };
+}

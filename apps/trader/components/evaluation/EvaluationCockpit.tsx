@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { DailyResetCountdown } from "@/components/evaluation/DailyResetCountdown";
 import { DrawdownGauge } from "@/components/evaluation/DrawdownGauge";
 import { PositionsTable } from "@/components/evaluation/PositionsTable";
@@ -18,14 +19,8 @@ import {
   useVault,
 } from "@/lib/mock/hooks";
 import type { Symbol } from "@/lib/mock/types";
-import {
-  cn,
-  formatPct,
-  formatPctOrDash,
-  formatUsd,
-  formatUsdOrDash,
-  VALUE_UNAVAILABLE,
-} from "@/lib/utils";
+import { usePaperEngine } from "@/lib/sim/usePaperEngine";
+import { cn, formatPct, formatUsd } from "@/lib/utils";
 
 // SSR-safe: Lightweight Charts requires the browser canvas API
 const EquityCurve = dynamic(
@@ -129,11 +124,11 @@ function MarketStrip({
   const changeTone =
     change24h == null ? "text-text-faint" : up ? "text-up" : "text-down";
 
-  // Absolute 24h move in USD, derived from the live price and real % change.
-  const absChange =
-    price != null && change24h != null
-      ? price - price / (1 + change24h / 100)
-      : null;
+  // Derive 24h volume + range from the mock data (base price ± change).
+  const basePrice = price / (1 + change24h / 100);
+  const absChange = price - basePrice;
+  const vol24h =
+    price * (symbol === "BTC" ? 18_400 : symbol === "ETH" ? 92_000 : 1_240_000);
 
   // Real trailing-24h high / low straight from the oracle history.
   const dailyRange24hLow = tick?.low24h ?? null;
@@ -249,10 +244,22 @@ interface EvaluationCockpitProps {
 }
 
 export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
+  const router = useRouter();
+  const { submitOrder, closePosition } = usePaperEngine(vaultId);
   const vault = useVault(vaultId);
   const equityCurve = useEquityCurve(vaultId);
   const positions = usePositions(vaultId);
   const trades = useTradeHistory(vaultId);
+
+  // The engine flips status on breach/pass — route to the matching terminal screen.
+  useEffect(() => {
+    if (vault.status === "passed")
+      router.replace(`/evaluation/${vaultId}/passed`);
+    else if (vault.status === "failed")
+      router.replace(`/evaluation/${vaultId}/failed`);
+    else if (vault.status === "inactive")
+      router.replace(`/evaluation/${vaultId}/inactive`);
+  }, [vault.status, vaultId, router]);
 
   const [symbol, setSymbol] = useState<Symbol>("BTC");
   const [activeTab, setActiveTab] = useState<BottomTab>("positions");
@@ -297,14 +304,14 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
             </div>
           </div>
 
-          {/* RIGHT: order entry */}
-          <div className="flex flex-col border-b border-border bg-surface">
-            <TradeIntentForm
-              vaultId={vaultId}
-              symbol={symbol}
-              onSymbolChange={setSymbol}
-            />
-          </div>
+        {/* RIGHT: order entry */}
+        <div className="flex flex-col border-b border-border bg-surface">
+          <TradeIntentForm
+            vaultId={vaultId}
+            symbol={symbol}
+            onSymbolChange={setSymbol}
+            onSubmitOrder={submitOrder}
+          />
         </div>
 
         {/* ── Bottom tab strip ───────────────────────────────────────────── */}
@@ -338,13 +345,13 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
           </div>
         </div>
 
-        {/* ── Bottom panel content ───────────────────────────────────────── */}
-        <div className="min-h-[220px] bg-surface px-4 py-4">
-          {activeTab === "positions" && (
-            <PositionsTable positions={positions} />
-          )}
+      {/* ── Bottom panel content ───────────────────────────────────────── */}
+      <div className="min-h-[220px] bg-surface px-4 py-4">
+        {activeTab === "positions" && (
+          <PositionsTable positions={positions} onClose={closePosition} />
+        )}
 
-          {activeTab === "history" && <TradeHistory trades={trades} />}
+        {activeTab === "history" && <TradeHistory trades={trades} />}
 
           {activeTab === "account" && (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">

@@ -1,3 +1,5 @@
+> **Canonical, implementation-ready spec: see "V2 Specification — Funded Firm (Canonical User Flow)" at the end of this document.** It is the source of truth for the trader journey, vocabulary, architecture, and open questions. Where the older prose below differs (connect-wallet framing, Starter 80/20 split, pre-canonical module layout), the canonical section wins. This file is the **tracked** mirror of the funded-firm (v2) spec; a local planning copy also lives at `.claude/plans/Crypto-Native/PROJECT.md` (gitignored). v1 stays paper-trading per `SCOPE-LOCK.md`.
+
 This document specifies a crypto-native proprietary trading firm — a platform where skilled traders pay a small evaluation fee, prove themselves in a sandbox environment, and earn access to real capital they can trade across multiple crypto venues. Profits are split between the trader and the platform. Losses are absorbed by the platform's capital pool, which is funded primarily by traders who fail evaluations.
 
 The model mirrors how traditional web2 prop firms operate (FTMO, MyForexFunds, TopstepTrader, etc.) but applied to crypto markets and improved by what the blockchain natively offers: transparent track records, on-chain reputation, instant settlement, and permissionless access from anywhere in the world.
@@ -515,3 +517,156 @@ These are decisions that need resolution before v1 ships but aren't blocking the
 | **Capital adequacy proof** | Trust the firm's marketing. Several major prop firms have collapsed. | Vault is on-chain. Anyone can verify reserves at any time. |
 | **Rule enforcement** | Software-detected, human-adjudicated. Disputes common. | Contract-enforced. No disputes possible. |
 | **Composability** | None. Closed system. | Open. Other protocols can build on the platform's reputation primitive, funded vault, and trader profile. |
+
+---
+
+# V2 Specification — Funded Firm (Canonical User Flow)
+
+**Status:** forward spec for the real-capital phase. v1 stays paper-trading; `SCOPE-LOCK.md` remains binding for v1. This section is the single source an implementation pass builds Stages 1–5 from without needing product clarification. **Chain:** Sui only (Move 2024); Solana is a later phase, never co-launched. **Terminology:** an external product handoff called this phase "v1"; in this repo it is **v2** — phase labels follow repo numbering, product content is identical. Tone here is decisions, not options.
+
+## What changes from v1
+
+| Dimension | v1 (paper-trading) | v2 (funded firm) |
+|---|---|---|
+| Capital | Shadow/notional only, no real money | Real firm capital in the **vault**; the trader's balance stays **notional** |
+| Execution | Platform contract is the sole execution surface (all pre-trade) | Real venue execution via **Cetus** (spot) + **Bluefin** (perps); drawdown/daily-loss enforced as **post-fill invariants** |
+| Entry | Invite + allowlist, free | **Evaluation fee** (tier-priced), fiat-first checkout |
+| Auth / wallet | Connect Sui wallet | **Privy** embedded wallet, silently provisioned (invisible-crypto) |
+| Pass outcome | SBT level + next-tier unlock | **Funded account** on mainnet + profit-split **payouts** |
+| Payouts | None | USDC payout + **auto fiat off-ramp**; **eval fee refunded on first payout** |
+| Trading scope | Spot majors (paper) | Spot **and** perpetuals |
+
+The v1 engagement layer (cohort/Genesis SBT, leaderboard, points) continues. Per the *Round 3* decision the cohort SBT **evolves in place** in v2 (adds `real_capital_passes`, `real_pnl`, `funded_at`, `payout_history`).
+
+## Product principle: invisible crypto
+
+The trader never sees a blockchain. No connect-wallet step, no seed phrase, no network switcher, and no gas / signature / explorer surfaced anywhere in the trader app. On signup, Privy silently provisions an embedded Sui wallet (Tier-2 raw-sign, Ed25519); the trader sees "account created," never "wallet created." Fiat on-ramp at checkout, fiat off-ramp at payout. On-chain verifiability is a quiet detail a trader can drill into, never the headline. The trader app contains **no external wallet adapters**; auth, session state, embedded-wallet provisioning, and recovery are all Privy.
+
+## Canonical glossary (use these exact terms)
+
+| Term | Meaning | Never call it |
+|---|---|---|
+| **evaluation / eval** | The proving phase (testnet sandbox) | "challenge", "demo" |
+| **evaluation fee** | Tier-priced entry fee | "subscription", "deposit" |
+| **funded account** | Post-pass mainnet account with a notional balance | "live/real account" |
+| **notional balance** | The trader's standing with the firm; never custodied by the trader | "their funds" |
+| **vault** | Real capital pool (failed eval fees, 20% of split cuts, yield on idle stables) | "treasury" |
+| **treasury** | Move object collecting **evaluation fees** | — |
+| **fees** | Move module collecting **trading fees** (distinct from treasury) | — |
+| **AccountClaim** | Durable **soulbound** passport, one per trader, persists across attempts | "account NFT" |
+| **TradingAccount** | Per-attempt **shared** object, single on-chain source of truth, fresh each retry | — |
+| **attempt** | One evaluation lifecycle under a TradingAccount | "run", "season" |
+| **payout** | On-chain profit distribution to the embedded wallet + auto fiat off-ramp | "withdrawal" (UI copy only) |
+
+USDC is native Circle USDC, mainnet type `0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC`, 6 decimals ($1 = 1_000_000 base units).
+
+## Tier ladder (v2)
+
+| Tier | Eval fee | Notional account | Profit target | Max drawdown | Profit split (trader / firm) |
+|---|---|---|---|---|---|
+| Starter | $100 | $10,000 | 8% | 10% | 75 / 25 |
+| Basic | $250 | $25,000 | 8% | 10% | 80 / 20 |
+| Pro | $500 | $50,000 | 8% | 10% | 80 / 20 |
+| Elite | $1,000 | $100,000 | 10% | 8% | 85 / 15 |
+| Whale | $2,500 | $250,000 | 10% | 8% | 90 / 10 |
+
+- **Daily loss limit:** 5% of notional per tier, config-driven (`TierConfig.daily_loss_bps`), reset 00:00 UTC. Calibratable, not a hardcoded constant.
+- Tier economics are the on-chain `TierConfig` source of truth (admin-editable, evented) and are **snapshotted onto a TradingAccount at creation**, so later config edits never retroactively change open accounts.
+- **Scaling ladder (funded, monthly review):** profitable month → **+25%** notional; three consecutive profitable months → **+50%**; six consistent months → **+5 pp** split improvement, capped at **90/10**.
+
+## Stage 1 — Discovery & onboarding
+
+A visitor lands on the marketing surface and sees the full tier table with every rule disclosed inline — transparency is the conversion argument, so rules are never behind a click. Signup is email or social via Privy, which silently provisions the embedded Sui wallet. The auth section must cover session state, embedded-wallet provisioning lifecycle, and Privy recovery — and reference no external wallet adapters. (Already in repo: Privy auth + Sui wallets, firm-signed account opening.)
+
+## Stage 2 — Tier selection & checkout
+
+The trader selects a tier and, **before payment**, sees the full rules contract for that tier: profit target, max drawdown, daily loss limit, profit split, and the refund-on-first-payout promise. Checkout is **fiat-first**: card payment on-ramps to native USDC into the embedded wallet, then the eval fee transfers on-chain to the **treasury** (`collect_eval_fee`). Direct USDC payment from the embedded wallet is the underlying path. (Native SUI at a discount is an open question — out of v2 scope unless decided.)
+
+On confirmed payment:
+- **First attempt ever** → mint the soulbound **AccountClaim** (Suilend `ObligationOwnerCap`-style, Display NFT, non-transferable).
+- **Always** → create a fresh **TradingAccount** for this attempt, bound to the claim, with the tier as a switchable **enum** (not a `u8`) and all trading/activity state nested in a `Trading` struct.
+
+**Branches:**
+- Payment rejected / on-ramp failure → clear error, return to checkout, **no objects created**.
+- Payment confirmed but transaction failure mid-provision → **idempotent** retry of provisioning; **never double-charge**.
+
+## Stage 3 — Evaluation (testnet sandbox)
+
+The trader lands on the eval dashboard. Always-visible state: notional balance, P&L, distance to profit target, drawdown headroom, daily loss remaining, attempt status. Trades route through the platform UI to **Cetus** (spot) and **Bluefin** (perps). Every trade passes a continuous risk check enforced jointly by the on-chain risk module and the off-chain **Rust risk engine** (WebSocket RPC); the **TimescaleDB** indexer feeds the dashboard.
+
+**Pre-trade vs post-trade split (the implementation hinge):**
+- **Pre-trade — intent rejected before execution:** account status permits trading; trade-intent rate limit (`min_interval` 2 s, `MAX_INTENTS` 200 / attempt); per-tier position-size / max-leverage cap; venue-concentration cap; oracle staleness (Pyth age > 10 s reverts). These can be asserted before the venue fill.
+- **Post-trade — breach detection after the fill settles:** **max drawdown** crossed (equity below the max-DD floor from peak) and **daily loss limit** crossed (intraday P&L below the day's limit) are realized only after execution on a third-party venue. The risk engine observes the settled fill and the on-chain invariant check **freezes** the TradingAccount, recording the breach reason (daily-loss / max-drawdown / off-chain).
+- **Rationale:** unlike v1 (contract = sole execution surface, everything pre-trade), v2 executes on Cetus/Bluefin, so drawdown and daily-loss are necessarily **post-fill invariants** — "after the swap, check invariants; if violated, freeze." This settles the v2 custody-model question carried over from v1.
+
+**Three exits:**
+1. **Breach** — max drawdown or daily loss crossed. The TradingAccount is frozen immediately and marked failed. The trader sees a fail state naming the specific rule breached and an offer to retry. **Retry is a re-purchase:** full Stage 2 checkout, a **new** TradingAccount under the **same** AccountClaim; the claim's history accumulates across attempts (feeds the Phase-3 reputation credential). *Sub-branch:* if the breach coincided with partner-venue downtime, refund policy applies — **unresolved, see Open Questions**; do not invent a policy.
+2. **Pass** — profit target reached with all rules intact at evaluation close → funded onboarding (Stage 4).
+3. **Continue** — neither condition met; the loop persists. Carried from v1: there is no `abandon` entrypoint; **7-day inactivity → `Inactive` auto-termination** (distinct from Failed / Passed). Whether evaluations also carry a fixed **time limit** is an open question.
+
+## Stage 4 — Funded account (mainnet)
+
+Funded onboarding restates the funded-phase rules and the payout/refund mechanics, then activates a funded TradingAccount on mainnet. The UI is the same trading surface; the difference is that **real vault capital backs execution** while the balance stays **notional**.
+
+A **drawdown breach here terminates the funded account** — distinct from eval-fail, which is retryable by re-purchase. **Re-entry path:** a terminated funded trader re-enters by purchasing a **new evaluation** (Stage 2) under the same AccountClaim; there is no in-place revival of a terminated funded account.
+
+**Scaling ladder (monthly review cycle):** profitable month → +25% notional; three consecutive profitable months → +50%; six consistent months → +5 pp split, capped 90/10. **"Profitable month" and "consistent" must be defined measurably before build — open question** (prior-PRD candidate: ≥ 5% net profit in a calendar month with no rule violation; minimum trading days TBD). Pass-rate and scaling economics are the project's top modeled risk — do not invent the definition.
+
+## Stage 5 — Payouts
+
+The trader requests a payout from the funded dashboard. **Eligibility is checked** (minimum profit, minimum days, cadence — **criteria are an open question; flag, don't invent**). On approval: the profit split is applied; the platform's cut routes per the vault/treasury rules; the trader's share is released by **multisig VaultCap** approval (**never a hot AdminCap**) as USDC to the embedded wallet → **automatic fiat off-ramp**.
+
+**The first successful payout also refunds the original evaluation fee** (the FTMO-style flywheel: failed fees fund the vault, successful traders risk nothing net). Model this in the treasury flow, including the **retry guard for unclaimed payouts** already designed into the contracts (per-account `claimable` + pull-payment `claim`). The trader-facing confirmation shows the amount and arrival; the on-chain record exists but is not pushed in their face.
+
+## Cross-cutting
+
+- **Reputation** accrues from eval + funded performance toward a future reputation credential (Phase 3). v2 only needs the data captured now — per-attempt outcomes on the AccountClaim history plus the in-place-evolving cohort SBT. The production reputation-SBT issuance schema itself stays Phase 3.
+- **Admin app** (separate Next.js surface) — required views: vault health (capital in vault / deployed / idle / buffer / yield), aggregate risk monitoring (accounts ranked by proximity to max-DD, per-venue exposure, correlation), **evaluation pass-rate drift tracking** (the top active risk — if pass rate climbs unchecked, rules must tighten or the vault drains), and the **payout approval queue** for the VaultCap multisig. The admin app has **no path to override an evaluation outcome** — enforcement stays on-chain.
+
+## Architecture (v2)
+
+**Intended contract package — seven Move modules:** `propfirm`, `registry`, `constraints`, `accounts`, `treasury`, `fees`, `vault`. `LedgerEntry` is scoped to `accounts` only. The TradingAccount carries a `Table`-backed unbounded ledger and is the single on-chain source of truth.
+
+**Settled security hardening (must not regress):** cap binding via `vault_id` / `treasury_id`; payout approval on **multisig VaultCap**; canonical USDC treasury pinned in the **registry**; **retry guard** for unclaimed payouts; `mul_bps` widened to **u128**. Do **not** store an `owner: address` on TradingAccount (ownership is the AccountClaim). Do **not** reuse or mutate a TradingAccount across attempts. Idiomatic Move 2024 only, grouped nested imports (`use sui::{balance::{Self, Balance}, coin::Coin, event, table::{Self, Table}};`).
+
+**Stack:** Next.js (trader + admin) with `@mysten/dapp-kit-react`; Privy (auth, embedded wallets, fiat on/off ramps); Rust risk engine over WebSocket RPC; PostgreSQL + TimescaleDB indexer. Venues: **Cetus** (spot), **Bluefin** (perps), **Suilend** (vault yield only — idle stables, initial allocation cap 1.5× vault size, 15–20% reserve buffer never deployed). Bridging via Wormhole/CCTP is in the architecture but in no v2 trader flow.
+
+**Implementation-phase requirement:** any Sui work begins by cloning MystenLabs `sui-dev-skills` (`github.com/MystenLabs/sui-dev-skills`) into the sandbox and loading `move/SKILL.md`, `sui-ts-sdk/SKILL.md`, `sui-frontend/SKILL.md`, and `FAQ.md` as the default full-stack set. (A `sui-dev-skills` skill is available in this repo.)
+
+### Reconciliation with current contract work (flagged divergences)
+
+The contracts already in `contracts/sui/sources/` are **early v2 work that diverges from the intended design above**. The implementation pass must reconcile them — do not assume they are done:
+
+| Intended (this spec) | Currently in repo | Action |
+|---|---|---|
+| Soulbound **AccountClaim** (non-transferable, durable, 1/trader) | `AccountCap` — **transferable** (`has key, store`), one per account | Replace with soulbound AccountClaim; transfer-of-account is not the ownership model. |
+| Fresh **TradingAccount** per attempt (shared object) | Single `AccountState` reused in place (`reactivate` / `promote` mutate it) | Introduce per-attempt TradingAccount; stop mutating one account across attempts. |
+| 7 modules incl. standalone **`registry`** + **`fees`** | 6 modules: `propfirm`, `access`, `tier_config` (in `constraints.move`), `user_account` (in `accounts.move`), `treasury` (folds in fees), `vault_reserve` | Split out `registry` (canonical USDC + cap binding) and `fees` (trading fees) from `treasury`; make `constraints` the risk module and move tier economics under config; align `accounts` / `LedgerEntry` naming. |
+| `LedgerEntry` in `accounts` | `TradeEntry` (Table-backed ✓) | Rename; ledger shape already matches. |
+| Starter split **75/25** (canonical) | Seeded **80/20** in `tier_config` | Reconcile seeded `user_split_bps` to product-canonical at deploy. |
+| Payout approval on **multisig VaultCap** | Treasury pull-payment (`accrue_payout` / `claim`) + `TreasuryCreatorCap`; no evident VaultCap multisig gate | Verify/implement the multisig VaultCap gate on payout approval; never a hot AdminCap. |
+
+Already present and consistent with this spec: the retry guard (`claimable` + pull `claim`), two-step timelocked treasury address changes, vault buffer / venue-allowlist, and reputation scoring.
+
+## Out of v2 scope (explicit)
+
+| Out | Phase |
+|---|---|
+| Prediction markets, airdrop hunting | Phase 3 (need real settlement / qualifying txs) |
+| Additional venues beyond Cetus / Bluefin / Suilend | Phase 3+ |
+| Solana (and any second chain) | Later phase — never co-launched with Sui |
+| Production reputation **SBT issuance** schema | Phase 3 (v2 only captures the data) |
+| Token | Phase 4 |
+| DAO governance, public LP vault, affiliate/referral, trader-as-fund | Phase 3+ |
+
+## Open questions (resolve before v2 build — do not invent)
+
+1. **Refund policy on partner-venue downtime** during a breach.
+2. **Multi-account policy** per trader (one AccountClaim, multiple funded accounts?).
+3. **Native SUI at a discount** vs USDC-only at checkout.
+4. **Affiliate / referral** program design.
+5. **Trader insurance fund** at higher tiers.
+6. **Evaluation time limits** — fixed window vs open-ended (if genuinely undecided).
+7. **Measurable "profitable month" / "consistent months"** for the scaling ladder.
+8. **Payout eligibility criteria** — minimum profit, minimum days, cadence.
+9. **AccountClaim vs cohort/Genesis SBT object boundary** — one soulbound object or two (account passport vs reputation credential)? The contracts currently have neither AccountClaim nor a separate reputation object.
