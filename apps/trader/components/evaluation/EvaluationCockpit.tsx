@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DailyResetCountdown } from "@/components/evaluation/DailyResetCountdown";
 import { DrawdownGauge } from "@/components/evaluation/DrawdownGauge";
+import { MarketSelector } from "@/components/evaluation/MarketSelector";
 import { PositionsTable } from "@/components/evaluation/PositionsTable";
 import { RulePills } from "@/components/evaluation/RulePills";
 import { TradeHistory } from "@/components/evaluation/TradeHistory";
 import { TradeIntentForm } from "@/components/trade";
-import { AssetIcon, Badge, ConnectionDot, Skeleton } from "@/components/ui";
+import { Badge, ConnectionDot, Skeleton } from "@/components/ui";
 import {
   useConnection,
   useEquityCurve,
@@ -18,9 +19,20 @@ import {
   useTradeHistory,
   useVault,
 } from "@/lib/mock/hooks";
-import type { Symbol } from "@/lib/mock/types";
+import {
+  DEFAULT_MARKET_ID,
+  decimalsFor,
+  getMarket,
+  type MarketId,
+} from "@/lib/mock/markets";
 import { usePaperEngine } from "@/lib/sim/usePaperEngine";
-import { cn, formatPct, formatUsd } from "@/lib/utils";
+import {
+  cn,
+  formatPct,
+  formatUsd,
+  formatUsdOrDash,
+  VALUE_UNAVAILABLE,
+} from "@/lib/utils";
 
 // SSR-safe: Lightweight Charts requires the browser canvas API
 const EquityCurve = dynamic(
@@ -34,10 +46,10 @@ const EquityCurve = dynamic(
   },
 );
 
-const TradingViewChart = dynamic(
+const HLCandleChart = dynamic(
   () =>
-    import("@/components/charts/TradingViewChart").then((m) => ({
-      default: m.TradingViewChart,
+    import("@/components/charts/HLCandleChart").then((m) => ({
+      default: m.HLCandleChart,
     })),
   {
     ssr: false,
@@ -58,65 +70,24 @@ const BOTTOM_TABS: { id: BottomTab; label: string }[] = [
 ];
 
 /* -------------------------------------------------------------------------- */
-/* Asset pill (market strip selector)                                          */
-/* -------------------------------------------------------------------------- */
-
-function AssetPill({
-  symbol,
-  active,
-  onClick,
-}: {
-  symbol: Symbol;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const tick = usePrice(symbol);
-  const price = tick?.price ?? null;
-  const change = tick?.change24h ?? null;
-  const up = (change ?? 0) >= 0;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "flex items-center gap-2 rounded-[var(--radius-sm)] border px-3 py-1.5 transition-colors",
-        active
-          ? "border-border bg-surface-3 text-text"
-          : "border-transparent text-text-muted hover:bg-surface-2 hover:text-text",
-      )}
-    >
-      <AssetIcon symbol={symbol} size={14} />
-      <span className="text-xs font-semibold">{symbol}</span>
-      <span
-        className={cn(
-          "tabular text-xs",
-          price == null ? "text-text-faint" : up ? "text-up" : "text-down",
-        )}
-      >
-        {formatUsdOrDash(price, { decimals: (price ?? 0) > 100 ? 0 : 2 })}
-      </span>
-    </button>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /* Market stats strip                                                           */
 /* -------------------------------------------------------------------------- */
 
 function MarketStrip({
-  symbol,
-  onSymbolChange,
+  marketId,
+  onMarketChange,
   vaultId,
 }: {
-  symbol: Symbol;
-  onSymbolChange: (s: Symbol) => void;
+  marketId: MarketId;
+  onMarketChange: (id: MarketId) => void;
   vaultId: string;
 }) {
-  const tick = usePrice(symbol);
+  const tick = usePrice(marketId);
   const vault = useVault(vaultId);
   const connStatus = useConnection();
+
+  const market = getMarket(marketId);
+  const priceDecimals = decimalsFor(market);
 
   const price = tick?.price ?? null;
   const change24h = tick?.change24h ?? null;
@@ -124,11 +95,11 @@ function MarketStrip({
   const changeTone =
     change24h == null ? "text-text-faint" : up ? "text-up" : "text-down";
 
-  // Derive 24h volume + range from the mock data (base price ± change).
-  const basePrice = price / (1 + change24h / 100);
-  const absChange = price - basePrice;
-  const vol24h =
-    price * (symbol === "BTC" ? 18_400 : symbol === "ETH" ? 92_000 : 1_240_000);
+  // Absolute 24h move, derived from spot and the percent change (both nullable).
+  const absChange =
+    price != null && change24h != null
+      ? price - price / (1 + change24h / 100)
+      : null;
 
   // Real trailing-24h high / low straight from the oracle history.
   const dailyRange24hLow = tick?.low24h ?? null;
@@ -140,25 +111,11 @@ function MarketStrip({
 
   return (
     <div className="border-b border-border bg-surface">
-      {/* Asset selector row */}
-      <div className="flex items-center gap-1 border-b border-border px-4 py-2">
-        {(["BTC", "ETH", "SOL"] as Symbol[]).map((s) => (
-          <AssetPill
-            key={s}
-            symbol={s}
-            active={symbol === s}
-            onClick={() => onSymbolChange(s)}
-          />
-        ))}
-      </div>
-
       {/* Stats row */}
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2.5">
-        {/* Pair + leverage */}
+        {/* Pair selector + leverage */}
         <div className="flex items-center gap-2.5">
-          <span className="text-base font-semibold text-text">
-            {symbol} / USD
-          </span>
+          <MarketSelector marketId={marketId} onMarketChange={onMarketChange} />
           <Badge variant="leverage">{vault.tier.leverage}×</Badge>
         </div>
 
@@ -166,7 +123,7 @@ function MarketStrip({
         <div className="flex flex-col">
           <span className="text-xs text-text-faint">Mark</span>
           <span className="tabular text-sm font-semibold text-text">
-            {formatUsdOrDash(price, { decimals: (price ?? 0) > 100 ? 1 : 2 })}
+            {formatUsdOrDash(price, { decimals: priceDecimals })}
           </span>
         </div>
 
@@ -177,7 +134,7 @@ function MarketStrip({
             {absChange != null && change24h != null ? (
               <>
                 {up ? "+" : ""}
-                {formatUsd(absChange, { decimals: (price ?? 0) > 100 ? 1 : 2 })}{" "}
+                {formatUsd(absChange, { decimals: priceDecimals })}{" "}
                 <span className="text-xs font-normal">
                   ({up ? "+" : ""}
                   {change24h.toFixed(2)}%)
@@ -193,13 +150,9 @@ function MarketStrip({
         <div className="flex flex-col">
           <span className="text-xs text-text-faint">24h Range</span>
           <span className="tabular text-sm font-medium text-text-muted">
-            {formatUsdOrDash(dailyRange24hLow, {
-              decimals: (price ?? 0) > 100 ? 0 : 2,
-            })}
+            {formatUsdOrDash(dailyRange24hLow, { decimals: priceDecimals })}
             {" – "}
-            {formatUsdOrDash(dailyRange24hHigh, {
-              decimals: (price ?? 0) > 100 ? 0 : 2,
-            })}
+            {formatUsdOrDash(dailyRange24hHigh, { decimals: priceDecimals })}
           </span>
         </div>
 
@@ -261,7 +214,7 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
       router.replace(`/evaluation/${vaultId}/inactive`);
   }, [vault.status, vaultId, router]);
 
-  const [symbol, setSymbol] = useState<Symbol>("BTC");
+  const [marketId, setMarketId] = useState<MarketId>(DEFAULT_MARKET_ID);
   const [activeTab, setActiveTab] = useState<BottomTab>("positions");
 
   const { tier, startingEquity, peakEquity, rules } = vault;
@@ -276,8 +229,8 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
       <div className="flex flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border bg-bg">
         {/* ── Market stats strip ─────────────────────────────────────────── */}
         <MarketStrip
-          symbol={symbol}
-          onSymbolChange={setSymbol}
+          marketId={marketId}
+          onMarketChange={setMarketId}
           vaultId={vaultId}
         />
 
@@ -285,9 +238,9 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px]">
           {/* LEFT: chart + risk strip */}
           <div className="flex flex-col border-r border-border">
-            {/* Candlestick chart — real TradingView feed on the Pyth oracle */}
+            {/* Live Hyperliquid candle feed for the selected market */}
             <div className="h-[460px] border-b border-border bg-surface">
-              <TradingViewChart symbol={symbol} />
+              <HLCandleChart marketId={marketId} />
             </div>
 
             {/* Risk / compliance strip — always visible beside the chart */}
@@ -304,14 +257,15 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
             </div>
           </div>
 
-        {/* RIGHT: order entry */}
-        <div className="flex flex-col border-b border-border bg-surface">
-          <TradeIntentForm
-            vaultId={vaultId}
-            symbol={symbol}
-            onSymbolChange={setSymbol}
-            onSubmitOrder={submitOrder}
-          />
+          {/* RIGHT: order entry */}
+          <div className="flex flex-col border-b border-border bg-surface">
+            <TradeIntentForm
+              vaultId={vaultId}
+              marketId={marketId}
+              onMarketChange={setMarketId}
+              onSubmitOrder={submitOrder}
+            />
+          </div>
         </div>
 
         {/* ── Bottom tab strip ───────────────────────────────────────────── */}
@@ -345,13 +299,13 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
           </div>
         </div>
 
-      {/* ── Bottom panel content ───────────────────────────────────────── */}
-      <div className="min-h-[220px] bg-surface px-4 py-4">
-        {activeTab === "positions" && (
-          <PositionsTable positions={positions} onClose={closePosition} />
-        )}
+        {/* ── Bottom panel content ───────────────────────────────────────── */}
+        <div className="min-h-[220px] bg-surface px-4 py-4">
+          {activeTab === "positions" && (
+            <PositionsTable positions={positions} onClose={closePosition} />
+          )}
 
-        {activeTab === "history" && <TradeHistory trades={trades} />}
+          {activeTab === "history" && <TradeHistory trades={trades} />}
 
           {activeTab === "account" && (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">

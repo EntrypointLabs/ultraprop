@@ -6,37 +6,29 @@ import { TVChart } from "@/components/charts/TVChart";
 import { AssetIcon, Badge, Button } from "@/components/ui";
 import { SEED_NOW } from "@/lib/mock/fixtures";
 import { usePrice } from "@/lib/mock/hooks";
-import type { Symbol } from "@/lib/mock/types";
+import { getMarket } from "@/lib/mock/markets";
+import type { MarketId } from "@/lib/mock/types";
 import { cn, formatPctOrDash, formatUsdOrDash } from "@/lib/utils";
 
 interface AssetSpotlightProps {
-  symbol: Symbol;
+  symbol: MarketId;
 }
 
-const ASSET_META: Record<
-  Symbol,
-  { name: string; desc: string; leverage: number }
-> = {
-  BTC: {
-    name: "Bitcoin",
-    desc: "The benchmark. BTC/USD is the most-traded pair in the evaluation universe.",
-    leverage: 10,
-  },
-  ETH: {
-    name: "Ethereum",
-    desc: "Deep liquidity, distinct from BTC. ETH/USD provides macro-uncorrelated setups.",
-    leverage: 10,
-  },
-  SOL: {
-    name: "Solana",
-    desc: "Higher volatility, tighter spreads. SOL/USD rewards precise risk management.",
-    leverage: 10,
-  },
+/** Marketing copy per market — display-only, falls back to a generic line. */
+const ASSET_DESC: Record<string, string> = {
+  BTC: "The benchmark. BTC/USD is the most-traded pair in the evaluation universe.",
+  ETH: "Deep liquidity, distinct from BTC. ETH/USD provides macro-uncorrelated setups.",
+  SOL: "Higher volatility, tighter spreads. SOL/USD rewards precise risk management.",
 };
 
 export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
   const tick = usePrice(symbol);
-  const meta = ASSET_META[symbol];
+  const market = getMarket(symbol);
+  const meta = {
+    name: market?.name ?? symbol,
+    leverage: market?.maxLeverage ?? 10,
+    desc: ASSET_DESC[symbol] ?? `${market?.name ?? symbol} / USD spot market.`,
+  };
 
   const sparkData = tick?.spark ?? [];
   const now = SEED_NOW;

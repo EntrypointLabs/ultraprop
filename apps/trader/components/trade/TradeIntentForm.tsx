@@ -22,11 +22,13 @@ import {
 import {
   useConnection,
   useDivergenceHalt,
+  useMarketCatalog,
   usePrice,
   useSession,
   useVault,
 } from "@/lib/mock/hooks";
-import type { Side, Symbol, VaultState } from "@/lib/mock/types";
+import { DEFAULT_MARKET_ID, MARKET_IDS } from "@/lib/mock/markets";
+import type { MarketId, Side, VaultState } from "@/lib/mock/types";
 import { slippagePreview, TILT_BPS } from "@/lib/slippage-preview";
 import { cn, formatNum, formatUsd, formatUsdOrDash } from "@/lib/utils";
 
@@ -37,11 +39,11 @@ import { cn, formatNum, formatUsd, formatUsdOrDash } from "@/lib/utils";
 interface TradeIntentFormProps {
   vaultId: string;
   /** When provided the form is controlled — internal asset tab row is hidden. */
-  symbol?: Symbol;
-  onSymbolChange?: (s: Symbol) => void;
+  marketId?: MarketId;
+  onMarketChange?: (id: MarketId) => void;
   /** Opens a notional position in the paper-trading engine on confirmed submit. */
   onSubmitOrder?: (intent: {
-    symbol: Symbol;
+    symbol: MarketId;
     side: Side;
     sizeUsd: number;
   }) => void;
@@ -52,7 +54,7 @@ type SubmitState =
   | { phase: "submitting" }
   | {
       phase: "confirmed";
-      symbol: Symbol;
+      symbol: MarketId;
       side: Side;
       fill: number;
       sizeUsd: number;
@@ -69,7 +71,7 @@ function SymbolTab({
   active,
   onClick,
 }: {
-  symbol: Symbol;
+  symbol: MarketId;
   active: boolean;
   onClick: () => void;
 }) {
@@ -200,7 +202,7 @@ function PriceTooltipContent({
   symbol,
   price,
 }: {
-  symbol: Symbol;
+  symbol: MarketId;
   price: number;
 }) {
   return (
@@ -236,7 +238,7 @@ function ConfirmationFlash({
   sizeUsd,
   onDismiss,
 }: {
-  symbol: Symbol;
+  symbol: MarketId;
   side: Side;
   fill: number;
   sizeUsd: number;
@@ -332,8 +334,8 @@ const SIZE_PRESETS = [250, 500, 1000, 2500] as const;
 
 export function TradeIntentForm({
   vaultId,
-  symbol: symbolProp,
-  onSymbolChange,
+  marketId: marketIdProp,
+  onMarketChange,
   onSubmitOrder,
 }: TradeIntentFormProps) {
   const vault: VaultState = useVault(vaultId);
@@ -341,11 +343,12 @@ export function TradeIntentForm({
   const { session } = useSession();
   const connection = useConnection();
 
-  const isControlled = symbolProp !== undefined;
-  const [symbolInternal, setSymbolInternal] = React.useState<Symbol>("BTC");
-  const symbol = isControlled ? symbolProp : symbolInternal;
+  const isControlled = marketIdProp !== undefined;
+  const [symbolInternal, setSymbolInternal] =
+    React.useState<MarketId>(DEFAULT_MARKET_ID);
+  const symbol = isControlled ? marketIdProp : symbolInternal;
   const setSymbol = isControlled
-    ? (onSymbolChange ?? (() => {}))
+    ? (onMarketChange ?? (() => {}))
     : setSymbolInternal;
 
   const [side, setSide] = React.useState<Side>("long");
@@ -359,10 +362,28 @@ export function TradeIntentForm({
   const tick = usePrice(symbol);
   const marketMid = tick?.price ?? null;
 
+  // Effective usable leverage = min(per-market venue cap, tier flat cap). Falls
+  // to the market cap when a low-leverage perp's max sits BELOW the tier cap.
+  const catalog = useMarketCatalog();
+  const market = React.useMemo(
+    () => catalog.find((m) => m.id === symbol || m.symbol === symbol),
+    [catalog, symbol],
+  );
+  const effectiveLeverageCap = Math.min(
+    market?.maxLeverage ?? vault.tier.leverage,
+    vault.tier.leverage,
+  );
+
   const sizeUsd = parseFloat(rawSize) || 0;
+  // USD-notional order → implied leverage against the tier's shadow allocation.
+  const impliedLeverage =
+    vault.tier.shadowAllocation > 0
+      ? sizeUsd / vault.tier.shadowAllocation
+      : 0;
+  const isOverLeverageCap = impliedLeverage > effectiveLeverageCap;
   const preview = React.useMemo(() => {
     if (sizeUsd <= 0 || marketMid == null || marketMid <= 0) return null;
-    return slippagePreview({ symbol, side, sizeUsd, oracleMid: marketMid });
+    return slippagePreview({ marketId: symbol, side, sizeUsd, oracleMid: marketMid });
   }, [symbol, side, sizeUsd, marketMid]);
 
   /* ------------------------------------------------------------------ */
@@ -390,6 +411,8 @@ export function TradeIntentForm({
     disabledReason = "Waiting for a live oracle price…";
   else if (isVaultPaused) disabledReason = `Evaluation is ${vault.status}`;
   else if (isSizeInvalid) disabledReason = "Enter a position size";
+  else if (isOverLeverageCap)
+    disabledReason = `Leverage exceeds ${effectiveLeverageCap}× cap for ${market?.symbol ?? symbol}`;
   else if (isRateLimited) disabledReason = null;
 
   const canSubmit =
@@ -398,6 +421,7 @@ export function TradeIntentForm({
     !isPriceUnavailable &&
     !isVaultPaused &&
     !isSizeInvalid &&
+    !isOverLeverageCap &&
     !isRateLimited &&
     !isSubmitting;
 
@@ -406,7 +430,7 @@ export function TradeIntentForm({
   /* ------------------------------------------------------------------ */
 
   const handleSubmit = React.useCallback(() => {
-    if (!canSubmit || !preview) return;
+    if (!canSubmit || !preview || isOverLeverageCap) return;
     const capturedSymbol = symbol;
     const capturedSide = side;
     const capturedFill = preview.fill;
@@ -429,13 +453,15 @@ export function TradeIntentForm({
       setLastSubmitAt(Date.now());
       setRawSize("1000");
     }, 650);
-  }, [canSubmit, preview, symbol, side, sizeUsd, onSubmitOrder]);
+  }, [canSubmit, preview, isOverLeverageCap, symbol, side, sizeUsd, onSubmitOrder]);
 
   const dismissConfirmation = React.useCallback(() => {
     setSubmitState({ phase: "idle" });
   }, []);
 
-  const leverageLabel = `${vault.tier.leverage}×`;
+  // The real usable cap (per-market venue cap clamped to the tier cap), not the
+  // flat tier cap — so a low-leverage perp shows its lower ceiling.
+  const leverageLabel = `${effectiveLeverageCap}×`;
 
   /* ------------------------------------------------------------------ */
   /* Render                                                               */
@@ -462,7 +488,7 @@ export function TradeIntentForm({
           <div>
             <CardLabel className="mb-2 block">Asset</CardLabel>
             <div className="flex gap-1 rounded-[var(--radius)] border border-border bg-surface p-1">
-              {(["BTC", "ETH", "SOL"] as Symbol[]).map((s) => (
+              {MARKET_IDS.map((s) => (
                 <SymbolTab
                   key={s}
                   symbol={s}

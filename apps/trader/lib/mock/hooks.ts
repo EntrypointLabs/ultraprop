@@ -1,10 +1,9 @@
 "use client";
 
 import { useLogout, usePrivy } from "@privy-io/react-auth";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { suiWalletAddress } from "@/lib/auth";
-import { buildCandles, type Candle, type Timeframe } from "@/lib/mock/candles";
 import {
   buildProfile,
   DEMO_COHORT,
@@ -16,9 +15,16 @@ import {
   DEMO_VAULT,
   DEMO_WALLET,
   INITIAL_PRICES,
-  SYMBOLS,
   TIERS,
 } from "@/lib/mock/fixtures";
+import type { Market as VenueMarket } from "@shared/venues";
+import {
+  DEFAULT_SIM_FIELDS,
+  getMarket,
+  type Market,
+  SEED_CATALOG,
+  setLiveCatalog,
+} from "@/lib/mock/markets";
 import { useMockStore } from "@/lib/mock/store";
 import type {
   CohortStats,
@@ -27,12 +33,12 @@ import type {
   LeaderboardAxis,
   LeaderboardEntry,
   LeaderboardWindow,
+  MarketId,
   Position,
   PriceTick,
   Profile,
   SbtState,
   Session,
-  Symbol,
   Tier,
   TradeRecord,
   VaultState,
@@ -88,89 +94,153 @@ export function useDivergenceHalt(): {
 }
 
 /* ------------------------------------------------------------------ */
-/* Live oracle prices — Pyth Hermes spot + Benchmarks 24h history       */
+/* Live Hyperliquid catalog + marks — via OUR endpoints, never HL direct */
 /* ------------------------------------------------------------------ */
 
-/** Latest spot for every market, refreshed straight off the oracle. */
-function useOracleLatest() {
-  return useQuery({
-    queryKey: ["oracle", "latest"],
-    queryFn: ({ signal }) => fetchLatestPrices(SYMBOLS, signal),
-    refetchInterval: 2500,
-    staleTime: 2500,
-  });
+/** Marks refresh cadence — live ticks (server-side fetch behind /api/marks). */
+const MARKS_REFETCH_MS = 3_000;
+
+/** The bare venue-symbol → mark/funding context shape from /api/marks. */
+interface MarkCtx {
+  markPx: string;
+  oraclePx: string;
+  midPx: string | null;
+  funding: string;
+  prevDayPx: string;
 }
 
-/** Trailing-24h hourly closes per market (sparkline + 24h change basis). */
-function useOracleHistory() {
-  return useQuery({
-    queryKey: ["oracle", "history"],
-    queryFn: async ({ signal }) => {
-      const nowSec = Math.floor(Date.now() / 1000);
-      const entries = await Promise.all(
-        SYMBOLS.map(
-          async (s) =>
-            [
-              s,
-              await fetchDailyHistory(s, nowSec, signal).catch(() => null),
-            ] as const,
-        ),
-      );
-      const out: Partial<Record<Symbol, OracleHistory>> = {};
-      for (const [s, h] of entries) if (h) out[s] = h;
-      return out;
-    },
-    refetchInterval: 5 * 60_000,
-    staleTime: 5 * 60_000,
-  });
+/** The venue-derived fields the live `/api/catalog` DTO supplies. */
+type LiveMarket = Pick<
+  VenueMarket,
+  | "id"
+  | "venue"
+  | "symbol"
+  | "base"
+  | "displayName"
+  | "szDecimals"
+  | "tickSize"
+  | "maxLeverage"
+  | "maker"
+  | "taker"
+  | "fundingIntervalMs"
+  | "isDelisted"
+>;
+
+/**
+ * Merge a live venue DTO onto the Phase-1 snapshot to produce the ONE canonical
+ * FE `Market`: venue-derived fields win (live), sim-only fields (name, depthUsd,
+ * volFactor, volume24h) come from the matched snapshot entry — or documented
+ * defaults when the live market is not in the snapshot.
+ */
+function mergeMarket(live: LiveMarket): Market {
+  const snap =
+    getMarket(live.id) ?? SEED_CATALOG.find((m) => m.symbol === live.symbol);
+  return {
+    name: snap?.name ?? live.base,
+    depthUsd: snap?.depthUsd ?? DEFAULT_SIM_FIELDS.depthUsd,
+    volFactor: snap?.volFactor ?? DEFAULT_SIM_FIELDS.volFactor,
+    volume24h: snap?.volume24h ?? DEFAULT_SIM_FIELDS.volume24h,
+    ...live,
+  };
 }
 
 /**
- * Build a `PriceTick` per market from live oracle data only. There is no
- * synthetic fallback: until the oracle responds (or if it fails), price and
- * change24h are null and the UI must render an explicit "unavailable" state
- * rather than a stale or fabricated number. This keeps server render and first
- * client paint aligned (both have no data) with no hydration drift.
+ * The full live HL perp universe, fetched from OUR `/api/catalog` route (which
+ * calls Hyperliquid server-side) and MERGED onto the Phase-1 snapshot so the
+ * result is the single canonical FE `Market` type. Seeds with the snapshot so
+ * SSR and first paint are deterministic — TanStack runs `queryFn` client-side
+ * after mount, so the browser never fetches at module scope. On each success the
+ * module `liveCatalog` is updated so synchronous `getMarket` readers see the
+ * live universe too.
  */
-function composeTicks(
-  latest: OraclePrice[] | undefined,
-  history: Partial<Record<Symbol, OracleHistory>> | undefined,
-): PriceTick[] {
-  return SYMBOLS.map((symbol) => {
-    const live = latest?.find((p) => p.symbol === symbol);
-    const hist = history?.[symbol];
-    const price = live?.price ?? null;
-    const change24h =
-      price != null && hist?.price24hAgo
-        ? Number(
-            (((price - hist.price24hAgo) / hist.price24hAgo) * 100).toFixed(2),
-          )
-        : null;
-    const spark = hist && hist.closes.length > 1 ? hist.closes.slice(-32) : [];
-    return {
-      symbol,
-      price,
-      change24h,
-      spark,
-      high24h: hist?.high24h ?? null,
-      low24h: hist?.low24h ?? null,
-      ts: live?.publishTime ?? 0,
-    };
+export function useMarketCatalog(): Market[] {
+  const { data } = useQuery({
+    queryKey: ["markets", "hl"],
+    queryFn: async ({ signal }): Promise<Market[]> => {
+      const res = await fetch("/api/catalog?venue=hl", { signal });
+      if (!res.ok) throw new Error(`/api/catalog ${res.status}`);
+      const live = (await res.json()) as LiveMarket[];
+      const merged = live.map(mergeMarket);
+      setLiveCatalog(merged);
+      return merged;
+    },
+    initialData: SEED_CATALOG,
+    // The seed is only the 3-market SSR snapshot. Mark it stale-from-epoch so
+    // the live /api/catalog fetch fires on mount — otherwise `staleTime` keeps
+    // the seed "fresh" forever and the full ~179-market universe never loads.
+    initialDataUpdatedAt: 0,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+  return data ?? SEED_CATALOG;
+}
+
+function buildTick(symbol: string, ctx: MarkCtx): PriceTick {
+  const mark = Number(ctx.markPx);
+  const prevDay = Number(ctx.prevDayPx);
+  const markValid = Number.isFinite(mark);
+  const change24h =
+    markValid && Number.isFinite(prevDay) && prevDay !== 0
+      ? Number((((mark - prevDay) / prevDay) * 100).toFixed(2))
+      : null;
+  const mid = ctx.midPx == null ? null : Number(ctx.midPx);
+  const oracle = Number(ctx.oraclePx);
+  return {
+    // FE id scheme is venue-qualified; /api/marks keys by bare symbol.
+    symbol: `hyperliquid:${symbol}`,
+    // mark drives PnL/marks (not mid); price mirrors mark for existing readers
+    price: markValid ? mark : null,
+    change24h,
+    spark: [],
+    high24h: null,
+    low24h: null,
+    ts: Date.now(),
+    markPx: markValid ? mark : null,
+    oraclePx: Number.isFinite(oracle) ? oracle : null,
+    midPx: mid != null && Number.isFinite(mid) ? mid : null,
+  };
+}
+
+/**
+ * Live marks for the full universe, polled every 3s from OUR `/api/marks` route
+ * (which fetches Hyperliquid server-side) and stored at `["prices"]` — the
+ * single writer of that key. `usePaperEngine` reads the same key to mark the
+ * simulation to market; nothing else writes it. Mark drives PnL (not mid), and
+ * `midPx` may be null (guarded). The route keys by bare symbol; ticks are
+ * re-keyed to `hyperliquid:<symbol>`. Seeds with `INITIAL_PRICES` so SSR/first
+ * paint match.
+ */
+function useMarksQuery() {
+  return useQuery({
+    queryKey: ["prices"],
+    queryFn: async ({ signal }): Promise<PriceTick[]> => {
+      const res = await fetch("/api/marks", { signal });
+      if (!res.ok) throw new Error(`/api/marks ${res.status}`);
+      const marks = (await res.json()) as Record<string, MarkCtx>;
+      return Object.entries(marks).map(([symbol, ctx]) =>
+        buildTick(symbol, ctx),
+      );
+    },
+    initialData: INITIAL_PRICES,
+    staleTime: MARKS_REFETCH_MS,
+    refetchInterval: MARKS_REFETCH_MS,
   });
 }
 
-export function usePrices(symbols?: Symbol[]): PriceTick[] {
-  const { data: latest } = useOracleLatest();
-  const { data: history } = useOracleHistory();
+export function usePrices(symbols?: MarketId[]): PriceTick[] {
+  const { data } = useMarksQuery();
+  const list = data ?? INITIAL_PRICES;
 
-  const list = useMemo(() => composeTicks(latest, history), [latest, history]);
-
-  if (!symbols || symbols.length === 0) return list;
-  return list.filter((p) => symbols.includes(p.symbol));
+  return useMemo(() => {
+    if (!symbols || symbols.length === 0) return list;
+    const want = new Set(symbols);
+    return list.filter((p) => want.has(p.symbol));
+  }, [list, symbols]);
 }
 
-export function usePrice(symbol: Symbol): PriceTick | undefined {
-  return usePrices([symbol])[0];
+export function usePrice(symbol: MarketId): PriceTick | undefined {
+  const { data } = useMarksQuery();
+  return (data ?? INITIAL_PRICES).find((p) => p.symbol === symbol);
 }
 
 /* ------------------------------------------------------------------ */
@@ -178,7 +248,7 @@ export function usePrice(symbol: Symbol): PriceTick | undefined {
 /* ------------------------------------------------------------------ */
 
 export function useMarkets(): PriceTick[] {
-  return usePrices(SYMBOLS);
+  return usePrices();
 }
 
 export function useTiers(): Tier[] {
@@ -305,15 +375,15 @@ export function useCohortStats(): CohortStats {
 }
 
 /* ------------------------------------------------------------------ */
-/* Connection status — reflects real oracle health (or a manual halt)   */
+/* Connection status — reflects real venue health (or a manual halt)    */
 /* ------------------------------------------------------------------ */
 
-/** Live oracle data is treated as stale if it hasn't refreshed in this window. */
-const ORACLE_STALE_MS = 30_000;
+/** Live marks are treated as stale if they haven't refreshed in this window. */
+const MARKS_STALE_MS = 30_000;
 
 export function useConnection(): ConnectionStatus {
   const halted = useMockStore((s) => s.divergenceHalt);
-  const { data, isError, dataUpdatedAt } = useOracleLatest();
+  const { isError, isFetched, dataUpdatedAt } = useMarksQuery();
   const [, force] = useState(0);
 
   // The query only re-renders on a fetch — which is exactly what stops when the
@@ -325,7 +395,8 @@ export function useConnection(): ConnectionStatus {
 
   if (halted) return "stale";
   if (isError) return "stale";
-  if (!data || data.length === 0) return "reconnecting";
-  if (Date.now() - dataUpdatedAt > ORACLE_STALE_MS) return "stale";
+  // `initialData` seeds the query, so a successful fetch must land before "live".
+  if (!isFetched) return "reconnecting";
+  if (Date.now() - dataUpdatedAt > MARKS_STALE_MS) return "stale";
   return "live";
 }

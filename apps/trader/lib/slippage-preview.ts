@@ -1,4 +1,5 @@
-import type { Side, SlippagePreview, Symbol } from "@/lib/mock/types";
+import { getMarket } from "@/lib/mock/markets";
+import type { MarketId, Side, SlippagePreview } from "@/lib/mock/types";
 
 /** The house tilt, in basis points, ALWAYS applied against the trader. */
 export const TILT_BPS = 2;
@@ -11,18 +12,11 @@ export const TILT_BPS = 2;
 export const VENUE = "7K";
 export const VENUE_ROUTE = ["Cetus", "Aftermath", "Turbos", "Kriya"];
 
-/**
- * Per-symbol base liquidity depth in USD. Larger depth => less size-driven
- * slippage. These are fixed so the preview is fully deterministic and stable.
- */
-const DEPTH_USD: Record<Symbol, number> = {
-  BTC: 4_000_000,
-  ETH: 2_000_000,
-  SOL: 750_000,
-};
+/** Fallback book depth for any market without a catalog `depthUsd`. */
+const DEFAULT_DEPTH_USD = 1_000_000;
 
 export interface SlippagePreviewArgs {
-  symbol: Symbol;
+  marketId: MarketId;
   side: Side;
   /** order notional in USD */
   sizeUsd: number;
@@ -40,12 +34,12 @@ export interface SlippagePreviewArgs {
  * Pure: same inputs always produce the same output. No clocks, no randomness.
  */
 export function slippagePreview({
-  symbol,
+  marketId,
   side,
   sizeUsd,
   oracleMid,
 }: SlippagePreviewArgs): SlippagePreview {
-  const depth = DEPTH_USD[symbol];
+  const depth = getMarket(marketId)?.depthUsd ?? DEFAULT_DEPTH_USD;
   const size = Math.max(0, sizeUsd);
 
   // size-driven slippage: up to ~50 bps as size approaches book depth.

@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   // Monorepo root for build-trace file collection (silences the multi-lockfile
   // warning from a stray lockfile in the home directory).
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
+  // The venue adapter is a workspace package consumed by the server-side route
+  // handlers; transpile it so Next bundles it cleanly across the monorepo.
+  transpilePackages: ["@shared/venues"],
   eslint: {
     ignoreDuringBuilds: true,
   },
