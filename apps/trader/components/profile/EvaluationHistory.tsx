@@ -129,14 +129,14 @@ function EvaluationRow({ eval_, index }: EvaluationRowProps) {
       </div>
 
       {/* Dates */}
-      <div className="flex-1 flex flex-col gap-0.5">
-        <div className="text-xs text-text-faint">
-          <span className="text-text-muted">Started</span>{" "}
+      <div className="flex flex-1 flex-col gap-0.5 sm:min-w-[140px]">
+        <div className="whitespace-nowrap text-xs text-text-muted">
+          <span className="text-text-faint">Started</span>{" "}
           <span className="tabular">{dateLabel(eval_.startedAt)}</span>
         </div>
         {eval_.endedAt && (
-          <div className="text-xs text-text-faint">
-            <span className="text-text-muted">
+          <div className="whitespace-nowrap text-xs text-text-muted">
+            <span className="text-text-faint">
               {eval_.status === "passed"
                 ? "Passed"
                 : eval_.status === "failed"

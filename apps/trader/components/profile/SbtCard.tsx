@@ -15,7 +15,6 @@ interface SbtCardProps {
   sbt: SbtState;
   shadowPnl: number;
   passes: number;
-  fails: number;
   totalTrades: number;
 }
 
@@ -141,13 +140,7 @@ const TIER_ROW = [
   { id: "pro" as const, label: "Pro" },
 ];
 
-export function SbtCard({
-  sbt,
-  shadowPnl,
-  passes,
-  fails,
-  totalTrades,
-}: SbtCardProps) {
+export function SbtCard({ sbt, shadowPnl, passes, totalTrades }: SbtCardProps) {
   const meta = LEVEL_META[sbt.level];
   const lastActive = sbt.lastLevelUpAt
     ? new Date(sbt.lastLevelUpAt).toLocaleDateString("en-US", {

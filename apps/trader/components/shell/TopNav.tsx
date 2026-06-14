@@ -76,7 +76,10 @@ export function TopNav() {
             <span className="tabular">
               {formatUsd(session.balanceUsd, { decimals: 0 })}
             </span>
-            <ChevronDown className="h-3.5 w-3.5 text-text-muted" aria-hidden="true" />
+            <ChevronDown
+              className="h-3.5 w-3.5 text-text-muted"
+              aria-hidden="true"
+            />
           </button>
 
           {!hydrated ? (
