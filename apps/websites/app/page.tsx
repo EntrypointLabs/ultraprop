@@ -2,8 +2,8 @@ import { Logo } from "@/components/Logo";
 import { external, links } from "@/lib/links";
 
 // Self-hosted to avoid hotlink throttling. Source: Unsplash (free license),
-// photo-1451187580459-43490279c0fa (Earth at night). Heavily dimmed so it reads
-// as atmosphere behind the content, never competing with it.
+// photo-1464822759023-fed622ff2c3b (mountain valley). A bright daytime shot,
+// pushed to a dark red duotone in CSS so it reads as a moody, branded scene.
 const BG_IMAGE = "/footer-backdrop.jpg";
 
 type FooterItem = {
@@ -80,39 +80,45 @@ function FooterLink({ item }: { item: FooterItem }) {
 
 export default function Page() {
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-hidden">
-      {/* atmospheric backdrop: dark photo, near-black wash, red glow rising from the footer */}
+    <div className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-bg">
+      {/* backdrop image */}
       <div
         aria-hidden
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: `url("${BG_IMAGE}")` }}
       />
-      {/* vertical wash: keeps the lit half of the planet subdued and lands on
-          solid near-black under the footer so text always has a dark substrate */}
+      {/* red duotone: multiply pushes the daytime greens/blues into deep brand-warm tones */}
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{ background: "#6e1a1d", mixBlendMode: "multiply" }}
+      />
+      {/* vertical wash: darkens overall, heaviest at the top (headline) and bottom
+          (footer) so text always lands on a near-black substrate */}
       <div
         aria-hidden
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(10,10,12,0.55) 0%, rgba(10,10,12,0.60) 30%, rgba(10,10,12,0.80) 52%, rgba(10,10,12,0.93) 66%, rgba(10,10,12,0.985) 80%, #0a0a0c 100%)",
+            "linear-gradient(to bottom, rgba(10,10,12,0.74) 0%, rgba(10,10,12,0.52) 30%, rgba(10,10,12,0.72) 58%, rgba(10,10,12,0.93) 80%, #0a0a0c 100%)",
         }}
       />
-      {/* scrim behind the central statement so the headline/CTA never sit on city lights */}
+      {/* scrim behind the central statement */}
       <div
         aria-hidden
         className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(46% 42% at 50% 40%, rgba(10,10,12,0.65), transparent 72%)",
+            "radial-gradient(48% 44% at 50% 40%, rgba(10,10,12,0.6), transparent 72%)",
         }}
       />
-      {/* faint brand ember rising from the footer */}
+      {/* warm brand ember rising from the footer, like Ostium's horizon glow */}
       <div
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-[55%]"
+        className="absolute inset-x-0 bottom-0 h-[62%]"
         style={{
           background:
-            "radial-gradient(60% 80% at 50% 135%, color-mix(in oklab, var(--brand) 24%, transparent), transparent 66%)",
+            "radial-gradient(72% 90% at 50% 128%, color-mix(in oklab, var(--brand) 34%, transparent), transparent 64%)",
         }}
       />
 
@@ -135,14 +141,14 @@ export default function Page() {
         {/* centered statement */}
         <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-center justify-center px-5 py-20 text-center sm:px-8">
           <h1 className="hero-in hero-in-1 text-balance text-4xl font-normal leading-[1.08] sm:text-5xl lg:text-6xl">
-            <span className="text-brand">Global asset trading.</span>
+            <span className="text-brand">On-chain crypto trading.</span>
             <br />
-            Transparent settlement.
+            Earn a funded account.
           </h1>
           <p className="hero-in hero-in-2 mt-6 max-w-md text-pretty text-text-muted">
-            Trade perpetuals on anything: crypto, metals, energy, stocks and
-            indices. Prove your edge in simulation and earn your way to a funded
-            account.
+            Trade BTC, ETH and SOL perpetuals against live market prices. Prove
+            your edge in simulation, clear the evaluation, and trade the
+            firm&apos;s capital, fully on-chain.
           </p>
           <div className="hero-in hero-in-3 mt-9">
             <a

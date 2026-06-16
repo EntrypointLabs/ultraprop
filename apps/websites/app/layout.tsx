@@ -24,9 +24,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ultraprop · Your gateway to global markets",
+  title: "Ultraprop · The on-chain crypto prop firm",
   description:
-    "Trade perpetuals on crypto, indices and commodities against live market prices. Prove your edge in simulation, clear the evaluation, and trade a funded account.",
+    "Trade BTC, ETH and SOL perpetuals against live market prices. Prove your edge in simulation, clear the evaluation, and trade a funded account, fully on-chain.",
 };
 
 export const viewport: Viewport = {
