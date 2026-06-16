@@ -2,7 +2,8 @@ import { Logo } from "@/components/Logo";
 import { external, links } from "@/lib/links";
 
 // Self-hosted to avoid hotlink throttling. Source: Unsplash (free license),
-// photo-1488866022504-f2584929ca5f.
+// photo-1451187580459-43490279c0fa (Earth at night). Heavily dimmed so it reads
+// as atmosphere behind the content, never competing with it.
 const BG_IMAGE = "/footer-backdrop.jpg";
 
 type FooterItem = {
@@ -58,7 +59,7 @@ const LEGAL = [
 function FooterLink({ item }: { item: FooterItem }) {
   if (item.soon) {
     return (
-      <span className="inline-flex cursor-default items-center gap-2 text-sm text-text-faint/80">
+      <span className="inline-flex cursor-default items-center gap-2 text-sm text-text-muted">
         {item.label}
         <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-medium uppercase tracking-wide text-text-faint">
           Soon
@@ -70,7 +71,7 @@ function FooterLink({ item }: { item: FooterItem }) {
     <a
       href={item.href}
       {...(item.external ? external : {})}
-      className="text-sm text-text-faint transition-colors hover:text-text"
+      className="text-sm text-text-muted transition-colors hover:text-text"
     >
       {item.label}
     </a>
@@ -86,20 +87,32 @@ export default function Page() {
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: `url("${BG_IMAGE}")` }}
       />
+      {/* vertical wash: keeps the lit half of the planet subdued and lands on
+          solid near-black under the footer so text always has a dark substrate */}
       <div
         aria-hidden
         className="absolute inset-0"
         style={{
           background:
-            "linear-gradient(to bottom, rgba(10,10,12,0.84) 0%, rgba(10,10,12,0.72) 30%, rgba(10,10,12,0.9) 72%, #0a0a0c 100%)",
+            "linear-gradient(to bottom, rgba(10,10,12,0.55) 0%, rgba(10,10,12,0.60) 30%, rgba(10,10,12,0.80) 52%, rgba(10,10,12,0.93) 66%, rgba(10,10,12,0.985) 80%, #0a0a0c 100%)",
         }}
       />
+      {/* scrim behind the central statement so the headline/CTA never sit on city lights */}
       <div
         aria-hidden
-        className="absolute inset-x-0 bottom-0 h-[70%]"
+        className="absolute inset-0"
         style={{
           background:
-            "radial-gradient(70% 90% at 50% 130%, color-mix(in oklab, var(--brand) 36%, transparent), transparent 68%)",
+            "radial-gradient(46% 42% at 50% 40%, rgba(10,10,12,0.65), transparent 72%)",
+        }}
+      />
+      {/* faint brand ember rising from the footer */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-[55%]"
+        style={{
+          background:
+            "radial-gradient(60% 80% at 50% 135%, color-mix(in oklab, var(--brand) 24%, transparent), transparent 66%)",
         }}
       />
 
@@ -113,7 +126,7 @@ export default function Page() {
           <a
             href={links.app}
             {...external}
-            className="rounded-lg bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-wider text-brand-ink transition-colors hover:bg-brand-hover"
+            className="rounded-lg bg-brand-button px-4 py-2 text-xs font-semibold uppercase tracking-wider text-brand-ink transition-colors hover:bg-brand-active"
           >
             Launch App
           </a>
@@ -135,7 +148,7 @@ export default function Page() {
             <a
               href={links.app}
               {...external}
-              className="rounded-lg bg-brand px-7 py-3 text-sm font-semibold uppercase tracking-wider text-brand-ink transition-colors hover:bg-brand-hover"
+              className="rounded-lg bg-brand-button px-7 py-3 text-sm font-semibold uppercase tracking-wider text-brand-ink transition-colors hover:bg-brand-active"
             >
               Start Trading
             </a>
