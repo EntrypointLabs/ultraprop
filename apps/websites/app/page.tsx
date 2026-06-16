@@ -140,7 +140,7 @@ export default function Page() {
 
         {/* centered statement */}
         <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-center justify-center px-5 py-20 text-center sm:px-8">
-          <h1 className="hero-in hero-in-1 text-balance text-4xl font-normal leading-[1.08] sm:text-5xl lg:text-6xl">
+          <h1 className="hero-in hero-in-1 font-display text-balance text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-6xl">
             <span className="text-brand">On-chain crypto trading.</span>
             <br />
             Earn a funded account.

@@ -54,9 +54,9 @@
   --text-6xl: 3.75rem;
   --text-7xl: 4.5rem;
 
-  /* fonts (vars set by next/font in layout) */
+  /* fonts (vars set by next/font in layout); display is Geist, a sans. */
   --font-sans: var(--font-sans-face), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display-face), var(--font-sans-face), system-ui, sans-serif;
+  --font-display: var(--font-display-face), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-face), ui-monospace, "SFMono-Regular", monospace;
 }
 
@@ -107,14 +107,6 @@ body {
   background-color: var(--bg);
   color: var(--text);
   min-height: 100dvh;
-}
-
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-  letter-spacing: -0.02em;
-  font-weight: 400;
 }
 
 button,

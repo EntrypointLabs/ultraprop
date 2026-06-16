@@ -9,8 +9,7 @@ const sans = Hanken_Grotesk({
   display: "swap",
 });
 
-// Display face: a clean geometric sans in the spirit of Octant's PP Mori
-// (which is a licensed typeface we can't bundle). Geist is OFL-licensed.
+// Display face: Geist, a clean geometric sans.
 const display = Geist({
   subsets: ["latin"],
   variable: "--font-display-face",
