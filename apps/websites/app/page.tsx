@@ -163,7 +163,7 @@ export default function Page() {
 
         {/* footer */}
         <footer className="mx-auto w-full max-w-[1200px] px-5 pb-12 sm:px-8">
-          <div className="grid grid-cols-2 gap-x-8 gap-y-10 pt-12 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-10 pt-12 sm:flex sm:justify-between sm:gap-x-12">
             {COLUMNS.map((col) => (
               <div key={col.title}>
                 <h2 className="text-sm font-semibold text-text">{col.title}</h2>
