@@ -10,7 +10,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "No middlemen",
-    body: "You keep control end-to-end — no brokers, no hidden spreads, no frozen balances.",
+    body: "You keep control end-to-end, with no brokers, no hidden spreads and no frozen balances.",
   },
   {
     icon: ScanLine,
@@ -25,7 +25,7 @@ export function Features() {
       <div className="mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-12 px-5 sm:px-8 lg:grid-cols-2">
         <div>
           <h2 className="max-w-md text-balance text-4xl font-normal leading-[1.08] sm:text-5xl">
-            <span className="brand-gradient">Traditional assets.</span>
+            <span className="text-brand">Traditional assets.</span>
             <br />
             Untraditional infrastructure.
           </h2>

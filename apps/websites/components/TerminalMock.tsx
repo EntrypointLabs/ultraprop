@@ -10,7 +10,10 @@ const BARS = [38, 52, 44, 61, 49, 67, 58, 72, 64, 80, 71, 86, 78, 92, 84];
 
 export function TerminalMock() {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface/80 shadow-2xl shadow-black/50 backdrop-blur">
+    <div
+      aria-hidden="true"
+      className="overflow-hidden rounded-xl border border-border bg-surface/80 shadow-2xl shadow-black/50 backdrop-blur"
+    >
       {/* top bar */}
       <div className="flex items-center gap-4 border-b border-border-soft px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm font-semibold">
@@ -53,12 +56,12 @@ export function TerminalMock() {
         {/* order ticket */}
         <div className="bg-surface p-4">
           <div className="mb-3 flex gap-1.5">
-            <button className="flex-1 rounded-md bg-up/15 py-1.5 text-xs font-semibold text-up">
+            <div className="flex-1 rounded-md bg-up/15 py-1.5 text-xs font-semibold text-up">
               Long
-            </button>
-            <button className="flex-1 rounded-md bg-surface-2 py-1.5 text-xs font-semibold text-text-faint">
+            </div>
+            <div className="flex-1 rounded-md bg-surface-2 py-1.5 text-xs font-semibold text-text-faint">
               Short
-            </button>
+            </div>
           </div>
           <div className="space-y-2.5 text-xs">
             <div className="flex items-center justify-between rounded-md bg-surface-2 px-3 py-2">
@@ -74,9 +77,9 @@ export function TerminalMock() {
               <span className="tabular">$60,914.20</span>
             </div>
           </div>
-          <button className="mt-3 w-full rounded-md bg-up py-2 text-xs font-bold text-black">
+          <div className="mt-3 w-full rounded-md bg-up py-2 text-xs font-bold text-black">
             Preview Long
-          </button>
+          </div>
         </div>
       </div>
 

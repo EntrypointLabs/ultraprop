@@ -7,13 +7,13 @@ export function BottomCta() {
 
       <div className="relative mx-auto max-w-[1200px] px-5 pt-28 pb-16 text-center sm:px-8">
         <h2 className="text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-6xl">
-          <span className="brand-gradient">Global asset trading.</span>
+          <span className="text-brand">Global asset trading.</span>
           <br />
           Transparent settlement.
         </h2>
-        <p className="mx-auto mt-6 max-w-md text-balance text-text-muted">
-          Trade perpetuals on anything — crypto, metals, energy, stocks and
-          indices — and earn your way to a funded account.
+        <p className="mx-auto mt-6 max-w-md text-pretty text-text-muted">
+          Trade perpetuals on anything: crypto, metals, energy, stocks and
+          indices. Earn your way to a funded account.
         </p>
         <div className="mt-9 flex justify-center">
           <a

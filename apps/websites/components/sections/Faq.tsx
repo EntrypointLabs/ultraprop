@@ -43,7 +43,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     a: (
       <p>
         There is no custody of your funds and nothing to deposit. You qualify on
-        skill, not capital — pass the evaluation and trade the firm&apos;s
+        skill, not capital. Pass the evaluation and trade the firm&apos;s
         balance. Pricing, fees and rules are the same for everyone and visible
         before you place an order.
       </p>
@@ -63,8 +63,8 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: "What do I need to start trading on Ultraprop?",
     a: (
       <p>
-        Just an account. There is no wallet to fund and no minimum balance —
-        sign up, pick your evaluation, and start placing simulated orders against
+        Just an account. There is no wallet to fund and no minimum balance.
+        Sign up, pick your evaluation, and start placing simulated orders against
         live market data right away.
       </p>
     ),
@@ -83,8 +83,9 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: "Can I redeem positions for the underlying assets?",
     a: (
       <p>
-        No. Every market is a perpetual that mirrors the price of its underlying
-        — it gives you the exposure without ever holding the physical asset.
+        No. Every market is a perpetual that mirrors the price of its
+        underlying, so you get the exposure without ever holding the physical
+        asset.
       </p>
     ),
   },

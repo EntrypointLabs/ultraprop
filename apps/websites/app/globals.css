@@ -70,10 +70,10 @@
   --border: #24242a;
   --border-soft: #1c1c21;
 
-  /* text */
+  /* text — faint lifted to clear AA on the near-black canvas */
   --text: #f4f4f5;
   --text-muted: #a1a1aa;
-  --text-faint: #71717a;
+  --text-faint: #8c8c96;
 
   /* accent + action — the red theme carried over from the trader app */
   --brand: #e5484d;
@@ -151,19 +151,6 @@ a,
   border: 2px solid var(--bg);
 }
 
-/* Brand-tinted gradient text used on hero / section headings. */
-.brand-gradient {
-  background: linear-gradient(
-    100deg,
-    #ffd9c7 0%,
-    var(--brand) 45%,
-    #ffb59d 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
 /* Soft radial glow behind hero content. */
 .hero-glow {
   background: radial-gradient(
@@ -211,6 +198,38 @@ a,
 }
 .rise-in {
   animation: rise-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Restrained hero load-in: each element rises once on first paint. The content
+   is visible by default (opacity animates from a visible base, not gated) so a
+   headless render or a backgrounded tab never ships it blank. */
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hero-in {
+  animation: hero-in 800ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hero-in-1 {
+  animation-delay: 60ms;
+}
+.hero-in-2 {
+  animation-delay: 140ms;
+}
+.hero-in-3 {
+  animation-delay: 220ms;
+}
+.hero-in-4 {
+  animation-delay: 320ms;
+}
+.hero-in-5 {
+  animation-delay: 440ms;
 }
 
 @media (prefers-reduced-motion: reduce) {

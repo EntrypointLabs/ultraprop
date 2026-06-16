@@ -12,14 +12,14 @@ export function Investors() {
     <section className="py-24 sm:py-28">
       <div className="mx-auto max-w-[1200px] px-5 sm:px-8">
         <h2 className="text-center text-4xl font-normal sm:text-5xl">
-          <span className="brand-gradient">Backed by leading investors</span>
+          Backed by <span className="text-brand">leading investors</span>
         </h2>
 
         <div className="mx-auto mt-12 max-w-3xl rounded-2xl border border-border bg-surface/60 p-8 sm:p-12">
           <blockquote className="text-balance text-xl leading-relaxed text-text sm:text-2xl">
             “Ultraprop gives traders a clean, transparent path to capital. It
             pairs the speed of on-chain settlement with the discipline of a real
-            evaluation — a genuinely new way to access global markets.”
+            evaluation. A genuinely new way to access global markets.”
           </blockquote>
           <div className="mt-8 flex items-center gap-4">
             <div className="flex size-12 items-center justify-center rounded-full bg-surface-2 font-display text-lg text-text-muted">

@@ -1,6 +1,6 @@
 export function PhoneMock() {
   return (
-    <div className="mx-auto w-[300px] max-w-full">
+    <div aria-hidden="true" className="mx-auto w-[300px] max-w-full">
       <div className="rounded-[2.5rem] border border-border bg-surface p-3 shadow-2xl shadow-black/60">
         <div className="overflow-hidden rounded-[2rem] border border-border-soft bg-bg">
           {/* status bar */}
@@ -52,9 +52,9 @@ export function PhoneMock() {
               <span className="text-text-faint">Leverage</span>
               <span className="tabular">100x</span>
             </div>
-            <button className="mt-1 w-full rounded-lg bg-up py-2.5 text-sm font-bold text-black">
+            <div className="mt-1 w-full rounded-lg bg-up py-2.5 text-center text-sm font-bold text-black">
               Preview Long
-            </button>
+            </div>
             <div className="flex gap-1.5 pt-1">
               {["$10", "$25", "$50", "Max"].map((v) => (
                 <span
