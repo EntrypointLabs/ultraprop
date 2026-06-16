@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Hanken_Grotesk, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Geist, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "@/app/globals.css";
 
 const sans = Hanken_Grotesk({
@@ -9,7 +9,9 @@ const sans = Hanken_Grotesk({
   display: "swap",
 });
 
-const display = Space_Grotesk({
+// Display face: a clean geometric sans in the spirit of Octant's PP Mori
+// (which is a licensed typeface we can't bundle). Geist is OFL-licensed.
+const display = Geist({
   subsets: ["latin"],
   variable: "--font-display-face",
   weight: ["400", "500", "600", "700"],
