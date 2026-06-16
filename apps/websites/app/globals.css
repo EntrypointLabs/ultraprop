@@ -22,6 +22,8 @@
   --color-brand: var(--brand);
   --color-brand-ink: var(--brand-ink);
   --color-brand-hover: var(--brand-hover);
+  --color-brand-button: var(--brand-button);
+  --color-brand-active: var(--brand-active);
 
   /* P&L + state */
   --color-up: var(--up);
@@ -52,9 +54,9 @@
   --text-6xl: 3.75rem;
   --text-7xl: 4.5rem;
 
-  /* fonts (vars set by next/font in layout) */
+  /* fonts (vars set by next/font in layout); display is Geist, a sans. */
   --font-sans: var(--font-sans-face), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display-face), var(--font-sans-face), system-ui, sans-serif;
+  --font-display: var(--font-display-face), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono-face), ui-monospace, "SFMono-Regular", monospace;
 }
 
@@ -75,10 +77,15 @@
   --text-muted: #a1a1aa;
   --text-faint: #8c8c96;
 
-  /* accent + action — the red theme carried over from the trader app */
+  /* accent + action — the red theme carried over from the trader app.
+     --brand (#e5484d) is the accent hue used for headline emphasis and the glow
+     (5:1 as large text). Filled buttons carry a white label, which needs 4.5:1,
+     so they use the deeper --brand-button (4.67:1) and --brand-active on hover. */
   --brand: #e5484d;
   --brand-ink: #ffffff;
   --brand-hover: #d6383e;
+  --brand-button: #d6383e;
+  --brand-active: #c5343a;
 
   /* P&L + state */
   --up: #34d399;
@@ -100,14 +107,6 @@ body {
   background-color: var(--bg);
   color: var(--text);
   min-height: 100dvh;
-}
-
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-  letter-spacing: -0.02em;
-  font-weight: 400;
 }
 
 button,

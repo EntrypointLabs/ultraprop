@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Hanken_Grotesk, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Geist, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "@/app/globals.css";
 
 const sans = Hanken_Grotesk({
@@ -9,7 +9,8 @@ const sans = Hanken_Grotesk({
   display: "swap",
 });
 
-const display = Space_Grotesk({
+// Display face: Geist, a clean geometric sans.
+const display = Geist({
   subsets: ["latin"],
   variable: "--font-display-face",
   weight: ["400", "500", "600", "700"],
@@ -24,9 +25,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ultraprop · Your gateway to global markets",
+  title: "Ultraprop · The on-chain crypto prop firm",
   description:
-    "Trade perpetuals on crypto, indices and commodities against live market prices. Prove your edge in simulation, clear the evaluation, and trade a funded account.",
+    "Trade BTC, ETH and SOL perpetuals against live market prices. Prove your edge in simulation, clear the evaluation, and trade a funded account, fully on-chain.",
 };
 
 export const viewport: Viewport = {
