@@ -3,26 +3,29 @@
 import { ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
+import { external, links } from "@/lib/links";
 import { cn } from "@/lib/utils";
 
-const NAV_GROUPS: { label: string; items: { label: string; href: string }[] }[] =
-  [
-    {
-      label: "Product",
-      items: [
-        { label: "Trade", href: "#features" },
-        { label: "Evaluations", href: "#features" },
-        { label: "Funding", href: "#features" },
-      ],
-    },
-    {
-      label: "Insights",
-      items: [
-        { label: "Blog", href: "#press" },
-        { label: "Market Outlook", href: "#press" },
-      ],
-    },
-  ];
+const NAV_GROUPS: {
+  label: string;
+  items: { label: string; href: string }[];
+}[] = [
+  {
+    label: "Product",
+    items: [
+      { label: "Trade", href: links.app },
+      { label: "Evaluations", href: links.app },
+      { label: "Funding", href: links.app },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { label: "Blog", href: links.blog },
+      { label: "Market Outlook", href: links.blog },
+    ],
+  },
+];
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -45,7 +48,7 @@ export function Nav() {
     >
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-6 px-5 sm:px-8">
         <div className="flex items-center gap-8">
-          <a href="#top" className="flex items-center" aria-label="Ultraprop home">
+          <a href={links.home} className="flex items-center" aria-label="Ultraprop home">
             <Logo size={22} />
           </a>
           <nav className="hidden items-center gap-1 md:flex">
@@ -64,6 +67,7 @@ export function Nav() {
                       <a
                         key={item.label}
                         href={item.href}
+                        {...external}
                         className="block rounded-lg px-3 py-2 text-sm text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
                       >
                         {item.label}
@@ -74,13 +78,15 @@ export function Nav() {
               </div>
             ))}
             <a
-              href="#faq"
+              href={links.docs}
+              {...external}
               className="rounded-md px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:text-text"
             >
               Docs
             </a>
             <a
-              href="#footer"
+              href={links.x}
+              {...external}
               className="rounded-md px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:text-text"
             >
               Community
@@ -89,7 +95,8 @@ export function Nav() {
         </div>
 
         <a
-          href="#top"
+          href={links.app}
+          {...external}
           className="rounded-lg bg-brand px-4 py-2 text-xs font-semibold uppercase tracking-wider text-brand-ink transition-colors hover:bg-brand-hover"
         >
           Launch App

@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { TerminalMock } from "@/components/TerminalMock";
+import { external, links } from "@/lib/links";
 
 const PARTNERS = [
   "Helix Capital",
@@ -18,7 +19,8 @@ export function Hero() {
       <div className="relative mx-auto max-w-[1200px] px-5 text-center sm:px-8">
         {/* announcement pill */}
         <a
-          href="#press"
+          href={links.blog}
+          {...external}
           className="hero-in hero-in-1 lift mx-auto mb-8 inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 py-1.5 pl-4 pr-3 text-xs text-text-muted backdrop-blur"
         >
           <span className="size-1.5 rounded-full bg-brand" />
@@ -38,7 +40,8 @@ export function Hero() {
 
         <div className="hero-in hero-in-4 mt-9 flex justify-center">
           <a
-            href="#top"
+            href={links.app}
+            {...external}
             className="rounded-lg bg-brand px-7 py-3 text-sm font-semibold uppercase tracking-wider text-brand-ink transition-colors hover:bg-brand-hover"
           >
             Start Trading

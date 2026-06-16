@@ -1,3 +1,5 @@
+import { external, links } from "@/lib/links";
+
 export function BottomCta() {
   return (
     <section className="relative overflow-hidden">
@@ -17,7 +19,8 @@ export function BottomCta() {
         </p>
         <div className="mt-9 flex justify-center">
           <a
-            href="#top"
+            href={links.app}
+            {...external}
             className="rounded-lg bg-brand px-7 py-3 text-sm font-semibold uppercase tracking-wider text-brand-ink transition-colors hover:bg-brand-hover"
           >
             Start Trading

@@ -1,4 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
+import { external, links } from "@/lib/links";
 
 const BLOG = [
   {
@@ -35,7 +36,7 @@ export function Press() {
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-text-muted">Blog</h3>
             <a
-              href="#press"
+              href={links.blog} {...external}
               className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-faint hover:text-text"
             >
               More <ArrowUpRight className="size-3.5" />
@@ -45,7 +46,7 @@ export function Press() {
             {BLOG.map((p) => (
               <a
                 key={p.title}
-                href="#press"
+                href={links.blog} {...external}
                 className="lift rounded-2xl border border-border bg-surface/50 p-6 hover:border-border"
               >
                 <p className="text-sm text-text-muted">{p.body}</p>
@@ -65,7 +66,7 @@ export function Press() {
               Media Coverage
             </h3>
             <a
-              href="#press"
+              href={links.blog} {...external}
               className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-faint hover:text-text"
             >
               More <ArrowUpRight className="size-3.5" />
@@ -75,7 +76,7 @@ export function Press() {
             {COVERAGE.map((c) => (
               <a
                 key={c.title}
-                href="#press"
+                href={links.blog} {...external}
                 className="lift overflow-hidden rounded-2xl border border-border bg-surface/50"
               >
                 <div className="flex h-32 items-center justify-center bg-gradient-to-br from-surface-2 to-surface-3 text-sm font-semibold text-text-faint">

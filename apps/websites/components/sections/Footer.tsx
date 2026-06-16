@@ -1,13 +1,45 @@
 import { Logo } from "@/components/Logo";
+import { links } from "@/lib/links";
 
-const COLUMNS: { title: string; links: string[] }[] = [
-  { title: "Product", links: ["Trade", "Evaluations", "Funding", "Referrals"] },
+type FooterLink = { label: string; href: string; external?: boolean };
+
+const COLUMNS: { title: string; links: FooterLink[] }[] = [
+  {
+    title: "Product",
+    links: [
+      { label: "Trade", href: links.app, external: true },
+      { label: "Evaluations", href: links.app, external: true },
+      { label: "Funding", href: links.app, external: true },
+      { label: "Referrals", href: links.app, external: true },
+    ],
+  },
   {
     title: "Company",
-    links: ["Careers", "Terms & Conditions", "Privacy Policy", "Contact", "Media Kit"],
+    links: [
+      { label: "Careers", href: "/careers" },
+      { label: "Terms & Conditions", href: "/terms" },
+      { label: "Privacy Policy", href: "/privacy" },
+      { label: "Contact", href: "/contact" },
+      { label: "Media Kit", href: "/media-kit" },
+    ],
   },
-  { title: "Developers", links: ["Documentation", "Status", "API"] },
-  { title: "Community", links: ["X / Twitter", "Discord", "Telegram", "Blog"] },
+  {
+    title: "Developers",
+    links: [
+      { label: "Documentation", href: links.docs, external: true },
+      { label: "Status", href: "https://status.ultraprop.xyz", external: true },
+      { label: "API", href: `${links.docs}/api`, external: true },
+    ],
+  },
+  {
+    title: "Community",
+    links: [
+      { label: "X / Twitter", href: links.x, external: true },
+      { label: "Discord", href: links.discord, external: true },
+      { label: "Telegram", href: links.telegram, external: true },
+      { label: "Blog", href: links.blog, external: true },
+    ],
+  },
 ];
 
 export function Footer() {
@@ -23,12 +55,15 @@ export function Footer() {
               <h4 className="text-sm font-semibold text-text">{col.title}</h4>
               <ul className="mt-4 space-y-3">
                 {col.links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <a
-                      href="#top"
+                      href={link.href}
+                      {...(link.external
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
                       className="text-sm text-text-faint transition-colors hover:text-text"
                     >
-                      {link}
+                      {link.label}
                     </a>
                   </li>
                 ))}
