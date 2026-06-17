@@ -1,81 +1,189 @@
-# Trading Platform — Defect Backlog & Audit
+# Trader Application — Platform Audit & Defect Backlog
 
-Status checklist of known defects in the **trader** paper-trading app, from a full live browser walkthrough + code-level audit (2026-06). Severity tiers: 🔴 Blocker → 🟠 Major → 🟡 Minor → ⚙️ Config/failure-mode. Items marked **✅ Intentional v1 scope** are *not* defects — listed so they aren't mistaken for bugs.
+Whole-application defect checklist for the **trader** app and its platform (auth, onboarding, trading cockpit, social/gamification, shell, the `apps/websites` marketing site, `apps/admin`, the `api-gateway`, `packages/shared/venues`, and the Sui contracts). Re-audited 2026-06 against the current branch (post-`main`-merge) via three code-level audits + targeted live verification. Severity tiers: 🔴 Blocker → 🟠 Major → 🟡 Minor → ⚙️ Config/failure-mode. Items marked **✅ Intentional v1 scope** are *not* defects.
 
-Check items off as they are fixed. File refs are starting points, not exhaustive.
+Check items off as fixed. File refs are starting points (line numbers drift), not exhaustive. `[NEW]` = added in this re-audit.
+
+## What changed since the last audit
+The `main` merge was almost entirely cosmetic for the defect surface (copy + a new marketing site); the trader **core engine/feed/cockpit files were not changed**, so their defects persist unchanged.
+- **Improved:** `MIN-5` — `/markets` breadth is no longer hardcoded to 3; it's now data-driven off the live feed (but see `MAJ-17` — it still never loads the catalog and shows 3 without the feed).
+- **No fixes landed** for any blocker or major risk item.
+- **New surfaces:** a real marketing site at `apps/websites/` (builds clean) and platform-wide copy now advertising multiple venues that aren't implemented.
+- Added items: `MAJ-13`–`MAJ-17`, `MIN-14`–`MIN-25`.
+- Note: a live browser re-walk drifted off-task this pass; behavioral claims for the unchanged trading core carry over from the prior live walkthrough. Re-running a focused live pass is available on request.
 
 ## The big picture
-The app is **two disconnected stacks**:
-1. A **real** Privy-auth + Sui on-chain onboarding flow (`/api/account`, `lib/sui/*`) — genuinely built, but **orphaned**: it never produces a vault that reaches the trading cockpit.
-2. The **paper-sim cockpit** (`lib/sim/*`) that runs on a single **hardcoded demo vault** (`vault_starter_001`).
+The app is **two disconnected stacks**: (1) a **real** Privy-auth + Sui on-chain onboarding flow (`/api/account`, `lib/sui/*`) that is **orphaned** — it never produces a vault that reaches the cockpit; and (2) the **paper-sim cockpit** (`lib/sim/*`) running on a single **hardcoded demo vault** (`vault_starter_001`). The cockpit renders well with live Hyperliquid data, but the **end-to-end trade loop is dead for a visitor** (the four blockers). Most social/marketing surfaces are seeded mock data presented as live, and copy now over-promises a multi-venue catalog that isn't built.
 
-The cockpit renders well with live Hyperliquid data, but the **end-to-end trade loop is effectively non-functional for a visitor** because of the four blockers below (auth gate, stale-feed oscillation, wiped demo fixtures, no path in). Most social/onboarding surfaces are seeded mock data presented as if live.
+## App inventory
+- **`apps/trader`** — the product. Functional UI; trade loop blocked end-to-end (see blockers).
+- **`apps/websites`** — **real, functional single-page marketing site; builds clean** (not a stub). Defects are outbound-link only (`MAJ-14`, `MAJ-15`, `MIN-23`).
+- **`apps/admin`** — **one-line placeholder stub** (`src/index.ts` = `PLACEHOLDER`). Intentional; not yet an app.
+- **`services/api-gateway`** + **`packages/shared/venues`** — real (Hono indexer + HL WS/REST adapter); only Hyperliquid is implemented.
+
+---
+
+## System-flow alignment — vs `prop-firm-system-flow.excalidraw`
+The repo-root system map defines an 8-stage journey (v1 paper app → v2 on-chain funded firm). The build matches it architecturally; the deltas below are the only places the implementation is *off* the intended flow.
+
+| Stage (map intent) | Current state | On-flow? |
+|---|---|---|
+| 1 · Land & Auth — Privy OTP/OAuth + embedded Sui wallet | real & working | ✅ |
+| 2 · Provision Account — `/api/account`→`openTradingAccount` (firm signs, eval fee), mints AccountCap (map: **WIRED ✓**) | on-chain call real, but routes to `/markets`, never the cockpit; provision-failure hangs | ⚠️ severed → `BLK-4`, `CFG-3` |
+| 3 · Select Market — `useMarketCatalog()` `/api/catalog?venue=hl` + `openVenueFeed()` SSE→`markPx`, indexer-fronted | built exactly so; `/markets` never loads the catalog, feed stale-oscillates | ⚠️ → `MAJ-17`, `BLK-2` |
+| 4 · Place Trade — `TradeIntentForm`→`submitOrder`→`applyFill()` (4.5bps taker) | built & fidelity matches; visitor can't submit, no margin check | ⚠️ → `BLK-1`, `MAJ-2` |
+| 5 · Evaluate — `recompute`/`accrueFunding`+fees/`evaluateRules`/`detectOutcome` | built; rules-based eval matches | ✅ |
+| 6 · Pass/Fail (map: APP-ONLY, no on-chain handoff) — `detectOutcome`→`/passed`\|`/failed` | `/passed` real; `/failed` fabricates data; `/inactive` unreachable | ⚠️ → `MAJ-6`, `MAJ-7` |
+| "Handoff gap" → `promote()`/`withdraw_for_trading()` | not built (map says so) | ✅ intended (v2) |
+| 7 · Funded (v2) / 8 · Payout (v2) — on-chain `promote`→`withdraw_for_trading`, `accrue_payout`→`claim` | not built in the app (map says so) | ✅ intended (v2) |
+
+**Off-flow divergences (the only real flow breaks):** `BLK-4` (provision→cockpit severed; account orphaned), `MAJ-6` (failed screen ignores `detectOutcome`), `MAJ-13` (multi-venue copy vs the map's Hyperliquid-only stage 3). Everything else in this doc is a quality/UX defect *within* a stage, not a flow-structure break. The map confirms the funded + payout halves and the executor-driven on-chain risk gates are **intentionally v2 / not built** — those are not defects.
 
 ---
 
 ## 🔴 Blockers — the trade loop is dead end-to-end
-- [ ] **BLK-1 — Cannot place a trade: auth gates paper trading.** Every visitor sees "Sign in to trade" and the submit button is permanently disabled; no demo/guest bypass even though it's paper money. The whole order→position→close loop is unreachable without a live Privy session. → `apps/trader/components/trade/TradeIntentForm.tsx` (disable chain ~L553).
-- [ ] **BLK-2 — Stale-feed banner oscillates, intermittently suspending trading.** Feed starts `"reconnecting"`, the 15s silence timer trips to `"stale"` (sets `divergenceHalt`), and flips every ~15–30s, locking the order form. Root causes: (a) SSE frames appear buffered/clumped through the Next.js dev rewrite proxy; (b) the FE suspends trading during the initial reconnect window. Fix: only go stale on a confirmed live→stale transition, don't gate the form while `reconnecting`, and ensure true SSE pass-through. → `apps/trader/lib/mock/hooks.ts` (`useVenueFeed`), `apps/trader/lib/feed/venueFeed.ts`, `apps/trader/components/shell/StaleFeedBanner.tsx`.
-- [ ] **BLK-3 — Demo vault's seeded data is wiped on mount; cockpit always starts empty.** `usePaperEngine` calls `startEvaluation()` → `freshVault()`, overwriting seeded `DEMO_POSITIONS`/`DEMO_TRADES`/`DEMO_EQUITY_CURVE`. Result: Positions = "No open positions", Trade history empty, Account equity curve = blank canvas, every session. Fix: pre-populate the demo vault from fixtures on first `startEvaluation`, or skip the overwrite for the demo vault. → `apps/trader/lib/sim/usePaperEngine.ts:40-44`, `apps/trader/lib/sim/store.ts` (`freshVault`).
-- [ ] **BLK-4 — Onboarding never reaches the cockpit; tier choice is cosmetic; no nav path in.** Real Sui account flow routes to `/markets`, never a vault; the only "Start" path hard-navigates everyone to the one shared demo vault and always runs the **Starter** tier regardless of selection. There is **no nav link** from home/markets to the cockpit. → `apps/trader/components/.../TierGrid.tsx:41-42`, `apps/trader/lib/sim/usePaperEngine.ts:10,45`, `CreateAccountFlow.tsx:50,68`.
+- [ ] **BLK-1 — Cannot place a trade: auth gates paper trading.** No demo/guest bypass; submit is permanently disabled ("Sign in to trade") for a visitor. → `apps/trader/components/trade/TradeIntentForm.tsx:558-575`.
+- [ ] **BLK-2 — Stale-feed banner oscillates, intermittently suspending trading.** Status→`stale` on any 15s gap (incl. the initial reconnect window); `setDivergenceHalt(status==="stale")` then gates the form; no live→stale-only guard, and SSE appears buffered through the Next.js dev proxy. → `apps/trader/lib/feed/venueFeed.ts:24,107-118`, `apps/trader/lib/mock/hooks.ts:261-264`, `components/shell/StaleFeedBanner.tsx`.
+- [ ] **BLK-3 — Demo vault's seeded data is wiped on mount; cockpit always starts empty.** `startEvaluation()`→`freshVault()` overwrites `DEMO_POSITIONS/TRADES/EQUITY_CURVE`; Positions, Trade history, and the equity curve are empty every session. → `apps/trader/lib/sim/usePaperEngine.ts:42-48`, `apps/trader/lib/sim/store.ts:246-256`.
+- [ ] **BLK-4 — Onboarding never reaches the cockpit; tier choice is cosmetic.** Real Sui flow routes to `/markets`; `TierGrid.handleStart` hard-navigates everyone to `DEMO_VAULT_ID` (comment: "Mock: navigate to the demo vault"); the engine always runs `TIERS[0]` (Starter). The on-chain `accountId` is never used as a vault. → `apps/trader/components/tiers/TierGrid.tsx:38-43`, `apps/trader/lib/sim/usePaperEngine.ts:10,45`, `CreateAccountFlow.tsx:51,68`.
 
 ---
 
-## 🟠 Major — trading engine & data correctness
-- [ ] **MAJ-1 — Liquidation is display-only; it never closes a position.** Liq price + margin ratio are computed and shown, but nothing compares mark→liq to actually liquidate; positions can blow far past liq and keep marking unrealized PnL. → `apps/trader/lib/sim/store.ts:198-213`, `apps/trader/lib/sim/engine.ts` (`detectOutcome`).
-- [ ] **MAJ-2 — No free-margin / collateral check on submit.** Only `sizeUsd>0` and the leverage cap are validated; positions can far exceed account equity. → `apps/trader/lib/sim/store.ts:313,320`.
-- [ ] **MAJ-3 — No position netting / partial close / order types.** Same-symbol orders stack as independent positions (no averaging); close is all-or-nothing at mark; no TP/SL, limit, or stop orders. → `apps/trader/lib/sim/store.ts:369`, `PositionsTable.tsx:106`.
-- [ ] **MAJ-4 — Leverage slider doesn't change the cross-mode liquidation price.** 1× and 6× show the same cross liq (slider only affects isolated). Misleads on cross-margin risk. → `apps/trader/components/trade/TradeIntentForm.tsx:524-545`.
-- [ ] **MAJ-5 — 24h range always "—" and 24h change% stuck at seed values.** `MarkTick` carries no `high24h`/`low24h`/`change24h`; the HL adapter discards `prevDayPx`, so `mergeMarks` never updates them. Fix: add `change24h` (from `prevDayPx`) to `MarkTick` and merge it; decide a source for high/low. → `packages/shared/venues/src/hyperliquid.ts` (ctx→MarkTick), `apps/trader/lib/mock/hooks.ts` (`mergeMarks`).
-- [ ] **MAJ-6 — `failed` terminal screen shows fabricated numbers, not the real vault.** Hardcoded `equity = start*0.892`, a fake trigger trade, and `violatedRule: "drawdown"` regardless of the actual outcome. (The `passed` screen is correct.) → `apps/trader/app/evaluation/[vaultId]/failed/page.tsx:29-57`.
-- [ ] **MAJ-7 — `/inactive` route is unreachable.** `inactiveAt` is written but no code path sets status to `"inactive"`; the whole terminal screen is dead. → `apps/trader/lib/sim/store.ts:273,373,418`.
-- [ ] **MAJ-8 — Candle chart blanks silently if the gateway/HL is down.** History-fetch error is swallowed; renders an empty canvas with no error/empty/loading state. → `apps/trader/components/charts/HLCandleChart.tsx:228-230`.
-- [ ] **MAJ-9 — Market selector keyboard nav broken.** `onKeyDown` is only on the search input; once Arrow-down moves focus to the list, Escape doesn't close and Enter doesn't select. → `apps/trader/components/evaluation/MarketSelector.tsx:336-351`.
-- [ ] **MAJ-10 — Continuous console warning loop from the chart.** `autoSize: true` + a manual ResizeObserver calling `applyOptions({ width })` fires "turn autoSize off…" every ~1s, drowning real errors. → `apps/trader/components/charts/HLCandleChart.tsx:108,171-177`.
-- [ ] **MAJ-11 — `/docs` nav link 404s.** → `apps/trader/components/.../TopNav.tsx:18`.
-- [ ] **MAJ-12 — AssetSpotlight "Long/Short" deep-links drop their intent.** Link to `/start?symbol=…&side=…` but `/start` never reads the params. → `apps/trader/components/home/spotlights/AssetSpotlight.tsx:120-124`.
+## 🟠 Major
+
+### Trading engine & risk
+- [ ] **MAJ-1 — Liquidation is display-only; it never closes a position.** `detectOutcome` checks bust/target/drawdown/daily-loss only; no mark-vs-liq close. → `apps/trader/lib/sim/engine.ts:177-205`, `store.ts:198-213`. **Flow note:** the system map's v1 evaluation is rules-based (drawdown/daily-loss/target), *not* position-liquidation — so this is a venue-fidelity gap, not a break in the intended eval flow; effective priority is lower than its tier implies.
+- [ ] **MAJ-2 — No free-margin / collateral check on submit.** Only `sizeUsd>0` + leverage clamp; positions can far exceed equity. → `apps/trader/lib/sim/store.ts:317-339`.
+- [ ] **MAJ-3 — No position netting / partial close / order types.** Each submit stacks a new position; close is all-or-nothing; no TP/SL/limit/stop. → `apps/trader/lib/sim/store.ts:317-373`, `PositionsTable.tsx:96-110`.
+- [ ] **MAJ-4 — Leverage slider doesn't change the cross-mode liquidation price** (only isolated). → `apps/trader/lib/sim/engine.ts` (`liquidationPrice`), `TradeIntentForm.tsx:512-520`.
+
+### Live data & feed
+- [ ] **MAJ-5 — 24h range always "—" and 24h change% stuck at seed values.** `MarkTick` carries no `change24h/high24h/low24h`; HL `prevDayPx` is discarded; `mergeMarks` hardcodes them `null`. → `packages/shared/venues/src/hyperliquid.ts:198-214`, `apps/trader/lib/mock/hooks.ts:178-215`.
+- [ ] **MAJ-17 — [NEW] `/markets` never loads the ~179-market catalog and has no search/filter.** The table renders `usePrices()` (seeded with 3) and never consumes `useMarketCatalog()`/`/api/catalog`; if the feed is slow/down it permanently shows 3 rows, contradicting the "full ... perpetual catalog" copy. No search input is rendered despite `MarketsTable` supporting one. → `apps/trader/components/home/HomeMarketsTable.tsx:11,32-37`, `apps/trader/lib/mock/hooks.ts:199-214`. (Supersedes the breadth half of `MIN-5`/`CFG-2`.)
+
+### Terminal states
+- [ ] **MAJ-6 — `failed` screen shows fabricated numbers, not the real vault** (`equity = start*0.892`, fake trigger trade, `violatedRule:"drawdown"` always). → `apps/trader/app/evaluation/[vaultId]/failed/page.tsx:29-58`.
+- [ ] **MAJ-7 — `/inactive` route is unreachable** — no code path ever sets status to `"inactive"`. → `apps/trader/lib/sim/store.ts`, `types.ts:9`.
+
+### Chart & input
+- [ ] **MAJ-8 — Candle chart blanks silently if the gateway/HL is down** (swallowed fetch error, no error/empty/loading state). → `apps/trader/components/charts/HLCandleChart.tsx:225-235`.
+- [ ] **MAJ-9 — Market selector keyboard nav broken** — `onKeyDown` only on the search input; Escape/Enter dead once focus enters the list. → `apps/trader/components/evaluation/MarketSelector.tsx:330-355`.
+- [ ] **MAJ-10 — Continuous console warning loop from the chart** (`autoSize:true` + manual ResizeObserver `applyOptions({width})`). → `apps/trader/components/charts/HLCandleChart.tsx:104-110,168-180`.
+
+### Navigation & links
+- [ ] **MAJ-11 — `/docs` nav link 404s** (verified: link present, no route). → `apps/trader/components/shell/TopNav.tsx:18`.
+- [ ] **MAJ-12 — `/start` deep-links silently drop `?symbol=`/`?side=`.** `/start` never reads `useSearchParams`; intent is discarded. Now triggered from THREE places: `AssetSpotlight.tsx:120,125` and **(new)** the whole markets table `MarketsTable.tsx:58-59,247,256`. → `apps/trader/app/start/page.tsx`, `components/tiers/TierGrid.tsx`.
+
+### Truthfulness & trust
+- [ ] **MAJ-13 — [NEW] Copy advertises "Bluefin, DeepBook & Hyperliquid" / "100+ perps" but only Hyperliquid is implemented.** ~13 surfaces (onboarding modal, tier cards, start/markets/cohort copy). Bybit adapter throws "not implemented"; Bluefin/DeepBook don't exist. → `OnboardingModal.tsx:32-34`, `TierCard.tsx:20`, `app/start/page.tsx:26,82`, `app/markets/page.tsx:6,17`, `components/cohort/{WhatIsTheCohort,TierLadderSection}.tsx`, `CohortStatsStrip.tsx:69`.
+- [ ] **MAJ-14 — [NEW] Marketing site legal links 404.** `/terms`, `/privacy`, `/media-kit` are linked but no routes exist (only `app/page.tsx`). Compliance-sensitive for a financial product. → `apps/websites/app/page.tsx:53-57,209-219`.
+- [ ] **MAJ-15 — [NEW] Marketing site primary CTAs point to unlaunched subdomains.** Hero/header/columns link `https://app.ultraprop.xyz` and `https://docs.ultraprop.xyz`; if those aren't deployed, every meaningful CTA dead-ends. → `apps/websites/lib/links.ts:3-4`, `apps/websites/app/page.tsx`.
+- [ ] **MAJ-16 — [NEW] Leaderboard "This Cohort / All-time" window toggle is inert.** `window` is passed to `useLeaderboard` but never read; both segments return identical rows. → `apps/trader/app/leaderboard/page.tsx:70-75`, `apps/trader/lib/mock/hooks.ts:379`.
+- [ ] **MIN-9 (trust-sensitive; consider Major) — "Verify on-chain" links resolve to nothing.** Profile + cohort "Verify ↗" links use the dead `suiexplorer.com` host with fabricated/invalid IDs, under copy claiming independent verifiability. → `ProfileHeader.tsx:15`, `SbtCard.tsx:122`, `EvaluationHistory.tsx:80,153`, `components/cohort/WhatItProves.tsx:135-141`.
 
 ---
 
-## 🟡 Minor — UX / experience friction
-- [ ] **MIN-1 — No "reconnecting" warning.** For the first ~15s (or while flapping) the sim marks PnL against frozen seed prices with no visible signal (`StaleFeedBanner` only reacts to `"stale"`). → `apps/trader/components/shell/StaleFeedBanner.tsx:14`.
-- [ ] **MIN-2 — Header leverage badge always shows the tier cap (10×), not the selected leverage.** → `apps/trader/components/evaluation/EvaluationCockpit.tsx` (MarketStrip badge).
-- [ ] **MIN-3 — Size input not clamped to the "Max: $10,000" label**; the over-leverage reason is hidden behind the auth banner. → `apps/trader/components/trade/TradeIntentForm.tsx` (size input, disable chain).
-- [ ] **MIN-4 — "Your fill" colored red for longs / green for shorts** (technically "worse than mid," but reads as inverted/alarming). → `apps/trader/components/trade/TradeIntentForm.tsx:828-836`.
-- [ ] **MIN-5 — `/markets` lists only 3 markets** with no hint the ~179-perp universe exists in the cockpit.
-- [ ] **MIN-6 — Auth theater.** Signup "create a password" step is inert (Privy is passwordless); login password field is decorative; the allowlist gate is faked (`allowlisted: true` hardcoded) while copy claims a closed beta. → `SignupFlow.tsx`, `apps/trader/lib/mock/hooks.ts:68`.
-- [ ] **MIN-7 — TopNav balance pill** shows hardcoded `$0` with a chevron to a non-existent dropdown. → `TopNav.tsx:72-83`.
-- [ ] **MIN-8 — Dead `href="#"` links** (Footer Terms/Privacy/Discord/Report-a-bug, auth Forgot-password). → `Footer.tsx:46-63`, `LoginFlow.tsx:197`.
-- [ ] **MIN-9 — Sui Explorer links point to fabricated object IDs** on the legacy `suiexplorer.com` host; resolve to nothing but framed as on-chain proof. → `EvaluationHistory.tsx:80,153`, `ProfileHeader.tsx:14-15`, `SbtCard.tsx:122`.
-- [ ] **MIN-10 — `/points` renders a "Genesis Cohort" page** (label/route mismatch with `/cohort`).
-- [ ] **MIN-11 — "SIM HALT" dev button visible to all users** (renders whenever the feed is not stale). → `apps/trader/components/shell/StaleFeedBanner.tsx:14-22`.
-- [ ] **MIN-12 — Cockpit layout collapses below ~768px** (market strip wraps poorly, compliance strip too narrow).
-- [ ] **MIN-13 — Discovery dead-end:** no path from home/`/start`/`/markets` to the cockpit; `/onboarding` just shows the Privy login modal to signed-out users.
+## 🟡 Minor
+- [ ] **MIN-1 — No "reconnecting" warning;** the sim marks PnL against frozen seed prices during the first ~15s with no signal. → `StaleFeedBanner.tsx:13-16`.
+- [ ] **MIN-2 — Header leverage badge shows the tier/market cap, not the selected leverage.** → `EvaluationCockpit.tsx` (MarketStrip badge).
+- [ ] **MIN-3 — Size input not clamped to its "Max: $X" label.** → `TradeIntentForm.tsx`.
+- [ ] **MIN-4 — "Your fill" colored red for longs / green for shorts** (worse-than-mid logic reads as inverted). → `TradeIntentForm.tsx:820-840`.
+- [x] **MIN-5 — Markets breadth no longer hardcoded to 3** (now data-driven). Residual breadth/copy issues moved to `MAJ-17`.
+- [ ] **MIN-6 — Auth theater:** signup "create a password" step is inert (Privy is passwordless); login password decorative; allowlist gate faked (`allowlisted:true`) while copy claims a closed beta (`WaitlistState` is dead code). → `SignupFlow.tsx:181-218`, `LoginFlow.tsx:182-192`, `apps/trader/lib/mock/hooks.ts:68`.
+- [ ] **MIN-7 — TopNav balance pill** shows hardcoded `$0` with a chevron but no dropdown handler (inert). → `TopNav.tsx:72-83`.
+- [ ] **MIN-8 — Six dead `href="#"` footer links** (Report-a-bug, Terms, Privacy, Discord, X, Docs). → `Footer.tsx:46,50,53,57,60,63`.
+- [ ] **MIN-10 — `/points` renders a "Genesis Cohort" page** (near-duplicate of `/cohort`); no points/token system exists — the nav label is a misnomer. → `app/points/page.tsx`, `components/points/GenesisHero.tsx:38-40`, `TopNav.tsx:17`.
+- [ ] **MIN-11 — "SIM HALT" dev button visible to all users** (renders whenever the feed isn't stale; no env/role guard). → `StaleFeedBanner.tsx:14-26`.
+- [ ] **MIN-12 — Cockpit layout collapses below ~768px** (code unchanged; not live re-verified this pass). → `EvaluationCockpit.tsx`.
+- [ ] **MIN-13 — Discovery dead-end:** no path from home/`/start`/`/markets` to the cockpit; `/onboarding` redirects signed-out users to the login modal. → `onboarding/page.tsx`, `CreateAccountFlow.tsx:46`.
+- [ ] **MIN-14 — [NEW] Auth-screen Terms/Privacy are dead `href="#"`** (and bare non-link `<span>`s in the login modal). → `AuthShell.tsx:107,114`, `LoginModal.tsx:90-91`.
+- [ ] **MIN-15 — [NEW] "Forgot password?" link is dead and nonsensical on a passwordless OTP flow.** → `LoginFlow.tsx:195-200`.
+- [ ] **MIN-16 — [NEW] OnboardingModal "Learn more" is a no-op** (just closes the modal, no destination). → `components/shell/OnboardingModal.tsx:43`.
+- [ ] **MIN-17 — [NEW] Leaderboard "Trades" column is a fabricated formula** (`passes*12 + consistency/5`), presented as a real trade count. → `LeaderboardTable.tsx:210`.
+- [ ] **MIN-18 — [NEW] False "live" chrome over static seed data:** `CohortActivity` hardcodes `<ConnectionDot status="live" />`; `CohortStatsStrip` labels frozen numbers "Live"/"real-time". → `components/points/CohortActivity.tsx:22`, `components/cohort/CohortStatsStrip.tsx:14,31,78`.
+- [ ] **MIN-19 — [NEW] Leaderboard body sorts by `rank` independently of the page axis** (header highlight disagrees with sort until clicked). → `LeaderboardTable.tsx:67-106`.
+- [ ] **MIN-20 — [NEW] `GenesisBanner` & `StartEvalHero` are orphaned dead components** (never mounted; `/markets` renders only `HomeMarketsTable`); `GenesisBanner` also links "View cohort" → `/points`. → `components/markets/{GenesisBanner,StartEvalHero}.tsx`, `GenesisBanner.tsx:61`.
+- [ ] **MIN-21 — [NEW] Favorites are ephemeral & component-local** (`new Set(["BTC"])` per component, reset on nav/reload). → `HomeMarketsTable.tsx:11`.
+- [ ] **MIN-22 — [NEW] Marketing footer minutiae:** unused `lucide-react` dep; dead `links.blog` export; Discord/Telegram rendered as inert "Soon" spans despite real URLs; "Protocol Explorer" inert. → `apps/websites/package.json:18`, `apps/websites/lib/links.ts:5-8`, `apps/websites/app/page.tsx:39,47-48`.
+- [ ] **MIN-23 — [NEW] Possible Sui address-casing mismatch (low-confidence):** write path lowercases the wallet; client read path uses the raw Privy address — a mixed-case address could make a just-created account un-findable on read. → `api/account/route.ts:36`, `useTradingAccount.ts:23,55`.
+- [ ] **MIN-24 — [NEW] Leaderboard legend omits the "Passes" axis** it offers as a control. → `app/leaderboard/page.tsx:128-141`.
 
 ---
 
 ## ⚙️ Config / failure-mode landmines
-- [ ] **CFG-1 — `GATEWAY_URL` defaults to `http://localhost:8787`.** Any deploy without that env → catalog/feed/candles all fail, feed never goes live, chart blanks. Gateway `PORT` is also hardcoded (not `process.env.PORT`). → `apps/trader/next.config.ts:16`, `services/api-gateway/src/index.ts`.
-- [ ] **CFG-2 — Catalog fetch failure silently degrades to the 3-market seed** with no surfaced error; the ~179-market universe vanishes. → `apps/trader/lib/mock/hooks.ts:150-156`.
-- [ ] **CFG-3 — Wallet auto-provisioning failure hangs onboarding** on "Preparing your account…" with the button disabled forever, no error. → `SuiWalletGate.tsx:25`, `CreateAccountFlow.tsx:61,124`.
+- [ ] **CFG-1 — `GATEWAY_URL` defaults to `http://localhost:8787`; gateway PORT hardcoded.** Any deploy without the env → catalog/feed/candles fail, feed never goes live, chart blanks. The new `vercel.json` only sets the build command — it does **not** inject `GATEWAY_URL`. → `apps/trader/next.config.ts:16`, `services/api-gateway/src/index.ts`, `apps/trader/vercel.json`.
+- [ ] **CFG-2 — Catalog fetch failure silently degrades to the 3-market seed** with no surfaced error. → `apps/trader/lib/mock/hooks.ts:145-165`.
+- [ ] **CFG-3 — Wallet auto-provisioning failure strands onboarding forever.** Fire-and-forget `createWallet` with no failure branch and effect deps that never change → "Preparing your account…" with the CTA disabled permanently, no retry/error. → `SuiWalletGate.tsx:20-30`, `CreateAccountFlow.tsx:55-70,118-128`.
 
 ---
 
 ## ✅ Intentional v1 scope (NOT defects)
-- Paper-only, no real custody/orders (form says "Simulated · No real funds").
-- Privy email-OTP + Google/Apple OAuth are real and server-verified; `/api/account` + Sui `open_account` are real (firm-signed, idempotent, env-gated).
-- Hyperliquid gateway/adapter are real (WS+REST, reconnect/backoff). Bybit adapter intentionally throws "not implemented"; funding-subscribe is a no-op.
-- Leaderboard / points / cohort / profile are seeded fixtures (any wallet returns the same demo profile).
+- Paper-only, no real custody/orders ("Simulated · No real funds").
+- Privy email-OTP + Google/Apple OAuth are real and server-verified; `/api/account` + Sui `openTradingAccount` are real (firm-signed, idempotent, env-gated, JWT-verified). Theme/settings/account-menu/sign-out all work.
+- Hyperliquid gateway/adapter are real (WS+REST, reconnect/backoff). Bybit adapter throws "not implemented"; Bluefin/DeepBook are unbuilt (advertising them is `MAJ-13`).
+- Leaderboard / points / cohort are seeded fixtures; **`buildProfile` returns the same demo profile for any wallet** (the account tab mixes real Privy identity with mock history — note for later).
 - Sim vault state **is** persisted (zustand `persist`).
 - `apps/admin` is a one-line placeholder stub.
-- `Market.onlyIsolated` defaults `false` (not yet sourced from HL) — the force-isolated markets are tradeable in cross mode in the sim.
+- `apps/websites` is a real, clean-building marketing site (its only defects are outbound links: `MAJ-14`/`MAJ-15`/`MIN-22`).
+- `Market.onlyIsolated` defaults `false` (not sourced from HL) — force-isolated markets are tradeable in cross mode.
+- `/style` is an unlinked component-gallery dev route.
 - `sui move build` not yet run in this environment — **Phase 5 Move edits need a compile-confirm on a sui-CLI machine.**
 
 ---
 
+## ⛓️ Contract / v2-spec divergences (on-chain — outside the app audit)
+Surfaced by the system map's divergence box and the v2 PRD (`contracts/sui/PRD.md`). These are Move-contract concerns, not app defects — tracked here so the whole system is on one list. All are **v2 scope** unless the plan changes.
+- [ ] **CON-1 — `AccountCap` is transferable (`has store`); the v2 spec wants it soulbound / non-transferable** (the trader's durable passport). → `contracts/sui/sources/accounts.move`.
+- [ ] **CON-2 — Starter profit split seeded 80/20; spec says 75/25.** → `contracts/sui/sources/constraints.move` / `tier_config`.
+- [ ] **CON-3 — Eval state is mutated in place via `reactivate()`/`promote()`; spec wants a fresh `TradingAccount` object per attempt.** → `accounts.move`.
+- [ ] **CON-4 — First-payout eval-fee refund: not implemented.** → `treasury`.
+- [ ] **CON-5 — Multisig `VaultCap` gate on payouts: not implemented.**
+- [ ] **CON-6 — On-chain evaluation time-limit: open question / unspecified.**
+- [ ] **CON-7 — `propfirm.move` is still an empty stub.**
+
+---
+
 ## Recommended fix order
-1. **Unblock the trade loop:** demo/guest mode so paper orders submit (BLK-1) + stop wiping demo fixtures (BLK-3) + fix stale-banner oscillation / don't suspend during reconnect (BLK-2).
-2. **Make risk real:** liquidation actually closes positions + free-margin check (MAJ-1, MAJ-2).
-3. **Connect onboarding → a real per-user vault; make tier choice mean something** (BLK-4).
-4. **Live 24h change/range + cross-mode liq + real `failed` data** (MAJ-5, MAJ-4, MAJ-6).
-5. **Robustness:** gateway-URL prod guard, chart empty-state, keyboard nav, autoSize warning (CFG-1, MAJ-8, MAJ-9, MAJ-10).
+1. **Unblock the trade loop:** demo/guest mode so paper orders submit (`BLK-1`) + stop wiping the demo vault (`BLK-3`) + fix stale-banner oscillation / don't suspend during reconnect (`BLK-2`).
+2. **Make risk real:** liquidation actually closes positions + free-margin check (`MAJ-1`, `MAJ-2`).
+3. **Connect onboarding → a real per-user vault; make tier choice mean something** (`BLK-4`, `MIN-13`).
+4. **Stop over-promising:** remove/qualify the multi-venue & "live" claims (`MAJ-13`, `MIN-18`); load the real catalog into `/markets` (`MAJ-17`); fix the inert leaderboard toggle (`MAJ-16`).
+5. **Truth & links:** real `failed` data (`MAJ-6`), reachable `/inactive` (`MAJ-7`), `/docs` + deep-link + dead-link cleanup (`MAJ-11`, `MAJ-12`, `MIN-8/14/15`), verifiable on-chain links (`MIN-9`).
+6. **Robustness & launch:** gateway-URL prod guard (`CFG-1`), chart empty-state (`MAJ-8`), keyboard nav (`MAJ-9`), autoSize warning (`MAJ-10`), marketing legal/CTA links (`MAJ-14`, `MAJ-15`).
+
+---
+
+## 🤖 Agent brief — paste this to one-shot the fixes
+Hand the fenced block below to a fresh agent (or orchestrator). It is self-contained and assumes this `DEFECTS.md` + `prop-firm-system-flow.excalidraw` are at the repo root.
+
+```text
+You are fixing defects in the Ultraprop trader app (a paper-trading prop firm). SOURCE OF TRUTH: before editing anything, read DEFECTS.md (defect IDs + file refs + severity) and prop-firm-system-flow.excalidraw (the intended 8-stage flow) at the repo root. Your goal: make the app walk stages 1->6 of that map end-to-end for a user, and clear the defect list in priority order.
+
+ARCHITECTURE YOU MUST RESPECT (do not break these):
+- Monorepo seam: apps/trader (Next.js) calls same-origin /api/* which next.config rewrites() proxies to the Hono gateway (services/api-gateway). The gateway is the ONLY caller of Hyperliquid. The browser must NEVER hit api.hyperliquid.xyz directly.
+- The ["prices"] React Query cache has a SINGLE writer (openVenueFeed SSE -> mergeMarks). Keep that contract: change the writer, never add a second one and never change the key or its readers.
+- lib/sim/engine.ts is PURE (no Date/Math.random/IO). The clock + account aggregation live in store.recompute. Keep it pure; add/extend tests in the vitest island (lib/sim/*.test.ts).
+- Price purpose split: markPx = PnL/equity/liq/display, midPx = fills, oraclePx = funding basis. Never swap them.
+- SCOPE IS PAPER-ONLY v1. Do NOT build the funded/payout (v2) halves and do NOT wire the sim to on-chain log_trade/pass_evaluation — the system map marks those intentionally-not-built. The CON-* contract items are out of scope unless explicitly asked.
+
+CONVENTIONS: no Zod (manual narrowing + instanceof Error); Biome 2-space; WHY-only comments; single-line Conventional Commit subjects with NO Co-Authored-By / no body. Do NOT commit unless told to.
+
+WORKING LOOP: do it in the waves below. After each wave run `pnpm --filter @app/trader typecheck && pnpm --filter @app/trader build && pnpm --filter @app/trader test`. For any UI change, boot both servers — `pnpm --filter @service/api-gateway dev` (port 8787) and `GATEWAY_URL=http://localhost:8787 pnpm --filter @app/trader dev` (port 3000) — and verify in a browser. Check each item off in DEFECTS.md as you finish it.
+
+WAVE 1 — unblock the trade loop (the four blockers):
+- BLK-1: add a demo/guest mode so paper orders submit without a Privy session in the demo vault (remove the auth gate for the demo vault only).
+- BLK-3: stop startEvaluation() wiping the demo fixtures — pre-populate the demo vault from DEMO_POSITIONS/DEMO_TRADES/DEMO_EQUITY_CURVE (or skip the freshVault overwrite for the demo vault id).
+- BLK-2: only flip divergenceHalt on a confirmed live->stale transition; do NOT suspend the form during the initial "reconnecting" window; confirm SSE frames aren't buffered through the rewrite (heartbeat already exists on the gateway).
+- BLK-4: carry the selected tier + a real per-user vault id from onboarding into the cockpit instead of the hardcoded demo vault.
+
+WAVE 2 — make risk real & faithful:
+- MAJ-2: free-margin/collateral check on submit. MAJ-1: liquidation actually closes a position (lower priority — the map's eval is rules-based). MAJ-4: cross-mode liq must respond to the leverage slider.
+
+WAVE 3 — truth & terminal states:
+- MAJ-6: /failed reflects the real vault / detectOutcome. MAJ-7: make /inactive reachable. MAJ-13 + MIN-18: remove/qualify the multi-venue "Bluefin/DeepBook" + "live" claims (v1 is Hyperliquid-only per the map). MAJ-16: wire the leaderboard window toggle. MAJ-17: load the real catalog into /markets + add search.
+
+WAVE 4 — data, chart, links, config:
+- MAJ-5 (carry change24h/range on MarkTick from prevDayPx), MAJ-8 (chart empty/error state), MAJ-9 (selector keyboard nav), MAJ-10 (autoSize warning), MAJ-11/MAJ-12 + MIN-8/14/15 (dead/404 links + /start deep-link params), MIN-9 (real explorer URLs), CFG-1/2/3 (gateway-URL prod guard, catalog error surface, wallet-provision failure + retry), and the apps/websites link defects (MAJ-14/15, MIN-22).
+
+FINISH: verify a user (real or demo) walks stages 1->6 of prop-firm-system-flow.excalidraw end-to-end. Report what changed per defect ID and anything deferred. This is a large scope — if you can't finish, stop at a green wave boundary and report progress; do not leave the build broken.
+```
