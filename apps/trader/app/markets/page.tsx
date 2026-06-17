@@ -3,7 +3,7 @@ import { HomeMarketsTable } from "@/components/home/HomeMarketsTable";
 export const metadata = {
   title: "Markets · Ultraprop",
   description:
-    "Trade BTC, ETH and SOL in simulation against live market prices. Spot only in v1.",
+    "Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices.",
 };
 
 export default function MarketsPage() {
@@ -14,8 +14,9 @@ export default function MarketsPage() {
           Markets
         </h1>
         <p className="max-w-prose text-pretty text-sm leading-relaxed text-text-muted">
-          Trade BTC, ETH and SOL in simulation against live market prices. Spot
-          only in v1, with a 2 bps house spread shown on every fill.
+          Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in
+          simulation against live market prices, with a 2 bps house spread
+          shown on every fill.
         </p>
       </header>
       <HomeMarketsTable />

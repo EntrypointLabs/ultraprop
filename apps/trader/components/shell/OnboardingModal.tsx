@@ -29,8 +29,8 @@ export function OnboardingModal() {
       </PixelBanner>
       <h2 className="text-balance text-xl font-semibold text-text">Welcome to {BRAND}</h2>
       <p className="mt-2 text-sm text-text-muted">
-        A proprietary trading firm. Trade BTC, ETH and SOL in simulation
-        against live market prices, with the fill math shown before you submit.
+        A proprietary trading firm. Trade the full Bluefin, DeepBook &amp;
+        Hyperliquid perpetual catalog in simulation against live market prices.
       </p>
       <p className="mt-1 text-sm text-text-muted">
         Pass an evaluation to earn a non-transferable proof of trading skill in

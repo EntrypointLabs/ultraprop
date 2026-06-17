@@ -66,7 +66,7 @@ export function CohortStatsStrip() {
               Evaluation Universe
             </span>
             <p className="tabular mt-0.5 text-lg font-semibold text-text">
-              BTC / ETH / SOL
+              100+ perps
             </p>
           </div>
           <div className="h-8 w-px bg-border hidden sm:block" />

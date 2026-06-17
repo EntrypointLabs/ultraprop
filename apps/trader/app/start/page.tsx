@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui";
 export const metadata = {
   title: "Start an evaluation · Ultraprop",
   description:
-    "Pick a tier and open your evaluation. Trade BTC/ETH/SOL in simulation against live market prices with automatic rule enforcement.",
+    "Pick a tier and open your evaluation. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices with automatic rule enforcement.",
 };
 
 export default function StartPage() {
@@ -23,7 +23,7 @@ export default function StartPage() {
         </h1>
 
         <p className="text-base text-text-muted max-w-2xl leading-relaxed">
-          Trade BTC, ETH, and SOL in simulation against live market prices.
+          Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against live market prices.
           Every rule is enforced automatically in real time — drawdown, daily
           loss, profit target — and emits verifiable pass/fail events. Pass an
           evaluation to level your non-transferable Genesis credential: proof of
@@ -31,7 +31,7 @@ export default function StartPage() {
         </p>
 
         <div className="mt-4 flex flex-wrap gap-3">
-          <FactChip label="Assets" value="BTC / ETH / SOL" />
+          <FactChip label="Assets" value="Multi-venue perps" />
           <FactChip label="Settlement" value="Simulation" />
           <FactChip label="Fill model" value="Market mid + slippage + 2 bps" />
           <FactChip label="Daily reset" value="00:00 UTC" />
@@ -79,7 +79,7 @@ export default function StartPage() {
               03
             </span>
             <span>
-              Trade BTC/ETH/SOL in simulation against live market prices. Every fill is
+              Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against live market prices. Every fill is
               shown pre-submit with market mid, slippage, and the +2 bps house
               tilt — no hidden math.
             </span>

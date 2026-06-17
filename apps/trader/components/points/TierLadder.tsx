@@ -9,7 +9,7 @@ const TIER_UNLOCKS: Record<string, string[]> = {
   Starter: [
     "Account size: $10,000",
     "Max leverage: 10×",
-    "Access to BTC/ETH/SOL",
+    "Access to the full perp catalog",
   ],
   Basic: ["Account size: $25,000", "Max leverage: 8×", "Stronger credential level"],
   Pro: [
