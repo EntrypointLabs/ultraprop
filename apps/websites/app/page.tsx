@@ -141,14 +141,15 @@ export default function Page() {
         {/* centered statement */}
         <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-center justify-center px-5 py-20 text-center sm:px-8">
           <h1 className="hero-in hero-in-1 font-display text-balance text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-6xl">
-            <span className="text-brand">On-chain crypto trading.</span>
+            <span className="text-brand">Prove your edge.</span>
             <br />
             Earn a funded account.
           </h1>
-          <p className="hero-in hero-in-2 mt-6 max-w-md text-pretty text-text-muted">
-            Trade BTC, ETH and SOL perpetuals against live market prices. Prove
-            your edge in simulation, clear the evaluation, and trade the
-            firm&apos;s capital, fully on-chain.
+          <p className="hero-in hero-in-2 mt-6 max-w-lg text-pretty text-text-muted">
+            Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual
+            catalog in simulation against live market prices. Clear the
+            evaluation to earn a funded account, your track record recorded
+            on-chain.
           </p>
           <div className="hero-in hero-in-3 mt-9">
             <a
