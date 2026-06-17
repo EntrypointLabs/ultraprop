@@ -28,6 +28,7 @@ import {
   useVault,
 } from "@/lib/mock/hooks";
 import { DEFAULT_MARKET_ID, MARKET_IDS } from "@/lib/mock/markets";
+import { useMockStore } from "@/lib/mock/store";
 import type { MarketId, Side, VaultState } from "@/lib/mock/types";
 import { liquidationPrice } from "@/lib/sim/engine";
 import { HL_TAKER_BPS, slippagePreview } from "@/lib/slippage-preview";
@@ -316,7 +317,9 @@ function PriceTooltipContent({
   symbol: MarketId;
   price: number;
 }) {
-  const ticker = symbol.includes(":") ? (symbol.split(":")[1] ?? symbol) : symbol;
+  const ticker = symbol.includes(":")
+    ? (symbol.split(":")[1] ?? symbol)
+    : symbol;
   return (
     <div className="flex flex-col gap-1.5 p-1">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-text">
@@ -356,7 +359,9 @@ function ConfirmationFlash({
   sizeUsd: number;
   onDismiss: () => void;
 }) {
-  const ticker = symbol.includes(":") ? (symbol.split(":")[1] ?? symbol) : symbol;
+  const ticker = symbol.includes(":")
+    ? (symbol.split(":")[1] ?? symbol)
+    : symbol;
   React.useEffect(() => {
     const t = setTimeout(onDismiss, 4500);
     return () => clearTimeout(t);
@@ -455,6 +460,7 @@ export function TradeIntentForm({
   const { halted } = useDivergenceHalt();
   const { session } = useSession();
   const connection = useConnection();
+  const openLogin = useMockStore((s) => s.openLogin);
 
   const isControlled = marketIdProp !== undefined;
   const [symbolInternal, setSymbolInternal] =
@@ -569,8 +575,7 @@ export function TradeIntentForm({
   const isSubmitting = submitState.phase === "submitting";
 
   let disabledReason: string | null = null;
-  if (isNotSignedIn) disabledReason = "Sign in to trade";
-  else if (isFeedStale)
+  if (isFeedStale)
     disabledReason = "Market data feed unavailable; trading suspended";
   else if (isPriceUnavailable)
     disabledReason = "Waiting for a live oracle price…";
@@ -642,7 +647,8 @@ export function TradeIntentForm({
   // cap clamped to the tier cap) — so a low-leverage perp shows its lower ceiling.
   const leverageLabel = `${effectiveLeverage}×`;
   // Strip the "venue:" prefix so UI labels show "BTC" not "hyperliquid:BTC".
-  const displaySymbol = market?.symbol ?? (symbol.includes(":") ? symbol.split(":")[1]! : symbol);
+  const displaySymbol =
+    market?.symbol ?? (symbol.includes(":") ? symbol.split(":")[1]! : symbol);
 
   /* ------------------------------------------------------------------ */
   /* Render                                                               */
@@ -741,7 +747,81 @@ export function TradeIntentForm({
           </div>
         </div>
 
-        {/* Fill preview panel */}
+        {/* Status banners */}
+        {isRateLimited && rateLimitUntil && (
+          <RateLimitBanner until={rateLimitUntil} />
+        )}
+        {disabledReason && !isRateLimited && !isNotSignedIn && (
+          <DisabledBanner message={disabledReason} />
+        )}
+
+        {/* Confirmation flash */}
+        {submitState.phase === "confirmed" && (
+          <ConfirmationFlash
+            symbol={submitState.symbol}
+            side={submitState.side}
+            fill={submitState.fill}
+            sizeUsd={submitState.sizeUsd}
+            onDismiss={dismissConfirmation}
+          />
+        )}
+
+        {/* CTA above the fill-preview disclosure: confident traders act without
+            scrolling past the breakdown. Signed-out users get an enabled
+            sign-in button that opens the login modal. */}
+        <div className="flex flex-col gap-2">
+          <Button
+            type="button"
+            variant={
+              isNotSignedIn ? "primary" : side === "long" ? "long" : "short"
+            }
+            size="lg"
+            disabled={!isNotSignedIn && !canSubmit}
+            onClick={isNotSignedIn ? openLogin : handleSubmit}
+            className="w-full font-bold tracking-wide"
+          >
+            {isNotSignedIn ? (
+              "Sign in to trade"
+            ) : isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Submitting…
+              </span>
+            ) : side === "long" ? (
+              <span className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Long {displaySymbol}
+                {preview && (
+                  <span className="tabular opacity-80">
+                    @{" "}
+                    {formatUsd(preview.fill, {
+                      decimals: preview.fill > 100 ? 0 : 2,
+                    })}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <TrendingDown className="h-4 w-4" />
+                Short {displaySymbol}
+                {preview && (
+                  <span className="tabular opacity-80">
+                    @{" "}
+                    {formatUsd(preview.fill, {
+                      decimals: preview.fill > 100 ? 0 : 2,
+                    })}
+                  </span>
+                )}
+              </span>
+            )}
+          </Button>
+
+          <p className="text-center text-xs text-text-faint">
+            Simulated · No real funds · Evaluation account
+          </p>
+        </div>
+
+        {/* Fill preview — full cost/risk disclosure, below the CTA */}
         {preview && sizeUsd > 0 && (
           <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 px-3 py-3">
             <div className="mb-2 flex items-center justify-between">
@@ -880,72 +960,6 @@ export function TradeIntentForm({
             </div>
           </div>
         )}
-
-        {/* Status banners */}
-        {isRateLimited && rateLimitUntil && (
-          <RateLimitBanner until={rateLimitUntil} />
-        )}
-        {disabledReason && !isRateLimited && (
-          <DisabledBanner message={disabledReason} />
-        )}
-
-        {/* Confirmation flash */}
-        {submitState.phase === "confirmed" && (
-          <ConfirmationFlash
-            symbol={submitState.symbol}
-            side={submitState.side}
-            fill={submitState.fill}
-            sizeUsd={submitState.sizeUsd}
-            onDismiss={dismissConfirmation}
-          />
-        )}
-
-        {/* Submit button */}
-        <Button
-          type="button"
-          variant={side === "long" ? "long" : "short"}
-          size="lg"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-          className="w-full font-bold tracking-wide"
-        >
-          {isSubmitting ? (
-            <span className="flex items-center gap-2">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Submitting…
-            </span>
-          ) : side === "long" ? (
-            <span className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Long {displaySymbol}
-              {preview && (
-                <span className="tabular opacity-80">
-                  @{" "}
-                  {formatUsd(preview.fill, {
-                    decimals: preview.fill > 100 ? 0 : 2,
-                  })}
-                </span>
-              )}
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4" />
-              Short {displaySymbol}
-              {preview && (
-                <span className="tabular opacity-80">
-                  @{" "}
-                  {formatUsd(preview.fill, {
-                    decimals: preview.fill > 100 ? 0 : 2,
-                  })}
-                </span>
-              )}
-            </span>
-          )}
-        </Button>
-
-        <p className="text-center text-xs text-text-faint">
-          Simulated · No real funds · Evaluation account
-        </p>
       </div>
 
       {/* Price info modal */}
