@@ -6,7 +6,7 @@ import {
   MOCK_SESSION_SIGNED_IN,
   MOCK_SESSION_SIGNED_OUT,
 } from "@/lib/mock/fixtures";
-import type { Session } from "@/lib/mock/types";
+import type { ConnectionStatus, Session } from "@/lib/mock/types";
 
 interface MockStore {
   session: Session;
@@ -26,6 +26,13 @@ interface MockStore {
   divergenceHalt: boolean;
   setDivergenceHalt: (v: boolean) => void;
   toggleDivergenceHalt: () => void;
+
+  /**
+   * Health of the live venue feed. Seeds `"reconnecting"` so server render and
+   * first client paint agree before the SSE feed opens in a client effect.
+   */
+  feedStatus: ConnectionStatus;
+  setFeedStatus: (v: ConnectionStatus) => void;
 
   /** Marks the persisted store as rehydrated on the client. */
   hydrated: boolean;
@@ -51,6 +58,9 @@ export const useMockStore = create<MockStore>()(
       setDivergenceHalt: (v) => set({ divergenceHalt: v }),
       toggleDivergenceHalt: () =>
         set((s) => ({ divergenceHalt: !s.divergenceHalt })),
+
+      feedStatus: "reconnecting",
+      setFeedStatus: (v) => set({ feedStatus: v }),
 
       hydrated: false,
       setHydrated: () => set({ hydrated: true }),

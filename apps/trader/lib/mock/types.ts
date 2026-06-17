@@ -10,11 +10,17 @@ export type VaultStatus = "active" | "passed" | "failed" | "inactive";
 
 export interface PriceTick {
   symbol: MarketId;
-  /** oracle spot in USD; null when the feed has no live value (loading/outage) */
-  price: number | null;
+  /** venue mark price — drives PnL / equity / liquidation AND the headline display number. NEVER mid. */
+  markPx: number;
+  /** venue spot oracle price — funding notional basis (carried for funding accrual). */
+  oraclePx: number;
+  /** venue mid — drives FILL pricing (entry/exit, mid ± slippage) and is otherwise display-only. Never PnL/liq. */
+  midPx: number;
+  /** current per-interval funding rate, carried through; no accrual math here. */
+  fundingRate: number;
   /** 24h percent change; null until the 24h history loads or if unavailable */
   change24h: number | null;
-  /** recent oracle closes for the sparkline, oldest -> newest; empty when unknown */
+  /** recent closes for the sparkline, oldest -> newest; empty when unknown */
   spark: number[];
   /** trailing-24h high in USD; null when unknown */
   high24h: number | null;
@@ -65,6 +71,18 @@ export interface Position {
   /** unrealized PnL as percent of size */
   unrealizedPnlPct: number;
   openedAt: number;
+  /** margin mode for liquidation math — cross uses account-wide collateral */
+  marginMode: "isolated" | "cross";
+  /** leverage SET at open; isolated liq depends on it, cross does not */
+  leverage: number;
+  /** epoch ms of the last funding settlement boundary already charged */
+  lastFundedAt: number;
+  /** cumulative funding USD booked (negative = paid, positive = earned) */
+  fundingPaid: number;
+  /** estimated liquidation price off mark; null until first recompute */
+  liquidationPrice: number | null;
+  /** margin ratio = maintenance margin / equity-at-risk; null until computed */
+  marginRatio: number | null;
 }
 
 export interface TradeRecord {
@@ -74,11 +92,12 @@ export interface TradeRecord {
   sizeUsd: number;
   /** oracle mid at submit */
   oracleMid: number;
-  /** modeled fill (mid + slippage + tilt) */
+  /** modeled fill (mid + size impact) */
   fill: number;
   slippageBps: number;
-  tiltBps: number;
-  /** aggregator the fill was routed through, e.g. "7K" */
+  /** venue taker fee in USD charged on this fill */
+  feeUsd: number;
+  /** venue the fill was modeled against, e.g. "hyperliquid" */
   venue: string;
   /** realized PnL in USD (0 for entries that remain open) */
   realizedPnl: number;
@@ -233,14 +252,12 @@ export interface Session {
 export interface SlippagePreview {
   oracleMid: number;
   slippageBps: number;
-  /** always +2 bps against the trader */
-  tiltBps: number;
   /** the resulting fill price */
   fill: number;
-  /** total notional cost including the worse fill */
+  /** total notional cost at the worse fill */
   totalCost: number;
-  /** aggregator the fill is modeled against, e.g. "7K" */
+  /** venue taker fee in USD for this fill */
+  feeUsd: number;
+  /** venue the fill is modeled against, e.g. "hyperliquid" */
   venue: string;
-  /** DEXes the aggregator routes across (best-of), e.g. Cetus/Aftermath/Turbos/Kriya */
-  route: string[];
 }
