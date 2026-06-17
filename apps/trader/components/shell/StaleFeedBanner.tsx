@@ -13,6 +13,9 @@ export function StaleFeedBanner() {
 
   if (!stale) {
     // dev affordance: a tiny corner toggle so QA can simulate a feed halt.
+    if (process.env.NODE_ENV === "production") {
+      return null;
+    }
     return (
       <button
         type="button"
