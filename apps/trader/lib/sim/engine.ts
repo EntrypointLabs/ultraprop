@@ -29,11 +29,12 @@ const dir = (side: Side): 1 | -1 => (side === "long" ? 1 : -1);
 export interface FillResult {
   fill: number;
   slippageBps: number;
-  tiltBps: number;
+  /** venue taker fee in USD for this fill */
+  feeUsd: number;
   venue: string;
 }
 
-/** Model the fill for an order via the shared slippage model (mid + size slippage + house tilt). */
+/** Model the fill for an order via the shared slippage model (mid + size impact). */
 export function applyFill(
   marketId: MarketId,
   side: Side,
@@ -44,7 +45,7 @@ export function applyFill(
   return {
     fill: p.fill,
     slippageBps: p.slippageBps,
-    tiltBps: p.tiltBps,
+    feeUsd: p.feeUsd,
     venue: p.venue,
   };
 }
@@ -52,8 +53,8 @@ export function applyFill(
 /**
  * The fill price to close a position. Closing a long means selling (short-side
  * fill, below mid); closing a short means buying (long-side fill, above mid).
- * Either way the trader crosses the spread again, so a round trip pays the tilt
- * twice — a position can be underwater on fees alone.
+ * Either way the trader crosses the spread again, so a round trip pays the
+ * taker fee twice — a position can be underwater on fees alone.
  */
 export function closeFill(pos: Position, oracleMid: number): number {
   const exitSide: Side = pos.side === "long" ? "short" : "long";
@@ -63,6 +64,99 @@ export function closeFill(pos: Position, oracleMid: number): number {
     sizeUsd: pos.sizeUsd,
     oracleMid,
   }).fill;
+}
+
+/** HL caps funding at 4%/hour; clamp the per-settlement rate to ±0.04 first. */
+const HL_FUNDING_RATE_CAP = 0.04;
+
+export interface AccrueFundingArgs {
+  sizeUsd: number;
+  entryPrice: number;
+  oraclePx: number;
+  side: Side;
+  fundingRate: number;
+  /** count of settlement boundaries crossed while the position was open */
+  settlementsElapsed: number;
+}
+
+/**
+ * Signed funding USD over the settlements a position spanned (negative = the
+ * trader pays). HL funds on the ORACLE-price notional, not mark, and a positive
+ * rate makes longs pay shorts — so a long with a positive rate yields NEGATIVE
+ * funding. Both differ on Bybit (mark notional), so the price choice and sign
+ * convention are explicit here, not buried in the caller.
+ */
+export function accrueFunding({
+  sizeUsd,
+  entryPrice,
+  oraclePx,
+  side,
+  fundingRate,
+  settlementsElapsed,
+}: AccrueFundingArgs): number {
+  const rate = Math.max(
+    -HL_FUNDING_RATE_CAP,
+    Math.min(HL_FUNDING_RATE_CAP, fundingRate),
+  );
+  const baseSize = sizeUsd / entryPrice;
+  // Longs pay on a positive rate, so the trader's cash flow is the NEGATIVE of
+  // the side-signed oracle-notional funding.
+  const perSettlement = -dir(side) * baseSize * oraclePx * rate;
+  return round2(perSettlement * settlementsElapsed);
+}
+
+export interface LiquidationPriceArgs {
+  entryPrice: number;
+  sizeUsd: number;
+  side: Side;
+  /** per-market venue max leverage; sets the maintenance fraction */
+  maxLeverage: number;
+  marginMode: "isolated" | "cross";
+  /** isolated margin allocated to THIS position (initial margin) */
+  isolatedMargin: number;
+  /** account-wide collateral value (cross margin availability) */
+  accountValue: number;
+  /** maintenance margin required, USD */
+  maintMarginRequired: number;
+}
+
+/**
+ * Liquidation price off MARK, verbatim from HL:
+ *   liq = entry − side · marginAvailable / positionSize / (1 − l · side)
+ * with l = mmFraction = 1/(2·maxLeverage) (MM is half the initial margin at max
+ * leverage — NOT 1/leverage). Cross margin availability is account-wide, so the
+ * cross liq price is INDEPENDENT of the leverage SET; isolated margin equals the
+ * initial margin allocated, so the isolated liq price DEPENDS on leverage set.
+ */
+export function liquidationPrice({
+  entryPrice,
+  sizeUsd,
+  side,
+  maxLeverage,
+  marginMode,
+  isolatedMargin,
+  accountValue,
+  maintMarginRequired,
+}: LiquidationPriceArgs): number {
+  const l = 1 / (2 * maxLeverage);
+  const sideSign = dir(side);
+  const positionSize = sizeUsd / entryPrice;
+  const marginAvailable =
+    marginMode === "cross"
+      ? accountValue - maintMarginRequired
+      : isolatedMargin - maintMarginRequired;
+  return (
+    entryPrice -
+    (sideSign * marginAvailable) / positionSize / (1 - l * sideSign)
+  );
+}
+
+/** Maintenance margin in USD for a position: notional · mmFraction. */
+export function maintenanceMargin(
+  sizeUsd: number,
+  maxLeverage: number,
+): number {
+  return sizeUsd * (1 / (2 * maxLeverage));
 }
 
 /** Unrealized PnL in USD for a position marked at `markPrice`. */
@@ -83,9 +177,9 @@ export function markPositions(
 ): Position[] {
   return positions.map((pos) => {
     const tick = prices.find((p) => p.symbol === pos.symbol);
-    // No live mark (missing or null oracle price) -> leave the position as-is.
-    if (!tick || tick.price == null) return pos;
-    const markPrice = tick.price;
+    // No live mark for this market -> leave the position as-is.
+    if (!tick) return pos;
+    const markPrice = tick.markPx;
     const pnlPct =
       ((markPrice - pos.entryPrice) / pos.entryPrice) * dir(pos.side);
     return {
