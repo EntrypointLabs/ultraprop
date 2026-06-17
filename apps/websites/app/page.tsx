@@ -194,7 +194,16 @@ export default function Page() {
 
             <div className="mt-8 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-text-faint">
-                © 2026 Ultraprop Labs. All rights reserved.
+                © 2026{" "}
+                <a
+                  href="https://entrypointlabs.xyz"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition-colors hover:text-text"
+                >
+                  Entrypoint Labs
+                </a>
+                . All rights reserved.
               </p>
               <nav className="flex flex-wrap gap-x-6 gap-y-2">
                 {LEGAL.map((l) => (
