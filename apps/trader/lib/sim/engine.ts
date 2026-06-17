@@ -1,10 +1,10 @@
 import type {
+  MarketId,
   Position,
   PriceTick,
   RuleBudget,
   RuleKind,
   Side,
-  Symbol,
   Tier,
   TradeRecord,
   VaultStatus,
@@ -35,12 +35,12 @@ export interface FillResult {
 
 /** Model the fill for an order via the shared slippage model (mid + size slippage + house tilt). */
 export function applyFill(
-  symbol: Symbol,
+  marketId: MarketId,
   side: Side,
   sizeUsd: number,
   oracleMid: number,
 ): FillResult {
-  const p = slippagePreview({ symbol, side, sizeUsd, oracleMid });
+  const p = slippagePreview({ marketId, side, sizeUsd, oracleMid });
   return {
     fill: p.fill,
     slippageBps: p.slippageBps,
@@ -58,7 +58,7 @@ export function applyFill(
 export function closeFill(pos: Position, oracleMid: number): number {
   const exitSide: Side = pos.side === "long" ? "short" : "long";
   return slippagePreview({
-    symbol: pos.symbol,
+    marketId: pos.symbol,
     side: exitSide,
     sizeUsd: pos.sizeUsd,
     oracleMid,
@@ -83,7 +83,8 @@ export function markPositions(
 ): Position[] {
   return positions.map((pos) => {
     const tick = prices.find((p) => p.symbol === pos.symbol);
-    if (!tick) return pos;
+    // No live mark (missing or null oracle price) -> leave the position as-is.
+    if (!tick || tick.price == null) return pos;
     const markPrice = tick.price;
     const pnlPct =
       ((markPrice - pos.entryPrice) / pos.entryPrice) * dir(pos.side);

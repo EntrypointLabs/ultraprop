@@ -26,7 +26,8 @@ import {
   useSession,
   useVault,
 } from "@/lib/mock/hooks";
-import type { Side, Symbol, VaultState } from "@/lib/mock/types";
+import { DEFAULT_MARKET_ID, MARKET_IDS } from "@/lib/mock/markets";
+import type { MarketId, Side, VaultState } from "@/lib/mock/types";
 import { slippagePreview, TILT_BPS } from "@/lib/slippage-preview";
 import { cn, formatNum, formatUsd, formatUsdOrDash } from "@/lib/utils";
 
@@ -37,11 +38,11 @@ import { cn, formatNum, formatUsd, formatUsdOrDash } from "@/lib/utils";
 interface TradeIntentFormProps {
   vaultId: string;
   /** When provided the form is controlled — internal asset tab row is hidden. */
-  symbol?: Symbol;
-  onSymbolChange?: (s: Symbol) => void;
+  marketId?: MarketId;
+  onMarketChange?: (id: MarketId) => void;
   /** Opens a notional position in the paper-trading engine on confirmed submit. */
   onSubmitOrder?: (intent: {
-    symbol: Symbol;
+    symbol: MarketId;
     side: Side;
     sizeUsd: number;
   }) => void;
@@ -52,7 +53,7 @@ type SubmitState =
   | { phase: "submitting" }
   | {
       phase: "confirmed";
-      symbol: Symbol;
+      symbol: MarketId;
       side: Side;
       fill: number;
       sizeUsd: number;
@@ -69,7 +70,7 @@ function SymbolTab({
   active,
   onClick,
 }: {
-  symbol: Symbol;
+  symbol: MarketId;
   active: boolean;
   onClick: () => void;
 }) {
@@ -200,7 +201,7 @@ function PriceTooltipContent({
   symbol,
   price,
 }: {
-  symbol: Symbol;
+  symbol: MarketId;
   price: number;
 }) {
   return (
@@ -236,7 +237,7 @@ function ConfirmationFlash({
   sizeUsd,
   onDismiss,
 }: {
-  symbol: Symbol;
+  symbol: MarketId;
   side: Side;
   fill: number;
   sizeUsd: number;
@@ -332,8 +333,8 @@ const SIZE_PRESETS = [250, 500, 1000, 2500] as const;
 
 export function TradeIntentForm({
   vaultId,
-  symbol: symbolProp,
-  onSymbolChange,
+  marketId: marketIdProp,
+  onMarketChange,
   onSubmitOrder,
 }: TradeIntentFormProps) {
   const vault: VaultState = useVault(vaultId);
@@ -341,11 +342,12 @@ export function TradeIntentForm({
   const { session } = useSession();
   const connection = useConnection();
 
-  const isControlled = symbolProp !== undefined;
-  const [symbolInternal, setSymbolInternal] = React.useState<Symbol>("BTC");
-  const symbol = isControlled ? symbolProp : symbolInternal;
+  const isControlled = marketIdProp !== undefined;
+  const [symbolInternal, setSymbolInternal] =
+    React.useState<MarketId>(DEFAULT_MARKET_ID);
+  const symbol = isControlled ? marketIdProp : symbolInternal;
   const setSymbol = isControlled
-    ? (onSymbolChange ?? (() => {}))
+    ? (onMarketChange ?? (() => {}))
     : setSymbolInternal;
 
   const [side, setSide] = React.useState<Side>("long");
@@ -362,7 +364,7 @@ export function TradeIntentForm({
   const sizeUsd = parseFloat(rawSize) || 0;
   const preview = React.useMemo(() => {
     if (sizeUsd <= 0 || marketMid == null || marketMid <= 0) return null;
-    return slippagePreview({ symbol, side, sizeUsd, oracleMid: marketMid });
+    return slippagePreview({ marketId: symbol, side, sizeUsd, oracleMid: marketMid });
   }, [symbol, side, sizeUsd, marketMid]);
 
   /* ------------------------------------------------------------------ */
@@ -462,7 +464,7 @@ export function TradeIntentForm({
           <div>
             <CardLabel className="mb-2 block">Asset</CardLabel>
             <div className="flex gap-1 rounded-[var(--radius)] border border-border bg-surface p-1">
-              {(["BTC", "ETH", "SOL"] as Symbol[]).map((s) => (
+              {MARKET_IDS.map((s) => (
                 <SymbolTab
                   key={s}
                   symbol={s}

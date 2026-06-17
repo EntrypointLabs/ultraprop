@@ -1,4 +1,6 @@
-export type Symbol = "BTC" | "ETH" | "SOL";
+import type { MarketId } from "@/lib/mock/markets";
+
+export type { MarketId } from "@/lib/mock/markets";
 
 export type Side = "long" | "short";
 
@@ -7,7 +9,7 @@ export type ConnectionStatus = "live" | "reconnecting" | "stale";
 export type VaultStatus = "active" | "passed" | "failed" | "inactive";
 
 export interface PriceTick {
-  symbol: Symbol;
+  symbol: MarketId;
   /** oracle spot in USD; null when the feed has no live value (loading/outage) */
   price: number | null;
   /** 24h percent change; null until the 24h history loads or if unavailable */
@@ -52,7 +54,7 @@ export interface EquityPoint {
 
 export interface Position {
   id: string;
-  symbol: Symbol;
+  symbol: MarketId;
   side: Side;
   /** position size in USD */
   sizeUsd: number;
@@ -67,7 +69,7 @@ export interface Position {
 
 export interface TradeRecord {
   id: string;
-  symbol: Symbol;
+  symbol: MarketId;
   side: Side;
   sizeUsd: number;
   /** oracle mid at submit */

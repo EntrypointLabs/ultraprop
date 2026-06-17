@@ -18,14 +18,9 @@ import {
   Tr,
 } from "@/components/ui";
 import { useMarkets } from "@/lib/mock/hooks";
-import type { PriceTick, Symbol } from "@/lib/mock/types";
+import { getMarket } from "@/lib/mock/markets";
+import type { MarketId, PriceTick } from "@/lib/mock/types";
 import { cn, formatPctOrDash, formatUsdOrDash } from "@/lib/utils";
-
-const ASSET_META: Record<Symbol, { name: string; leverage: number }> = {
-  BTC: { name: "Bitcoin", leverage: 10 },
-  ETH: { name: "Ethereum", leverage: 10 },
-  SOL: { name: "Solana", leverage: 10 },
-};
 
 interface MarketRowProps {
   tick: PriceTick;
@@ -53,7 +48,9 @@ function usePrevPrice(price: number | null) {
 }
 
 function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
-  const meta = ASSET_META[tick.symbol];
+  const market = getMarket(tick.symbol);
+  const name = market?.name ?? tick.symbol;
+  const leverage = market?.maxLeverage ?? 10;
   const hasChange = tick.change24h != null;
   const isUp = (tick.change24h ?? 0) >= 0;
   const flashClass = usePrevPrice(tick.price);
@@ -84,7 +81,7 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
           <AssetIcon symbol={tick.symbol} size={28} />
           <div className="flex flex-col leading-tight">
             <span className="font-semibold text-text">{tick.symbol}</span>
-            <span className="text-xs text-text-muted">{meta.name}</span>
+            <span className="text-xs text-text-muted">{name}</span>
           </div>
         </div>
       </Td>
@@ -146,7 +143,7 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
       <Td className="text-right">
         <div className="flex items-center justify-end gap-1.5">
           <Badge variant="leverage" className="shrink-0">
-            {meta.leverage}X
+            {leverage}X
           </Badge>
           <Link href={longHref}>
             <Button
@@ -174,7 +171,9 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
 
 /** Mobile stacked card fallback for small screens */
 function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
-  const meta = ASSET_META[tick.symbol];
+  const market = getMarket(tick.symbol);
+  const name = market?.name ?? tick.symbol;
+  const leverage = market?.maxLeverage ?? 10;
   const hasChange = tick.change24h != null;
   const isUp = (tick.change24h ?? 0) >= 0;
   const flashClass = usePrevPrice(tick.price);
@@ -200,7 +199,7 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="font-semibold text-text">{tick.symbol}</div>
-              <div className="text-xs text-text-muted">{meta.name}</div>
+              <div className="text-xs text-text-muted">{name}</div>
             </div>
             <div className="text-right">
               <div
@@ -244,7 +243,7 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
               tone={!hasChange ? "neutral" : isUp ? "up" : "down"}
             />
             <div className="flex items-center gap-1.5">
-              <Badge variant="leverage">{meta.leverage}X</Badge>
+              <Badge variant="leverage">{leverage}X</Badge>
               <Link href={`/start?symbol=${tick.symbol}&side=long`}>
                 <Button
                   variant="long"
@@ -274,8 +273,8 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
 interface MarketsTableProps {
   searchQuery: string;
   showFavoritesOnly: boolean;
-  favorites: Set<Symbol>;
-  onToggleFav: (sym: Symbol) => void;
+  favorites: Set<MarketId>;
+  onToggleFav: (sym: MarketId) => void;
 }
 
 export function MarketsTable({
@@ -287,12 +286,11 @@ export function MarketsTable({
   const markets = useMarkets();
 
   const filtered = markets.filter((t) => {
+    const name = getMarket(t.symbol)?.name ?? t.symbol;
     const matchesSearch =
       searchQuery === "" ||
       t.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ASSET_META[t.symbol].name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
+      name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFav = !showFavoritesOnly || favorites.has(t.symbol);
     return matchesSearch && matchesFav;
   });

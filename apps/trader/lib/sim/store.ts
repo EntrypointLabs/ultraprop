@@ -4,12 +4,12 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   EquityPoint,
+  MarketId,
   Position,
   PriceTick,
   RuleBudget,
   RuleKind,
   Side,
-  Symbol,
   Tier,
   TradeRecord,
   VaultState,
@@ -54,7 +54,7 @@ export interface SimVault {
 }
 
 export interface OrderIntent {
-  symbol: Symbol;
+  symbol: MarketId;
   side: Side;
   sizeUsd: number;
 }
@@ -101,7 +101,7 @@ function mockDigest(): string {
   return out;
 }
 
-const oracleMidFor = (prices: PriceTick[], symbol: Symbol): number | null =>
+const oracleMidFor = (prices: PriceTick[], symbol: MarketId): number | null =>
   prices.find((p) => p.symbol === symbol)?.price ?? null;
 
 /**

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Symbol } from "@/lib/mock/types";
-import { PYTH_TV_SYMBOL } from "@/lib/oracle/pyth";
+import { getMarket } from "@/lib/mock/markets";
+import type { MarketId } from "@/lib/mock/types";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +10,7 @@ const SCRIPT_SRC =
   "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
 
 interface TradingViewChartProps {
-  symbol: Symbol;
+  marketId: MarketId;
   /** TradingView resolution, e.g. "60" (1h), "240" (4h), "D" (1d) */
   interval?: string;
   className?: string;
@@ -20,26 +20,28 @@ interface TradingViewChartProps {
  * Real TradingView Advanced Chart, plotting the same Pyth price feed the
  * evaluation marks fills against (PYTH:BTCUSD / ETHUSD / SOLUSD). The widget is
  * an iframe, so it ignores app CSS; we hand it the theme + surface colors and
- * let it autosize to fill its container. Re-mounts on symbol/theme change.
+ * let it autosize to fill its container. Re-mounts on market/theme change.
  */
 export function TradingViewChart({
-  symbol,
+  marketId,
   interval = "60",
   className,
 }: TradingViewChartProps) {
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+  const market = getMarket(marketId);
+  const tvSymbol = market?.pythTvSymbol;
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || !tvSymbol) return;
 
     el.innerHTML =
       '<div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div>';
 
     const config = {
       autosize: true,
-      symbol: PYTH_TV_SYMBOL[symbol],
+      symbol: tvSymbol,
       interval,
       timezone: "Etc/UTC",
       theme: resolvedTheme,
@@ -68,13 +70,13 @@ export function TradingViewChart({
     return () => {
       el.innerHTML = "";
     };
-  }, [symbol, interval, resolvedTheme]);
+  }, [tvSymbol, interval, resolvedTheme]);
 
   return (
     <div
       ref={containerRef}
       className={cn("tradingview-widget-container h-full w-full", className)}
-      aria-label={`${symbol} / USD TradingView chart`}
+      aria-label={`${market?.symbol ?? marketId} / USD TradingView chart`}
     />
   );
 }

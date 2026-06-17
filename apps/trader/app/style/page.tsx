@@ -69,7 +69,7 @@ function Primitives() {
   const [sort, setSort] = React.useState<"asc" | "desc" | null>("desc");
 
   const preview = slippagePreview({
-    symbol: "BTC",
+    marketId: "BTC",
     side: "long",
     sizeUsd: 5000,
     oracleMid: 68_420.5,

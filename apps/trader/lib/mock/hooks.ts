@@ -4,7 +4,6 @@ import { useLogout, usePrivy } from "@privy-io/react-auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { suiWalletAddress } from "@/lib/auth";
-import { buildCandles, type Candle, type Timeframe } from "@/lib/mock/candles";
 import {
   buildProfile,
   DEMO_COHORT,
@@ -15,7 +14,6 @@ import {
   DEMO_TRADES,
   DEMO_VAULT,
   DEMO_WALLET,
-  INITIAL_PRICES,
   SYMBOLS,
   TIERS,
 } from "@/lib/mock/fixtures";
@@ -27,16 +25,22 @@ import type {
   LeaderboardAxis,
   LeaderboardEntry,
   LeaderboardWindow,
+  MarketId,
   Position,
   PriceTick,
   Profile,
   SbtState,
   Session,
-  Symbol,
   Tier,
   TradeRecord,
   VaultState,
 } from "@/lib/mock/types";
+import {
+  fetchDailyHistory,
+  fetchLatestPrices,
+  type OracleHistory,
+  type OraclePrice,
+} from "@/lib/oracle/pyth";
 
 /* ------------------------------------------------------------------ */
 /* Session — identity from Privy, balances/allowlist still mocked       */
@@ -116,7 +120,7 @@ function useOracleHistory() {
             ] as const,
         ),
       );
-      const out: Partial<Record<Symbol, OracleHistory>> = {};
+      const out: Partial<Record<MarketId, OracleHistory>> = {};
       for (const [s, h] of entries) if (h) out[s] = h;
       return out;
     },
@@ -134,7 +138,7 @@ function useOracleHistory() {
  */
 function composeTicks(
   latest: OraclePrice[] | undefined,
-  history: Partial<Record<Symbol, OracleHistory>> | undefined,
+  history: Partial<Record<MarketId, OracleHistory>> | undefined,
 ): PriceTick[] {
   return SYMBOLS.map((symbol) => {
     const live = latest?.find((p) => p.symbol === symbol);
@@ -159,7 +163,7 @@ function composeTicks(
   });
 }
 
-export function usePrices(symbols?: Symbol[]): PriceTick[] {
+export function usePrices(symbols?: MarketId[]): PriceTick[] {
   const { data: latest } = useOracleLatest();
   const { data: history } = useOracleHistory();
 
@@ -169,7 +173,7 @@ export function usePrices(symbols?: Symbol[]): PriceTick[] {
   return list.filter((p) => symbols.includes(p.symbol));
 }
 
-export function usePrice(symbol: Symbol): PriceTick | undefined {
+export function usePrice(symbol: MarketId): PriceTick | undefined {
   return usePrices([symbol])[0];
 }
 
