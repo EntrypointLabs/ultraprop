@@ -8,7 +8,7 @@ single source of truth for that look. Every screen must read like it shipped fro
 ## Product framing (what this app is)
 
 A **crypto-native prop firm** v1 closed beta. Invited traders connect a wallet, pick a tier, and
-paper-trade BTC/ETH/SOL against live mainnet oracle prices with a calibrated slippage + fill model.
+paper-trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog against live mainnet prices with a calibrated slippage + fill model.
 A smart contract enforces drawdown / daily-loss / profit-target rules and emits pass/fail events
 that mint or level a non-transferable **v1 Genesis cohort SBT**. A public leaderboard + profiles
 drive retention across the v1→v2 gap (soft-airdrop psychology, never promised).
@@ -21,7 +21,7 @@ feel hidden or rigged.
 
 | Ultramarkets | This app |
 |---|---|
-| Prediction-markets table (Long/Short, leverage badge, sparkline, countdown) | Tradeable assets BTC/ETH/SOL: live oracle price, 24h%, sparkline, Long/Short entry, leverage = tier |
+| Prediction-markets table (Long/Short, leverage badge, sparkline, countdown) | Tradeable assets across the full Bluefin, DeepBook & Hyperliquid perpetual catalog: live price, 24h%, sparkline, Long/Short entry, leverage = tier |
 | Featured-market hero carousel | Active-evaluation summary card / "Start your evaluation" hero |
 | "Genesis points program is now live" banner | "v1 Genesis cohort is live" banner → `/points` |
 | Points page (Season/Weekly Pool/Daily Scores/Distribution) | `/points`: Genesis cohort, tier ladder, SBT progress, weekly cohort stats |
@@ -164,7 +164,7 @@ Daily reset is **00:00 UTC for everyone**; dashboard shows "Daily reset in Xh Ym
 
 ## Copy rules (non-negotiable)
 
-- Tradeable symbols in v1: **BTC, ETH, SOL only** (spot).
+- Tradeable symbols in v1: **the full Bluefin, DeepBook & Hyperliquid perpetual catalog** (perpetuals, simulated).
 - Slippage tilt is **+2 bps against the trader**, always shown pre-submit.
 - Terminal states are three distinct things: **Passed**, **Failed**, **Inactive** (7-day idle
   auto-terminate; never framed as punishment). Failure copy is dignified, never "You lost!".

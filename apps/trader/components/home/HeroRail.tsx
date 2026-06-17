@@ -29,8 +29,9 @@ function StartPromoCard() {
           Start your evaluation
         </h3>
         <p className="mt-1.5 text-sm text-text-muted leading-relaxed">
-          Trade BTC, ETH, and SOL against live market prices.
-          Every rule is enforced automatically. Prove your edge.
+          Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog
+          against live market prices. Every rule is enforced automatically.
+          Prove your edge.
         </p>
         <Link href="/start" className="mt-4 block">
           <Button variant="primary" size="md" className="w-full gap-1.5">

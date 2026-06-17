@@ -25,9 +25,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ultraprop · The on-chain crypto prop firm",
+  title: "Ultraprop · the on-chain crypto prop firm",
   description:
-    "Trade BTC, ETH and SOL perpetuals against live market prices. Prove your edge in simulation, clear the evaluation, and trade a funded account, fully on-chain.",
+    "An on-chain proprietary trading firm. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices. Clear the evaluation to earn a funded account.",
 };
 
 export const viewport: Viewport = {

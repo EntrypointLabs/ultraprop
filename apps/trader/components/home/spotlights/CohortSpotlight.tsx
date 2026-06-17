@@ -15,7 +15,7 @@ const HOW_IT_WORKS = [
   {
     step: "2",
     title: "Trade the evaluation",
-    body: "Submit trade intents on BTC, ETH, or SOL. Every fill is priced against a live oracle with a disclosed +2 bps house spread.",
+    body: "Submit trade intents across the full Bluefin, DeepBook & Hyperliquid perpetual catalog. Every fill is priced against a live oracle with a disclosed +2 bps house spread.",
   },
   {
     step: "3",
