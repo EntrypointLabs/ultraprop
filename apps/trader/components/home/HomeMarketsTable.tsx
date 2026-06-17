@@ -27,7 +27,7 @@ export function HomeMarketsTable() {
           <ConnectionDot status={connStatus} showLabel={false} />
           <span className="text-xs capitalize text-text-muted">{connStatus}</span>
         </div>
-        <span className="text-xs text-text-faint">BTC / ETH / SOL spot</span>
+        <span className="text-xs text-text-faint">Bluefin · DeepBook · Hyperliquid perps</span>
       </CardHeader>
       <MarketsTable
         searchQuery=""
@@ -36,7 +36,7 @@ export function HomeMarketsTable() {
         onToggleFav={toggleFav}
       />
       <div className="flex items-center justify-between border-t border-border-soft px-4 py-2.5 text-xs text-text-faint">
-        <span>v1 · BTC / ETH / SOL spot only</span>
+        <span>v1 · Bluefin, DeepBook &amp; Hyperliquid perps</span>
         <span>+2 bps house tilt on all fills</span>
       </div>
     </Card>

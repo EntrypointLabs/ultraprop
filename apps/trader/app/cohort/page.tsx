@@ -52,7 +52,7 @@ export default function CohortPage() {
           verifiable.
         </p>
         <p>
-          All evaluations trade BTC, ETH, and SOL against live market prices
+          All evaluations trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog against live market prices
           with a disclosed +2 bps house tilt applied against the trader on every
           fill. Past evaluation pass rates are not indicative of individual
           future results.

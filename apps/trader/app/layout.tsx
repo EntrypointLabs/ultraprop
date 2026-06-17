@@ -38,7 +38,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Ultraprop · proprietary trading firm",
   description:
-    "A proprietary trading firm. Trade BTC, ETH and SOL in simulation against live market prices, with the fill math shown before every order.",
+    "A proprietary trading firm. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices.",
 };
 
 export const viewport: Viewport = {

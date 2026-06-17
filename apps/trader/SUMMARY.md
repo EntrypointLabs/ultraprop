@@ -30,7 +30,7 @@ Demo IDs that make every dynamic link resolve:
 
 | Route | Type | Screen |
 | --- | --- | --- |
-| `/` | static | Home / markets — Genesis banner, active-eval or start-eval hero, BTC/ETH/SOL markets table, tier-ladder teaser |
+| `/` | static | Home / markets — Genesis banner, active-eval or start-eval hero, multi-venue perps markets table, tier-ladder teaser |
 | `/start` | static | Tier picker — Starter/Basic/Pro cards (Basic/Pro lock on SBT progress), waitlist state, sign-in + halt prompts |
 | `/evaluation/[vaultId]` | dynamic | Eval cockpit — equity curve, 4 rule pills, drawdown gauge, daily-reset countdown, positions, trade history, trade-intent form |
 | `/evaluation/[vaultId]/passed` | dynamic | Pass terminal — confetti, SBT level reveal, share card, final stats |

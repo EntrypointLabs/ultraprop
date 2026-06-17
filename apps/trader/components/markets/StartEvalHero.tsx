@@ -26,7 +26,7 @@ export function StartEvalHero() {
             Start your evaluation
           </h2>
           <p className="max-w-md text-sm text-text-muted">
-            Trade BTC, ETH and SOL in simulation against live market prices. Hit
+            Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against live market prices. Hit
             your profit target to pass — every fill is shown pre-submit.
           </p>
 

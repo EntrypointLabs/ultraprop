@@ -143,7 +143,7 @@ export function TierLadderSection() {
         <span className="tabular font-medium text-text">00:00 UTC</span> for
         every active evaluation. Evaluations idle for 7 consecutive days
         transition to <span className="font-medium text-text">Inactive</span>{" "}
-        automatically. Evaluations trade BTC, ETH, and SOL spot only.
+        automatically. Evaluations trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog.
       </div>
     </section>
   );
