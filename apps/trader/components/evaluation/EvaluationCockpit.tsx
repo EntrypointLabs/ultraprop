@@ -1,5 +1,6 @@
 "use client";
 
+import { Maximize2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -10,12 +11,13 @@ import { PositionsTable } from "@/components/evaluation/PositionsTable";
 import { RulePills } from "@/components/evaluation/RulePills";
 import { TradeHistory } from "@/components/evaluation/TradeHistory";
 import { TradeIntentForm } from "@/components/trade";
-import { Badge, ConnectionDot, Skeleton } from "@/components/ui";
+import { Badge, Button, ConnectionDot, Modal, Skeleton } from "@/components/ui";
 import {
   useConnection,
   useEquityCurve,
   usePositions,
   usePrice,
+  useSession,
   useTradeHistory,
   useVault,
 } from "@/lib/mock/hooks";
@@ -25,6 +27,7 @@ import {
   getMarket,
   type MarketId,
 } from "@/lib/mock/markets";
+import { useMockStore } from "@/lib/mock/store";
 import { usePaperEngine } from "@/lib/sim/usePaperEngine";
 import {
   cn,
@@ -46,10 +49,10 @@ const EquityCurve = dynamic(
   },
 );
 
-const TradingViewChart = dynamic(
+const HLCandleChart = dynamic(
   () =>
-    import("@/components/charts/TradingViewChart").then((m) => ({
-      default: m.TradingViewChart,
+    import("@/components/charts/HLCandleChart").then((m) => ({
+      default: m.HLCandleChart,
     })),
   {
     ssr: false,
@@ -89,7 +92,7 @@ function MarketStrip({
   const market = getMarket(marketId);
   const priceDecimals = decimalsFor(market);
 
-  const price = tick?.price ?? null;
+  const price = tick?.markPx ?? null;
   const change24h = tick?.change24h ?? null;
   const up = (change24h ?? 0) >= 0;
   const changeTone =
@@ -203,6 +206,9 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
   const equityCurve = useEquityCurve(vaultId);
   const positions = usePositions(vaultId);
   const trades = useTradeHistory(vaultId);
+  const { session } = useSession();
+  const openLogin = useMockStore((s) => s.openLogin);
+  const isNotSignedIn = !session.address;
 
   // The engine flips status on breach/pass — route to the matching terminal screen.
   useEffect(() => {
@@ -216,6 +222,7 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
 
   const [marketId, setMarketId] = useState<MarketId>(DEFAULT_MARKET_ID);
   const [activeTab, setActiveTab] = useState<BottomTab>("positions");
+  const [expanded, setExpanded] = useState(false);
 
   const { tier, startingEquity, peakEquity, rules } = vault;
 
@@ -223,6 +230,62 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
   const ddFraction = ddRule ? ddRule.used : 0;
   const ddCurrentUsd = ddRule ? ddRule.current : 0;
   const ddLimitUsd = ddRule ? ddRule.limit : 0;
+
+  const activeTabLabel =
+    BOTTOM_TABS.find((t) => t.id === activeTab)?.label ?? "";
+
+  // The active tab's body, reused by the inline panel and the expanded modal.
+  const activeTabBody = (
+    <>
+      {activeTab === "positions" && (
+        <PositionsTable positions={positions} onClose={closePosition} />
+      )}
+
+      {activeTab === "history" && <TradeHistory trades={trades} />}
+
+      {activeTab === "account" && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-faint">
+              Equity curve
+            </div>
+            <EquityCurve
+              data={equityCurve}
+              startingEquity={startingEquity}
+              peakEquity={peakEquity}
+              maxDrawdown={tier.maxDrawdown}
+              profitTarget={tier.profitTarget}
+              className="w-full"
+            />
+          </div>
+          <div className="flex flex-col items-center justify-center rounded-[var(--radius)] border border-border bg-surface-2 p-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-faint">
+              Drawdown
+            </div>
+            <DrawdownGauge
+              currentDd={ddCurrentUsd}
+              maxDd={ddLimitUsd}
+              fraction={ddFraction}
+            />
+            <div className="mt-3 space-y-1 text-center text-xs text-text-muted">
+              <div>
+                <span className="tabular font-semibold text-text">
+                  {formatUsd(ddCurrentUsd)}
+                </span>{" "}
+                used
+              </div>
+              <div>
+                limit{" "}
+                <span className="tabular font-semibold text-text">
+                  {formatUsd(ddLimitUsd)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6">
@@ -234,17 +297,17 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
           vaultId={vaultId}
         />
 
-        {/* ── Main trading grid ──────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px]">
-          {/* LEFT: chart + risk strip */}
-          <div className="flex flex-col border-r border-border">
-            {/* Real TradingView feed on the Pyth oracle */}
-            <div className="h-[460px] border-b border-border bg-surface">
-              <TradingViewChart marketId={marketId} />
+        {/* ── Main trading grid: chart + tables stacked left, order rail right ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] lg:grid-rows-[auto_auto]">
+          {/* LEFT TOP: chart + compliance strip */}
+          <div className="flex flex-col border-b border-border bg-surface lg:col-start-1 lg:row-start-1 lg:border-r">
+            {/* Live Hyperliquid candle feed for the selected market */}
+            <div className="h-[460px] border-b border-border">
+              <HLCandleChart marketId={marketId} />
             </div>
 
             {/* Risk / compliance strip — always visible beside the chart */}
-            <div className="border-b border-border bg-surface px-4 py-3">
+            <div className="px-4 py-3">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-text-faint">
                   Compliance
@@ -257,8 +320,8 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
             </div>
           </div>
 
-          {/* RIGHT: order entry */}
-          <div className="flex flex-col border-b border-border bg-surface">
+          {/* RIGHT: order entry rail — spans the full height of the left column */}
+          <div className="flex flex-col border-b border-border bg-surface lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:border-b-0">
             <TradeIntentForm
               vaultId={vaultId}
               marketId={marketId}
@@ -266,90 +329,85 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
               onSubmitOrder={submitOrder}
             />
           </div>
-        </div>
 
-        {/* ── Bottom tab strip ───────────────────────────────────────────── */}
-        <div className="border-b border-border bg-surface">
-          <div className="flex items-center gap-0">
-            {BOTTOM_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "border-b-2 px-5 py-3 text-xs font-medium transition-colors",
-                  activeTab === tab.id
-                    ? "border-brand text-text"
-                    : "border-transparent text-text-muted hover:text-text",
-                )}
-              >
-                {tab.label}
-                {tab.id === "positions" && positions.length > 0 && (
-                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
-                    {positions.length}
-                  </span>
-                )}
-                {tab.id === "history" && trades.length > 0 && (
-                  <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
-                    {trades.length}
-                  </span>
-                )}
-              </button>
-            ))}
+          {/* LEFT BOTTOM: positions / trade history / account tabs */}
+          <div className="flex min-w-0 flex-col border-border bg-surface lg:col-start-1 lg:row-start-2 lg:border-r">
+            {/* Tab strip + expand control */}
+            <div className="flex items-center justify-between border-b border-border pr-2">
+              <div className="flex items-center gap-0">
+                {BOTTOM_TABS.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "border-b-2 px-5 py-3 text-xs font-medium transition-colors",
+                      activeTab === tab.id
+                        ? "border-brand text-text"
+                        : "border-transparent text-text-muted hover:text-text",
+                    )}
+                  >
+                    {tab.label}
+                    {tab.id === "positions" &&
+                      !isNotSignedIn &&
+                      positions.length > 0 && (
+                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
+                          {positions.length}
+                        </span>
+                      )}
+                    {tab.id === "history" &&
+                      !isNotSignedIn &&
+                      trades.length > 0 && (
+                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
+                          {trades.length}
+                        </span>
+                      )}
+                  </button>
+                ))}
+              </div>
+
+              {!isNotSignedIn && (
+                <button
+                  type="button"
+                  onClick={() => setExpanded(true)}
+                  aria-label={`Expand ${activeTabLabel.toLowerCase()}`}
+                  title="Expand"
+                  className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Tab content — fixed height, scrolls internally so a long list never
+                grows the cockpit (and the order rail beside it). Expand opens the
+                full view. */}
+            <div className="h-[220px] overflow-y-auto px-4 py-4">
+              {isNotSignedIn ? (
+                <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                  <p className="max-w-xs text-sm text-text-muted">
+                    Sign in to view your positions, trade history, and account.
+                  </p>
+                  <Button variant="primary" onClick={openLogin}>
+                    Sign in
+                  </Button>
+                </div>
+              ) : (
+                activeTabBody
+              )}
+            </div>
           </div>
         </div>
-
-        {/* ── Bottom panel content ───────────────────────────────────────── */}
-        <div className="min-h-[220px] bg-surface px-4 py-4">
-          {activeTab === "positions" && (
-            <PositionsTable positions={positions} onClose={closePosition} />
-          )}
-
-          {activeTab === "history" && <TradeHistory trades={trades} />}
-
-          {activeTab === "account" && (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_160px]">
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-text-faint">
-                  Equity curve
-                </div>
-                <EquityCurve
-                  data={equityCurve}
-                  startingEquity={startingEquity}
-                  peakEquity={peakEquity}
-                  maxDrawdown={tier.maxDrawdown}
-                  profitTarget={tier.profitTarget}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex flex-col items-center justify-center rounded-[var(--radius)] border border-border bg-surface-2 p-4">
-                <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-faint">
-                  Drawdown
-                </div>
-                <DrawdownGauge
-                  currentDd={ddCurrentUsd}
-                  maxDd={ddLimitUsd}
-                  fraction={ddFraction}
-                />
-                <div className="mt-3 space-y-1 text-center text-xs text-text-muted">
-                  <div>
-                    <span className="tabular font-semibold text-text">
-                      {formatUsd(ddCurrentUsd)}
-                    </span>{" "}
-                    used
-                  </div>
-                  <div>
-                    limit{" "}
-                    <span className="tabular font-semibold text-text">
-                      {formatUsd(ddLimitUsd)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
+
+      <Modal
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        title={activeTabLabel}
+        className="max-w-5xl"
+      >
+        <div className="max-h-[70vh] overflow-y-auto">{activeTabBody}</div>
+      </Modal>
     </div>
   );
 }

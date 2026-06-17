@@ -53,7 +53,7 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
   const leverage = market?.maxLeverage ?? 10;
   const hasChange = tick.change24h != null;
   const isUp = (tick.change24h ?? 0) >= 0;
-  const flashClass = usePrevPrice(tick.price);
+  const flashClass = usePrevPrice(tick.markPx);
 
   const longHref = `/start?symbol=${tick.symbol}&side=long`;
   const shortHref = `/start?symbol=${tick.symbol}&side=short`;
@@ -91,16 +91,16 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
         <span
           className={cn(
             "tabular text-sm font-semibold",
-            tick.price == null ? "text-text-faint" : flashClass,
+            tick.markPx == null ? "text-text-faint" : flashClass,
           )}
         >
-          {formatUsdOrDash(tick.price, {
+          {formatUsdOrDash(tick.markPx, {
             decimals:
-              tick.price == null
+              tick.markPx == null
                 ? 2
-                : tick.price > 10_000
+                : tick.markPx > 10_000
                   ? 1
-                  : tick.price > 100
+                  : tick.markPx > 100
                     ? 2
                     : 4,
           })}
@@ -176,7 +176,7 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
   const leverage = market?.maxLeverage ?? 10;
   const hasChange = tick.change24h != null;
   const isUp = (tick.change24h ?? 0) >= 0;
-  const flashClass = usePrevPrice(tick.price);
+  const flashClass = usePrevPrice(tick.markPx);
 
   return (
     <div className="border-b border-border-soft last:border-b-0">
@@ -205,16 +205,16 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
               <div
                 className={cn(
                   "tabular text-sm font-semibold",
-                  tick.price == null ? "text-text-faint" : flashClass,
+                  tick.markPx == null ? "text-text-faint" : flashClass,
                 )}
               >
-                {formatUsdOrDash(tick.price, {
+                {formatUsdOrDash(tick.markPx, {
                   decimals:
-                    tick.price == null
+                    tick.markPx == null
                       ? 2
-                      : tick.price > 10_000
+                      : tick.markPx > 10_000
                         ? 1
-                        : tick.price > 100
+                        : tick.markPx > 100
                           ? 2
                           : 4,
                 })}

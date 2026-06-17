@@ -13,6 +13,7 @@ module propfirm::user_account;
 
 use propfirm::access::{Self, AdminCap, ExecutorCap, AccessRegistry};
 use propfirm::tier_config::{Tier, TierConfig};
+use std::string::String;
 use sui::{
     clock::Clock,
     event,
@@ -86,6 +87,8 @@ public struct TradeEntry has store, copy, drop {
     seq: u64,
     is_win: bool,
     pnl: u64,
+    venue: String,
+    market: String,
     equity_after: u64,
     reputation_after: u64,
     timestamp_ms: u64,
@@ -153,6 +156,8 @@ public struct TradeLogged has copy, drop {
     seq: u64,
     is_win: bool,
     pnl: u64,
+    venue: String,
+    market: String,
     equity_after: u64,
     reputation_after: u64,
     timestamp_ms: u64,
@@ -479,6 +484,8 @@ public fun log_trade(
     account_id: ID,
     is_win: bool,
     pnl: u64,
+    venue: String,
+    market: String,
     clock: &Clock,
     _ctx: &TxContext,
 ) {
@@ -521,6 +528,8 @@ public fun log_trade(
         seq,
         is_win,
         pnl,
+        venue,
+        market,
         equity_after: state.equity,
         reputation_after: state.reputation,
         timestamp_ms: now_ms,
@@ -528,11 +537,15 @@ public fun log_trade(
     state.next_trade_seq = seq + 1;
     state.updated_at_ms = now_ms;
 
+    let logged = *table::borrow(&state.trades, seq);
+
     event::emit(TradeLogged {
         account_id,
         seq,
         is_win,
         pnl,
+        venue: logged.venue,
+        market: logged.market,
         equity_after: state.equity,
         reputation_after: state.reputation,
         timestamp_ms: now_ms,

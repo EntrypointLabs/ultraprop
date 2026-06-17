@@ -53,7 +53,7 @@ export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
         ]
       : [];
 
-  const price = tick?.price ?? null;
+  const price = tick?.markPx ?? null;
   const change = tick?.change24h ?? null;
   const isUp = (change ?? 0) >= 0;
 

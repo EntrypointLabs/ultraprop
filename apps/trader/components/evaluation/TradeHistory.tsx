@@ -44,7 +44,7 @@ function SideBadge({ side }: { side: "long" | "short" }) {
 
 function mockCsvExport(trades: TradeRecord[]) {
   const header =
-    "id,symbol,side,sizeUsd,marketPrice,fill,slippageBps,tiltBps,realizedPnl,ts";
+    "id,symbol,side,sizeUsd,marketPrice,fill,slippageBps,feeUsd,realizedPnl,ts";
   const rows = trades.map((t) =>
     [
       t.id,
@@ -54,7 +54,7 @@ function mockCsvExport(trades: TradeRecord[]) {
       t.oracleMid,
       t.fill,
       t.slippageBps,
-      t.tiltBps,
+      t.feeUsd,
       t.realizedPnl,
       new Date(t.ts).toISOString(),
     ].join(","),
@@ -188,7 +188,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Impact
               </Th>
-              <Th numeric>Spread</Th>
+              <Th numeric>Fee</Th>
               <Th
                 numeric
                 sortable
@@ -253,9 +253,9 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                     </Tooltip>
                   </Td>
                   <Td numeric>
-                    <Tooltip content="+2 bps desk spread, always against the trader">
+                    <Tooltip content="Hyperliquid taker fee on the fill notional">
                       <span className="tabular text-warn">
-                        +{trade.tiltBps} bps
+                        {formatUsd(trade.feeUsd, { decimals: 2 })}
                       </span>
                     </Tooltip>
                   </Td>

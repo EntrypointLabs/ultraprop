@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { getMarket } from "@/lib/mock/markets";
 import type {
   EquityPoint,
   MarketId,
@@ -15,12 +16,16 @@ import type {
   VaultState,
   VaultStatus,
 } from "@/lib/mock/types";
+import { applyFees } from "@/lib/slippage-preview";
 import {
+  accrueFunding,
   applyFill,
   closeFill,
   computeEquity,
   detectOutcome,
   evaluateRules,
+  liquidationPrice,
+  maintenanceMargin,
   markPositions,
   realizedOnClose,
 } from "./engine";
@@ -57,6 +62,9 @@ export interface OrderIntent {
   symbol: MarketId;
   side: Side;
   sizeUsd: number;
+  marginMode: "isolated" | "cross";
+  /** leverage SET for the position; rejected if above the effective cap */
+  leverage: number;
 }
 
 interface SimStore {
@@ -102,7 +110,52 @@ function mockDigest(): string {
 }
 
 const oracleMidFor = (prices: PriceTick[], symbol: MarketId): number | null =>
-  prices.find((p) => p.symbol === symbol)?.price ?? null;
+  prices.find((p) => p.symbol === symbol)?.midPx ?? null;
+
+/**
+ * Settle discrete funding for one open position. Funding is charged only on the
+ * settlement boundaries CROSSED while the position was open — a position opened
+ * and closed inside one interval pays zero, and an hour-long hold across N
+ * boundaries pays N times. Returns the position with `lastFundedAt`/`fundingPaid`
+ * advanced and the signed funding cash flow booked this recompute.
+ */
+function settleFunding(
+  pos: Position,
+  prices: PriceTick[],
+  nowMs: number,
+): { pos: Position; funding: number } {
+  const tick = prices.find((p) => p.symbol === pos.symbol);
+  const market = getMarket(pos.symbol);
+  const interval = market?.fundingIntervalMs ?? 0;
+  if (!tick || interval <= 0) return { pos, funding: 0 };
+
+  // Boundaries are interval multiples; count those strictly after lastFundedAt
+  // and at or before now.
+  const lastBoundary = Math.floor(nowMs / interval) * interval;
+  const fundedThrough = Math.floor(pos.lastFundedAt / interval) * interval;
+  const settlementsElapsed = Math.max(
+    0,
+    Math.round((lastBoundary - fundedThrough) / interval),
+  );
+  if (settlementsElapsed === 0) return { pos, funding: 0 };
+
+  const funding = accrueFunding({
+    sizeUsd: pos.sizeUsd,
+    entryPrice: pos.entryPrice,
+    oraclePx: tick.oraclePx,
+    side: pos.side,
+    fundingRate: tick.fundingRate,
+    settlementsElapsed,
+  });
+  return {
+    pos: {
+      ...pos,
+      lastFundedAt: lastBoundary,
+      fundingPaid: Number((pos.fundingPaid + funding).toFixed(2)),
+    },
+    funding,
+  };
+}
 
 /**
  * Re-mark, re-price equity, re-evaluate the rules, and decide the outcome.
@@ -116,9 +169,50 @@ function recompute(v: SimVault, prices: PriceTick[], nowMs: number): SimVault {
     dailyResetAt = nextUtcMidnight(nowMs);
   }
 
-  const positions = markPositions(v.positions, prices);
-  const equity = computeEquity(v.startingEquity, v.realizedTotal, positions);
+  // Discrete funding settles into booked realized PnL before marking.
+  let fundingBooked = 0;
+  const fundedPositions = v.positions.map((pos) => {
+    const { pos: next, funding } = settleFunding(pos, prices, nowMs);
+    fundingBooked += funding;
+    return next;
+  });
+  const realizedTotal = Number((v.realizedTotal + fundingBooked).toFixed(2));
+
+  const marked = markPositions(fundedPositions, prices);
+  const equity = computeEquity(v.startingEquity, realizedTotal, marked);
   const peakEquity = Math.max(v.peakEquity, equity);
+
+  // Attach liquidation price + margin ratio off mark per open position. Cross
+  // availability is account-wide equity less the summed maintenance margin;
+  // isolated is the position's own allocated margin.
+  const summedMaint = marked.reduce(
+    (sum, p) =>
+      sum + maintenanceMargin(p.sizeUsd, getMarket(p.symbol)?.maxLeverage ?? 1),
+    0,
+  );
+  const positions = marked.map((pos) => {
+    const market = getMarket(pos.symbol);
+    if (!market) return pos;
+    const maint = maintenanceMargin(pos.sizeUsd, market.maxLeverage);
+    const isolatedMargin = pos.leverage > 0 ? pos.sizeUsd / pos.leverage : 0;
+    const liq = liquidationPrice({
+      entryPrice: pos.entryPrice,
+      sizeUsd: pos.sizeUsd,
+      side: pos.side,
+      maxLeverage: market.maxLeverage,
+      marginMode: pos.marginMode,
+      isolatedMargin,
+      accountValue: equity,
+      maintMarginRequired: pos.marginMode === "cross" ? summedMaint : maint,
+    });
+    const collateral = pos.marginMode === "cross" ? equity : isolatedMargin;
+    return {
+      ...pos,
+      liquidationPrice: Number(liq.toFixed(2)),
+      marginRatio:
+        collateral > 0 ? Number((maint / collateral).toFixed(4)) : null,
+    };
+  });
   const rules = evaluateRules({
     startingEquity: v.startingEquity,
     equity,
@@ -141,6 +235,7 @@ function recompute(v: SimVault, prices: PriceTick[], nowMs: number): SimVault {
   return {
     ...v,
     positions,
+    realizedTotal,
     equity,
     peakEquity,
     dailyAnchorEquity,
@@ -216,6 +311,17 @@ export const useSimStore = create<SimStore>()(
           if (!v || v.status !== "active") return s;
           const oracleMid = oracleMidFor(prices, intent.symbol);
           if (oracleMid == null || intent.sizeUsd <= 0) return s;
+          // Reject leverage above the effective cap (market max clamped to tier).
+          const market = getMarket(intent.symbol);
+          const effectiveCap = Math.min(
+            market?.maxLeverage ?? v.tier.leverage,
+            v.tier.leverage,
+          );
+          if (intent.leverage > effectiveCap || intent.leverage <= 0) return s;
+          // onlyIsolated markets force isolated regardless of the request.
+          const marginMode = market?.onlyIsolated
+            ? "isolated"
+            : intent.marginMode;
 
           const f = applyFill(
             intent.symbol,
@@ -233,6 +339,14 @@ export const useSimStore = create<SimStore>()(
             unrealizedPnl: 0,
             unrealizedPnlPct: 0,
             openedAt: nowMs,
+            marginMode,
+            leverage: intent.leverage,
+            // No funding charged for the interval the position opened in until a
+            // boundary is crossed; seed the watermark at the open.
+            lastFundedAt: nowMs,
+            fundingPaid: 0,
+            liquidationPrice: null,
+            marginRatio: null,
           };
           const trade: TradeRecord = {
             id: `trd_${crypto.randomUUID()}`,
@@ -242,17 +356,19 @@ export const useSimStore = create<SimStore>()(
             oracleMid,
             fill: f.fill,
             slippageBps: f.slippageBps,
-            tiltBps: f.tiltBps,
+            feeUsd: f.feeUsd,
             venue: f.venue,
             realizedPnl: 0,
             ts: nowMs,
             txDigest: mockDigest(),
           };
+          // The taker fee is a realized cost booked at fill.
           const next = recompute(
             {
               ...v,
               positions: [position, ...v.positions],
               trades: [trade, ...v.trades],
+              realizedTotal: Number((v.realizedTotal - f.feeUsd).toFixed(2)),
               intentCount: v.intentCount + 1,
               inactiveAt: nowMs + 7 * DAY_MS,
             },
@@ -273,6 +389,9 @@ export const useSimStore = create<SimStore>()(
 
           const exitFill = closeFill(pos, oracleMid);
           const realized = realizedOnClose(pos, exitFill);
+          // Taker fee on the exit notional — a round trip pays taker twice.
+          const exitNotional = (pos.sizeUsd / oracleMid) * exitFill;
+          const exitFee = applyFees(exitNotional, "taker");
           const trade: TradeRecord = {
             id: `trd_${crypto.randomUUID()}`,
             symbol: pos.symbol,
@@ -281,9 +400,9 @@ export const useSimStore = create<SimStore>()(
             oracleMid,
             fill: exitFill,
             slippageBps: 0,
-            tiltBps: 2,
-            venue: "7K",
-            realizedPnl: realized,
+            feeUsd: exitFee,
+            venue: "hyperliquid",
+            realizedPnl: Number((realized - exitFee).toFixed(2)),
             ts: nowMs,
             txDigest: mockDigest(),
           };
@@ -292,7 +411,9 @@ export const useSimStore = create<SimStore>()(
               ...v,
               positions: v.positions.filter((p) => p.id !== positionId),
               trades: [trade, ...v.trades],
-              realizedTotal: Number((v.realizedTotal + realized).toFixed(2)),
+              realizedTotal: Number(
+                (v.realizedTotal + realized - exitFee).toFixed(2),
+              ),
               intentCount: v.intentCount + 1,
               inactiveAt: nowMs + 7 * DAY_MS,
             },
