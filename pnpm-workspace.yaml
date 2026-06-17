@@ -2,6 +2,7 @@ packages:
   - "apps/*"
   - "services/api-gateway"
   - "packages/shared/events"
+  - "packages/shared/venues"
   - "packages/shared/contracts-abi"
 # sharp (Next.js image optimization) ships prebuilt @img/* binaries and does not
 # need its own install script. pnpm 11 otherwise fails the whole install when that
@@ -12,6 +13,7 @@ onlyBuiltDependencies:
 allowBuilds:
   '@reown/appkit': set this to true or false
   bufferutil: set this to true or false
+  esbuild: true
   keccak: set this to true or false
   sharp: false
   utf-8-validate: set this to true or false
