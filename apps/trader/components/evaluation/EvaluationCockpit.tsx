@@ -46,10 +46,10 @@ const EquityCurve = dynamic(
   },
 );
 
-const TradingViewChart = dynamic(
+const HLCandleChart = dynamic(
   () =>
-    import("@/components/charts/TradingViewChart").then((m) => ({
-      default: m.TradingViewChart,
+    import("@/components/charts/HLCandleChart").then((m) => ({
+      default: m.HLCandleChart,
     })),
   {
     ssr: false,
@@ -89,7 +89,7 @@ function MarketStrip({
   const market = getMarket(marketId);
   const priceDecimals = decimalsFor(market);
 
-  const price = tick?.price ?? null;
+  const price = tick?.markPx ?? null;
   const change24h = tick?.change24h ?? null;
   const up = (change24h ?? 0) >= 0;
   const changeTone =
@@ -238,9 +238,9 @@ export function EvaluationCockpit({ vaultId }: EvaluationCockpitProps) {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px]">
           {/* LEFT: chart + risk strip */}
           <div className="flex flex-col border-r border-border">
-            {/* Real TradingView feed on the Pyth oracle */}
+            {/* Live Hyperliquid candle feed for the selected market */}
             <div className="h-[460px] border-b border-border bg-surface">
-              <TradingViewChart marketId={marketId} />
+              <HLCandleChart marketId={marketId} />
             </div>
 
             {/* Risk / compliance strip — always visible beside the chart */}

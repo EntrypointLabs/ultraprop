@@ -10,11 +10,10 @@ import {
   useState,
 } from "react";
 import { AssetIcon } from "@/components/ui";
-import { useMarkets } from "@/lib/mock/hooks";
+import { useMarketCatalog, useMarkets } from "@/lib/mock/hooks";
 import {
   decimalsFor,
   getMarket,
-  MARKET_CATALOG,
   type Market,
   type MarketId,
 } from "@/lib/mock/markets";
@@ -100,8 +99,8 @@ function sortMarkets(
         return sign * a.symbol.localeCompare(b.symbol);
       case "price":
         return cmpNullable(
-          ticks.get(a.id)?.price ?? null,
-          ticks.get(b.id)?.price ?? null,
+          ticks.get(a.id)?.markPx ?? null,
+          ticks.get(b.id)?.markPx ?? null,
           sign,
         );
       case "change":
@@ -148,7 +147,7 @@ function MarketRow({
   onSelect: () => void;
   onToggleFavorite: () => void;
 }) {
-  const price = tick?.price ?? null;
+  const price = tick?.markPx ?? null;
   const change = tick?.change24h ?? null;
   const up = (change ?? 0) >= 0;
 
@@ -214,7 +213,9 @@ function MarketRow({
           price == null ? "text-text-faint" : "text-text",
         )}
       >
-        {formatUsdOrDash(price, { decimals: decimalsFor(market) })}
+        {formatUsdOrDash(price, {
+          decimals: decimalsFor(market, price ?? undefined),
+        })}
       </span>
 
       {/* 24h change — sign carries direction, neutral tone when unknown */}
@@ -260,6 +261,9 @@ export function MarketSelector({
   const active = getMarket(marketId);
   const { favorites, toggle } = useFavorites();
 
+  // The full live HL universe (seeds with BTC/ETH/SOL until it loads).
+  const catalog = useMarketCatalog();
+
   // One read of all live ticks; rows take their tick from this map.
   const allTicks = useMarkets();
   const tickMap = useMemo<TickMap>(() => {
@@ -286,7 +290,7 @@ export function MarketSelector({
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const base = MARKET_CATALOG.filter((m) => {
+    const base = catalog.filter((m) => {
       if (filter === "favorites" && !favorites.has(m.id)) return false;
       if (q === "") return true;
       return (
@@ -296,7 +300,7 @@ export function MarketSelector({
     // pin favorites only in the unfiltered "all" view with no active query
     const pin = filter === "all" && q === "";
     return sortMarkets(base, sort, tickMap, favorites, pin);
-  }, [query, filter, sort, favorites, tickMap]);
+  }, [catalog, query, filter, sort, favorites, tickMap]);
 
   // Keep the highlight on the active market (or top) as the list changes.
   useEffect(() => {
@@ -402,7 +406,7 @@ export function MarketSelector({
               aria-activedescendant={activeOptionId}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search markets — use ↑ ↓ to navigate"
+              placeholder="Search markets · use ↑ ↓ to navigate"
               aria-label="Search markets"
               className="w-full bg-transparent text-sm text-text placeholder:text-text-faint outline-none! focus-visible:outline-none!"
             />

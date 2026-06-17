@@ -35,7 +35,7 @@ const FAILED_TRIGGER_TRADE: TradeRecord = {
   oracleMid: 3_488.4,
   fill: 3_487.7,
   slippageBps: 0,
-  tiltBps: 2,
+  feeUsd: 1.57,
   realizedPnl: -520.0,
   ts: SEED_NOW - 2 * 60_000,
   txDigest: "7Bz9kR4Nm2Tz6Lv1Cx8Ws3Hj5Af0Ed4Yk7Nc9Pr2Qx",

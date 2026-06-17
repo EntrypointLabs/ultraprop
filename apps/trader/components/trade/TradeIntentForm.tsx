@@ -22,14 +22,18 @@ import {
 import {
   useConnection,
   useDivergenceHalt,
+  useMarketCatalog,
   usePrice,
   useSession,
   useVault,
 } from "@/lib/mock/hooks";
 import { DEFAULT_MARKET_ID, MARKET_IDS } from "@/lib/mock/markets";
 import type { MarketId, Side, VaultState } from "@/lib/mock/types";
-import { slippagePreview, TILT_BPS } from "@/lib/slippage-preview";
+import { liquidationPrice } from "@/lib/sim/engine";
+import { HL_TAKER_BPS, slippagePreview } from "@/lib/slippage-preview";
 import { cn, formatNum, formatUsd, formatUsdOrDash } from "@/lib/utils";
+
+type MarginMode = "isolated" | "cross";
 
 /* -------------------------------------------------------------------------- */
 /* Local types                                                                  */
@@ -45,6 +49,8 @@ interface TradeIntentFormProps {
     symbol: MarketId;
     side: Side;
     sizeUsd: number;
+    marginMode: MarginMode;
+    leverage: number;
   }) => void;
 }
 
@@ -75,7 +81,7 @@ function SymbolTab({
   onClick: () => void;
 }) {
   const tick = usePrice(symbol);
-  const price = tick?.price ?? null;
+  const price = tick?.markPx ?? null;
   const change = tick?.change24h ?? null;
   const up = (change ?? 0) >= 0;
 
@@ -153,6 +159,112 @@ function SideToggle({
 }
 
 /* -------------------------------------------------------------------------- */
+/* Margin mode: Cross / Isolated                                                */
+/* -------------------------------------------------------------------------- */
+
+function MarginModeToggle({
+  value,
+  onValueChange,
+  forcedIsolated,
+}: {
+  value: MarginMode;
+  onValueChange: (v: MarginMode) => void;
+  forcedIsolated: boolean;
+}) {
+  const modes: MarginMode[] = ["cross", "isolated"];
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <CardLabel>Margin mode</CardLabel>
+        {forcedIsolated && (
+          <span className="text-xs text-text-faint">Isolated only</span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 rounded-[var(--radius)] border border-border bg-surface p-1">
+        {modes.map((mode) => {
+          const active = value === mode;
+          const disabled = forcedIsolated && mode === "cross";
+          return (
+            <button
+              key={mode}
+              type="button"
+              aria-pressed={active}
+              disabled={disabled}
+              onClick={() => onValueChange(mode)}
+              className={cn(
+                "rounded-[var(--radius-sm)] py-1.5 text-xs font-semibold capitalize transition-colors",
+                active
+                  ? "bg-surface-3 text-text"
+                  : "text-text-muted hover:bg-surface-2 hover:text-text",
+                disabled &&
+                  "cursor-not-allowed opacity-40 hover:bg-transparent",
+              )}
+            >
+              {mode}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Leverage selector: slider + stepper bounded to the effective cap            */
+/* -------------------------------------------------------------------------- */
+
+function LeverageSelector({
+  value,
+  cap,
+  onValueChange,
+}: {
+  value: number;
+  cap: number;
+  onValueChange: (v: number) => void;
+}) {
+  const clamp = (n: number) => Math.max(1, Math.min(cap, Math.round(n)));
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <CardLabel>Leverage</CardLabel>
+        <span className="tabular text-xs text-text-faint">Max {cap}×</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          aria-label="Decrease leverage"
+          onClick={() => onValueChange(clamp(value - 1))}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-border text-text-muted transition-colors hover:border-border-soft hover:text-text"
+        >
+          −
+        </button>
+        <input
+          type="range"
+          min={1}
+          max={cap}
+          step={1}
+          value={value}
+          onChange={(e) => onValueChange(clamp(Number(e.target.value)))}
+          aria-label="Leverage"
+          className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-surface-3 accent-brand"
+        />
+        <button
+          type="button"
+          aria-label="Increase leverage"
+          onClick={() => onValueChange(clamp(value + 1))}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-border text-text-muted transition-colors hover:border-border-soft hover:text-text"
+        >
+          +
+        </button>
+        <span className="tabular w-10 shrink-0 text-right text-sm font-bold text-text">
+          {value}×
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Slippage breakdown row                                                       */
 /* -------------------------------------------------------------------------- */
 
@@ -204,11 +316,12 @@ function PriceTooltipContent({
   symbol: MarketId;
   price: number;
 }) {
+  const ticker = symbol.includes(":") ? (symbol.split(":")[1] ?? symbol) : symbol;
   return (
     <div className="flex flex-col gap-1.5 p-1">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-text">
         <Activity className="h-3 w-3 text-brand" />
-        Market price · {symbol}/USD
+        Market price · {ticker}/USD
       </div>
       <div className="flex flex-col gap-0.5">
         <div className="flex justify-between gap-6 text-xs">
@@ -218,8 +331,8 @@ function PriceTooltipContent({
           </span>
         </div>
         <div className="flex justify-between gap-6 text-xs">
-          <span className="text-text-muted">Desk spread</span>
-          <span className="tabular text-warn">+{TILT_BPS} bps</span>
+          <span className="text-text-muted">Taker fee</span>
+          <span className="tabular text-warn">{HL_TAKER_BPS} bps</span>
         </div>
       </div>
     </div>
@@ -243,6 +356,7 @@ function ConfirmationFlash({
   sizeUsd: number;
   onDismiss: () => void;
 }) {
+  const ticker = symbol.includes(":") ? (symbol.split(":")[1] ?? symbol) : symbol;
   React.useEffect(() => {
     const t = setTimeout(onDismiss, 4500);
     return () => clearTimeout(t);
@@ -262,7 +376,7 @@ function ConfirmationFlash({
           >
             {side === "long" ? "Long" : "Short"}
           </span>{" "}
-          {symbol} ·{" "}
+          {ticker} ·{" "}
           <span className="tabular">{formatUsd(sizeUsd, { decimals: 0 })}</span>{" "}
           at <span className="tabular">{formatUsd(fill, { decimals: 2 })}</span>
         </p>
@@ -301,7 +415,7 @@ function RateLimitBanner({ until }: { until: number }) {
     <div className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-warn/30 bg-warn/10 px-3 py-2">
       <Clock className="h-3.5 w-3.5 shrink-0 text-warn" />
       <span className="text-xs text-warn">
-        Rate limit — next order in{" "}
+        Rate limit · next order in{" "}
         <span className="tabular font-semibold">{secs}s</span>
       </span>
     </div>
@@ -351,6 +465,8 @@ export function TradeIntentForm({
     : setSymbolInternal;
 
   const [side, setSide] = React.useState<Side>("long");
+  const [marginMode, setMarginMode] = React.useState<MarginMode>("cross");
+  const [leverage, setLeverage] = React.useState(1);
   const [rawSize, setRawSize] = React.useState("1000");
   const [submitState, setSubmitState] = React.useState<SubmitState>({
     phase: "idle",
@@ -359,13 +475,81 @@ export function TradeIntentForm({
   const [priceInfoOpen, setPriceInfoOpen] = React.useState(false);
 
   const tick = usePrice(symbol);
-  const marketMid = tick?.price ?? null;
+  // Fill path: entry/exit prices off mid (mid ± slippage), never mark.
+  const marketMid = tick?.midPx ?? null;
+
+  // Effective usable leverage = min(per-market venue cap, tier flat cap). Falls
+  // to the market cap when a low-leverage perp's max sits BELOW the tier cap.
+  const catalog = useMarketCatalog();
+  const market = React.useMemo(
+    () => catalog.find((m) => m.id === symbol || m.symbol === symbol),
+    [catalog, symbol],
+  );
+  const effectiveLeverageCap = Math.min(
+    market?.maxLeverage ?? vault.tier.leverage,
+    vault.tier.leverage,
+  );
+  const forcedIsolated = market?.onlyIsolated ?? false;
+  // The selected leverage/mode kept inside the venue/tier bounds as the market
+  // changes — clamp on overshoot, force isolated where the market requires it.
+  React.useEffect(() => {
+    setLeverage((lev) => Math.max(1, Math.min(effectiveLeverageCap, lev)));
+  }, [effectiveLeverageCap]);
+  React.useEffect(() => {
+    if (forcedIsolated) setMarginMode("isolated");
+  }, [forcedIsolated]);
+  const effectiveLeverage = Math.max(
+    1,
+    Math.min(effectiveLeverageCap, leverage),
+  );
+  const effectiveMode: MarginMode = forcedIsolated ? "isolated" : marginMode;
 
   const sizeUsd = parseFloat(rawSize) || 0;
+  // USD-notional order → implied leverage against the tier's shadow allocation.
+  const impliedLeverage =
+    vault.tier.shadowAllocation > 0 ? sizeUsd / vault.tier.shadowAllocation : 0;
+  const isOverLeverageCap = impliedLeverage > effectiveLeverageCap;
   const preview = React.useMemo(() => {
     if (sizeUsd <= 0 || marketMid == null || marketMid <= 0) return null;
-    return slippagePreview({ marketId: symbol, side, sizeUsd, oracleMid: marketMid });
+    return slippagePreview({
+      marketId: symbol,
+      side,
+      sizeUsd,
+      oracleMid: marketMid,
+    });
   }, [symbol, side, sizeUsd, marketMid]);
+
+  // Funding disclosure: positive rate ⇒ longs pay shorts.
+  const fundingRate = tick?.fundingRate ?? null;
+  const fundingPayer =
+    fundingRate == null ? null : fundingRate >= 0 ? "longs pay" : "shorts pay";
+
+  // Estimated liquidation off the fill, for the selected mode + leverage. Cross
+  // availability is the account equity; isolated is the allocated initial margin.
+  const estLiquidation = React.useMemo(() => {
+    if (!preview || sizeUsd <= 0 || !market) return null;
+    const maxLev = market.maxLeverage;
+    const maint = sizeUsd * (1 / (2 * maxLev));
+    const isolatedMargin = sizeUsd / effectiveLeverage;
+    return liquidationPrice({
+      entryPrice: preview.fill,
+      sizeUsd,
+      side,
+      maxLeverage: maxLev,
+      marginMode: effectiveMode,
+      isolatedMargin,
+      accountValue: vault.equity,
+      maintMarginRequired: maint,
+    });
+  }, [
+    preview,
+    sizeUsd,
+    market,
+    side,
+    effectiveMode,
+    effectiveLeverage,
+    vault.equity,
+  ]);
 
   /* ------------------------------------------------------------------ */
   /* Disable conditions                                                   */
@@ -392,6 +576,8 @@ export function TradeIntentForm({
     disabledReason = "Waiting for a live oracle price…";
   else if (isVaultPaused) disabledReason = `Evaluation is ${vault.status}`;
   else if (isSizeInvalid) disabledReason = "Enter a position size";
+  else if (isOverLeverageCap)
+    disabledReason = `Leverage exceeds ${effectiveLeverageCap}× cap for ${market?.symbol ?? symbol}`;
   else if (isRateLimited) disabledReason = null;
 
   const canSubmit =
@@ -400,6 +586,7 @@ export function TradeIntentForm({
     !isPriceUnavailable &&
     !isVaultPaused &&
     !isSizeInvalid &&
+    !isOverLeverageCap &&
     !isRateLimited &&
     !isSubmitting;
 
@@ -408,17 +595,21 @@ export function TradeIntentForm({
   /* ------------------------------------------------------------------ */
 
   const handleSubmit = React.useCallback(() => {
-    if (!canSubmit || !preview) return;
+    if (!canSubmit || !preview || isOverLeverageCap) return;
     const capturedSymbol = symbol;
     const capturedSide = side;
     const capturedFill = preview.fill;
     const capturedSize = sizeUsd;
+    const capturedMode = effectiveMode;
+    const capturedLeverage = effectiveLeverage;
     setSubmitState({ phase: "submitting" });
     setTimeout(() => {
       onSubmitOrder?.({
         symbol: capturedSymbol,
         side: capturedSide,
         sizeUsd: capturedSize,
+        marginMode: capturedMode,
+        leverage: capturedLeverage,
       });
       setSubmitState({
         phase: "confirmed",
@@ -431,13 +622,27 @@ export function TradeIntentForm({
       setLastSubmitAt(Date.now());
       setRawSize("1000");
     }, 650);
-  }, [canSubmit, preview, symbol, side, sizeUsd, onSubmitOrder]);
+  }, [
+    canSubmit,
+    preview,
+    isOverLeverageCap,
+    symbol,
+    side,
+    sizeUsd,
+    effectiveMode,
+    effectiveLeverage,
+    onSubmitOrder,
+  ]);
 
   const dismissConfirmation = React.useCallback(() => {
     setSubmitState({ phase: "idle" });
   }, []);
 
-  const leverageLabel = `${vault.tier.leverage}×`;
+  // The selected leverage, shown against the real usable cap (per-market venue
+  // cap clamped to the tier cap) — so a low-leverage perp shows its lower ceiling.
+  const leverageLabel = `${effectiveLeverage}×`;
+  // Strip the "venue:" prefix so UI labels show "BTC" not "hyperliquid:BTC".
+  const displaySymbol = market?.symbol ?? (symbol.includes(":") ? symbol.split(":")[1]! : symbol);
 
   /* ------------------------------------------------------------------ */
   /* Render                                                               */
@@ -478,6 +683,18 @@ export function TradeIntentForm({
 
         {/* Side toggle */}
         <SideToggle value={side} onValueChange={setSide} />
+
+        {/* Margin mode + leverage */}
+        <MarginModeToggle
+          value={effectiveMode}
+          onValueChange={setMarginMode}
+          forcedIsolated={forcedIsolated}
+        />
+        <LeverageSelector
+          value={effectiveLeverage}
+          cap={effectiveLeverageCap}
+          onValueChange={setLeverage}
+        />
 
         {/* Size input */}
         <div>
@@ -577,14 +794,46 @@ export function TradeIntentForm({
               <SlippageRow
                 label={
                   <span className="flex items-center gap-1 text-warn">
-                    Desk spread
-                    <Tooltip content="A fixed +2 bps spread charged on every trade, always against the trader. Applied on top of size impact.">
+                    Est. fee (taker)
+                    <Tooltip content="Hyperliquid taker fee charged on the fill notional. A round trip pays this twice.">
                       <Info className="h-3 w-3" />
                     </Tooltip>
                   </span>
                 }
-                value={`+${TILT_BPS} bps`}
+                value={`−${formatUsd(preview.feeUsd, { decimals: 2 })}`}
                 warn
+              />
+              <SlippageRow
+                label={
+                  <span className="flex items-center gap-1">
+                    Funding
+                    <Tooltip content="Current per-interval funding rate. Positive rate ⇒ longs pay shorts; negative ⇒ shorts pay longs. Charged on the oracle-price notional at each settlement.">
+                      <Info className="h-3 w-3" />
+                    </Tooltip>
+                  </span>
+                }
+                value={
+                  fundingRate == null
+                    ? "—"
+                    : `${(fundingRate * 100).toFixed(4)}% · ${fundingPayer}`
+                }
+                muted
+              />
+              <SlippageRow
+                label={
+                  <span className="flex items-center gap-1">
+                    Est. liquidation
+                    <Tooltip content="Estimated liquidation price off mark for the selected margin mode and leverage. Cross uses account equity; isolated uses the position's allocated margin.">
+                      <Info className="h-3 w-3" />
+                    </Tooltip>
+                  </span>
+                }
+                value={
+                  estLiquidation == null || estLiquidation <= 0
+                    ? "—"
+                    : formatUsd(estLiquidation, { decimals: 2 })
+                }
+                muted
               />
 
               <div className="my-1.5 border-t border-border-soft" />
@@ -623,9 +872,9 @@ export function TradeIntentForm({
                 <span className="text-xs text-text-faint">
                   Fill is{" "}
                   <span className="tabular font-medium text-warn">
-                    {formatNum(preview.slippageBps + TILT_BPS, 2)} bps
+                    {formatNum(preview.slippageBps, 2)} bps
                   </span>{" "}
-                  worse than market price
+                  worse than market price, before the taker fee
                 </span>
               </div>
             </div>
@@ -668,7 +917,7 @@ export function TradeIntentForm({
           ) : side === "long" ? (
             <span className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Long {symbol}
+              Long {displaySymbol}
               {preview && (
                 <span className="tabular opacity-80">
                   @{" "}
@@ -681,7 +930,7 @@ export function TradeIntentForm({
           ) : (
             <span className="flex items-center gap-2">
               <TrendingDown className="h-4 w-4" />
-              Short {symbol}
+              Short {displaySymbol}
               {preview && (
                 <span className="tabular opacity-80">
                   @{" "}
@@ -709,14 +958,14 @@ export function TradeIntentForm({
           <div className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-brand" />
             <p className="text-sm font-semibold text-text">
-              Market price · {symbol}/USD
+              Market price · {displaySymbol}/USD
             </p>
           </div>
           <p className="text-sm text-text-muted">
             All fills are computed from live market prices at the moment you
-            submit. Your fill = market price + size impact + a fixed desk
-            spread. The desk spread is always against the trader — there are no
-            hidden markups beyond what is shown here.
+            submit. Your fill = market price + size impact, and the Hyperliquid
+            taker fee is charged separately on the fill notional, disclosed
+            before you submit, with no hidden markups.
           </p>
           <div className="rounded-[var(--radius)] border border-border bg-surface-2 p-3">
             <div className="grid grid-cols-2 gap-y-2 text-xs">
@@ -728,17 +977,17 @@ export function TradeIntentForm({
               <span className="tabular text-text-muted">
                 proportional to order size
               </span>
-              <span className="text-text-muted">Desk spread</span>
+              <span className="text-text-muted">Taker fee</span>
               <span className="tabular text-warn">
-                +{TILT_BPS} bps (always against trader)
+                {HL_TAKER_BPS} bps on fill notional
               </span>
             </div>
           </div>
           <div className="rounded-sm border border-border-soft bg-surface px-3 py-2">
             <p className="text-xs text-text-faint">
               For long orders your fill is above market price; for short orders
-              it is below. The +{TILT_BPS} bps desk spread is always disclosed
-              before you submit so there are no surprises.
+              it is below. The {HL_TAKER_BPS} bps taker fee is charged on entry
+              and again on exit, so a round trip pays it twice.
             </p>
           </div>
         </div>

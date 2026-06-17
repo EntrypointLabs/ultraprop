@@ -104,9 +104,9 @@ function TriggerTradeRow({ trade }: { trade: TradeRecord }) {
         <span className="tabular text-xs text-text-muted">
           {trade.slippageBps} bps
         </span>
-        <span className="text-xs text-text-faint">+ house tilt</span>
+        <span className="text-xs text-text-faint">+ taker fee</span>
         <span className="tabular text-xs text-text-muted">
-          +{trade.tiltBps} bps
+          {formatUsd(trade.feeUsd, { decimals: 2 })}
         </span>
         <a
           href={`https://suiexplorer.com/txblock/${trade.txDigest}?network=mainnet`}

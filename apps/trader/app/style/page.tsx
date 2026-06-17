@@ -275,8 +275,10 @@ function Primitives() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-text-muted">House tilt</span>
-              <span className="tabular text-down">+{preview.tiltBps} bps</span>
+              <span className="text-text-muted">Taker fee</span>
+              <span className="tabular text-down">
+                {formatUsd(preview.feeUsd)}
+              </span>
             </div>
             <div className="flex justify-between border-t border-border-soft pt-1 font-semibold">
               <span>Your fill</span>
@@ -312,7 +314,7 @@ function Primitives() {
                       {p.symbol}
                     </span>
                   </Td>
-                  <Td numeric>{formatUsdOrDash(p.price)}</Td>
+                  <Td numeric>{formatUsdOrDash(p.markPx)}</Td>
                   <Td
                     numeric
                     className={
