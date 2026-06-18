@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { Avatar, Badge } from "@/components/ui";
+import { accountHandle } from "@/lib/identity";
 import type { LeaderboardAxis, LeaderboardEntry } from "@/lib/mock/types";
-import { cn, formatUsd, shortAddress } from "@/lib/utils";
+import { cn, formatUsd } from "@/lib/utils";
 
 interface PodiumStripProps {
   top3: LeaderboardEntry[];
@@ -112,7 +113,7 @@ export function PodiumStrip({ top3, axis }: PodiumStripProps) {
 
               <div className="flex flex-col items-center gap-1 text-center">
                 <span className="max-w-[120px] truncate text-sm font-medium text-text">
-                  {entry.displayName ?? shortAddress(entry.wallet, 4, 4)}
+                  {entry.displayName ?? accountHandle(entry.wallet)}
                 </span>
                 <Badge variant="tier" className="uppercase">
                   {entry.tier}

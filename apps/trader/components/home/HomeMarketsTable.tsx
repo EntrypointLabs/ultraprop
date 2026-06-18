@@ -1,23 +1,21 @@
 "use client";
 
-import { useState } from "react";
 import { MarketsTable } from "@/components/markets/MarketsTable";
 import { Card, CardHeader, CardLabel, ConnectionDot } from "@/components/ui";
+import { useFavorites } from "@/lib/mock/favorites";
 import { useConnection } from "@/lib/mock/hooks";
 import type { MarketId } from "@/lib/mock/types";
 
+/** The home spotlight stays small — the full universe lives on /markets. */
+const SPOTLIGHT_MARKETS: MarketId[] = [
+  "hyperliquid:BTC",
+  "hyperliquid:ETH",
+  "hyperliquid:SOL",
+];
+
 export function HomeMarketsTable() {
   const connStatus = useConnection();
-  const [favorites, setFavorites] = useState<Set<MarketId>>(new Set(["BTC"]));
-
-  function toggleFav(sym: MarketId) {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(sym)) next.delete(sym);
-      else next.add(sym);
-      return next;
-    });
-  }
+  const { favorites, toggleFavorite } = useFavorites();
 
   return (
     <Card>
@@ -25,7 +23,9 @@ export function HomeMarketsTable() {
         <div className="flex items-center gap-2">
           <CardLabel>Live markets</CardLabel>
           <ConnectionDot status={connStatus} showLabel={false} />
-          <span className="text-xs capitalize text-text-muted">{connStatus}</span>
+          <span className="text-xs capitalize text-text-muted">
+            {connStatus}
+          </span>
         </div>
         <span className="text-xs text-text-faint">Bluefin · DeepBook · Hyperliquid perps</span>
       </CardHeader>
@@ -33,7 +33,8 @@ export function HomeMarketsTable() {
         searchQuery=""
         showFavoritesOnly={false}
         favorites={favorites}
-        onToggleFav={toggleFav}
+        onToggleFav={toggleFavorite}
+        marketIds={SPOTLIGHT_MARKETS}
       />
       <div className="flex items-center justify-between border-t border-border-soft px-4 py-2.5 text-xs text-text-faint">
         <span>v1 · Bluefin, DeepBook &amp; Hyperliquid perps</span>

@@ -9,6 +9,7 @@ import {
   CardLabel,
 } from "@/components/ui";
 import type { SbtLevel, SbtState } from "@/lib/mock/types";
+import { suiObjectUrl } from "@/lib/sui/explorer";
 import { formatUsd } from "@/lib/utils";
 
 interface SbtCardProps {
@@ -119,7 +120,16 @@ function SbtBadgeGraphic({ level }: { level: SbtLevel }) {
 }
 
 function SuiObjectLink({ objectId }: { objectId: string }) {
-  const url = `https://suiexplorer.com/object/${objectId}?network=mainnet`;
+  // A real on-chain credential gets a live "Verify" link; a mock/demo object id
+  // (not 0x-hex) is shown as plain text so we never present a dead proof link.
+  const url = suiObjectUrl(objectId);
+  if (!url) {
+    return (
+      <code className="tabular break-all text-xs text-text-faint">
+        {objectId}
+      </code>
+    );
+  }
   return (
     <a
       href={url}

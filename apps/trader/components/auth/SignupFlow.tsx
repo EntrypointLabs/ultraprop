@@ -12,15 +12,11 @@ import {
   AuthShell,
 } from "@/components/auth/AuthShell";
 import { OtpInput } from "@/components/auth/OtpInput";
-import {
-  isPasswordValid,
-  PasswordChecklist,
-} from "@/components/auth/PasswordChecklist";
 import { Button } from "@/components/ui/Button";
 import { authErrorMessage } from "@/lib/auth";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const STEPS = ["email", "password", "verify"] as const;
+const STEPS = ["email", "verify"] as const;
 type Step = (typeof STEPS)[number];
 
 const OTP_LENGTH = 6;
@@ -29,8 +25,8 @@ const ctaClass = "mt-6 h-14 w-full rounded-full text-base";
 
 export function SignupFlow() {
   const router = useRouter();
-  // Privy authenticates by email OTP. The password collected below is for
-  // parity with the expected Kalshi-style flow; Privy itself is passwordless.
+  // Privy authenticates by email OTP — it is passwordless, so signup is email
+  // then code, with no password step.
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: () => router.push("/onboarding"),
   });
@@ -38,7 +34,6 @@ export function SignupFlow() {
   const [step, setStep] = React.useState<Step>("email");
   const [email, setEmail] = React.useState("");
   const [emailError, setEmailError] = React.useState("");
-  const [password, setPassword] = React.useState("");
   const [sendError, setSendError] = React.useState("");
   const [code, setCode] = React.useState("");
   const [codeError, setCodeError] = React.useState("");
@@ -50,7 +45,6 @@ export function SignupFlow() {
 
   const stepIndex = STEPS.indexOf(step);
   const emailValid = EMAIL_RE.test(email.trim());
-  const passwordValid = isPasswordValid(password);
   const codeValid = code.length >= OTP_LENGTH;
 
   React.useEffect(() => {
@@ -63,8 +57,7 @@ export function SignupFlow() {
   }, [cooldown]);
 
   function back() {
-    if (step === "verify") setStep("password");
-    else if (step === "password") setStep("email");
+    if (step === "verify") setStep("email");
     else router.push("/");
   }
 
@@ -74,18 +67,13 @@ export function SignupFlow() {
     );
   }
 
-  function continueFromEmail(e: React.SyntheticEvent) {
+  async function continueFromEmail(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!emailValid) {
       setEmailError("Enter a valid email address.");
       return;
     }
-    setStep("password");
-  }
-
-  async function continueFromPassword(e: React.SyntheticEvent) {
-    e.preventDefault();
-    if (!passwordValid || sending) return;
+    if (sending) return;
     setSending(true);
     setSendError("");
     try {
@@ -158,45 +146,10 @@ export function SignupFlow() {
               onChange={(v) => {
                 setEmail(v);
                 if (emailError) setEmailError("");
+                if (sendError) setSendError("");
               }}
               onBlur={validateEmailOnBlur}
             />
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={!emailValid}
-              className={ctaClass}
-            >
-              Continue
-            </Button>
-            <div className="mt-3">
-              <AuthSecondaryLink href="/login">
-                Already have an account? Log in
-              </AuthSecondaryLink>
-            </div>
-            <AuthLegal />
-          </form>
-        )}
-
-        {step === "password" && (
-          <form onSubmit={continueFromPassword} noValidate>
-            <AuthHeading
-              title="Create a password"
-              subtitle="Keep it strong. We'll email you a code to confirm it's you."
-            />
-            <AuthField
-              id="signup-password"
-              label="Password"
-              autoComplete="new-password"
-              autoFocus
-              reveal
-              value={password}
-              onChange={(v) => {
-                setPassword(v);
-                if (sendError) setSendError("");
-              }}
-            />
-            <PasswordChecklist password={password} className="mt-4" />
             {sendError && (
               <p role="alert" className="mt-3 text-sm text-down">
                 {sendError}
@@ -205,7 +158,7 @@ export function SignupFlow() {
             <Button
               type="submit"
               variant="primary"
-              disabled={!passwordValid || sending}
+              disabled={!emailValid || sending}
               className={ctaClass}
             >
               {sending ? (
@@ -214,6 +167,12 @@ export function SignupFlow() {
                 "Continue"
               )}
             </Button>
+            <div className="mt-3">
+              <AuthSecondaryLink href="/login">
+                Already have an account? Log in
+              </AuthSecondaryLink>
+            </div>
+            <AuthLegal />
           </form>
         )}
 

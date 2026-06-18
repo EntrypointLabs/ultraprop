@@ -2,18 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import {
-  Avatar,
-  Table,
-  Tbody,
-  Td,
-  Th,
-  Thead,
-  Tooltip,
-  Tr,
-} from "@/components/ui";
+import { Avatar, Table, Tbody, Td, Th, Thead, Tr } from "@/components/ui";
+import { accountHandle } from "@/lib/identity";
 import type { LeaderboardAxis, LeaderboardEntry } from "@/lib/mock/types";
-import { cn, formatUsd, shortAddress } from "@/lib/utils";
+import { cn, formatUsd } from "@/lib/utils";
 
 type SortCol = "rank" | "shadowPnl" | "passes" | "consistency";
 
@@ -64,18 +56,36 @@ function TierBadge({ tier }: { tier: string }) {
   );
 }
 
-export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
-  const [sortCol, setSortCol] = useState<SortCol>("rank");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+/** The body column the page-selected axis maps to (tier has no own column → rank). */
+function colForAxis(axis: LeaderboardAxis): SortCol {
+  return axis === "shadowPnl"
+    ? "shadowPnl"
+    : axis === "passes"
+      ? "passes"
+      : axis === "consistency"
+        ? "consistency"
+        : "rank";
+}
 
-  const activeCol: SortCol =
-    axis === "shadowPnl"
-      ? "shadowPnl"
-      : axis === "passes"
-        ? "passes"
-        : axis === "consistency"
-          ? "consistency"
-          : "rank";
+export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
+  const activeCol = colForAxis(axis);
+
+  // Default the body sort to the page-selected axis so the highlighted header
+  // and the body order agree on first paint. The comparator's base `diff` for
+  // every column already orders best-first (rank ascending, value columns
+  // descending by value), so the natural page order is `sortDir: "asc"` across
+  // the board. A manual header click takes over from there.
+  const [sortCol, setSortCol] = useState<SortCol>(activeCol);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [followedAxis, setFollowedAxis] = useState<LeaderboardAxis>(axis);
+
+  // When the page axis changes, re-sync the body sort to the new axis (until the
+  // user clicks a header, which then overrides for the current axis).
+  if (axis !== followedAxis) {
+    setFollowedAxis(axis);
+    setSortCol(activeCol);
+    setSortDir("asc");
+  }
 
   function handleSort(col: SortCol) {
     if (col === sortCol) {
@@ -144,7 +154,6 @@ export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
           >
             Passes
           </Th>
-          <Th numeric>Trades</Th>
           <Th
             numeric
             sortable
@@ -176,16 +185,14 @@ export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
                         {entry.displayName}
                       </span>
                     )}
-                    <Tooltip content={entry.wallet} side="top">
-                      <span
-                        className={cn(
-                          "tabular text-xs text-text-muted",
-                          entry.displayName && "text-text-faint",
-                        )}
-                      >
-                        {shortAddress(entry.wallet, 6, 4)}
-                      </span>
-                    </Tooltip>
+                    <span
+                      className={cn(
+                        "tabular text-xs text-text-muted",
+                        entry.displayName && "text-text-faint",
+                      )}
+                    >
+                      {accountHandle(entry.wallet)}
+                    </span>
                   </div>
                 </Link>
               </Td>
@@ -204,11 +211,6 @@ export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
               </Td>
               <Td numeric>
                 <span className="tabular text-sm">{entry.passes}</span>
-              </Td>
-              <Td numeric>
-                <span className="tabular text-sm text-text-muted">
-                  {entry.passes * 12 + Math.floor(entry.consistency / 5)}
-                </span>
               </Td>
               <Td numeric>
                 <ConsistencyBar value={entry.consistency} />

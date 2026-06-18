@@ -3,8 +3,9 @@
 import { Check, Copy, ExternalLink, Share2 } from "lucide-react";
 import { useState } from "react";
 import { Avatar } from "@/components/ui";
+import { accountHandle } from "@/lib/identity";
 import type { Profile } from "@/lib/mock/types";
-import { shortAddress } from "@/lib/utils";
+import { suiAddressUrl } from "@/lib/sui/explorer";
 
 interface ProfileHeaderProps {
   profile: Profile;
@@ -12,7 +13,10 @@ interface ProfileHeaderProps {
 }
 
 function SuiExplorerLink({ address }: { address: string }) {
-  const url = `https://suiexplorer.com/address/${address}?network=mainnet`;
+  // Only present a "Verify" link for a REAL Sui address — a mock/demo wallet
+  // returns null and renders nothing, so we never show a dead proof link.
+  const url = suiAddressUrl(address);
+  if (!url) return null;
   return (
     <a
       href={url}
@@ -69,7 +73,7 @@ export function ProfileHeader({ profile, wallet }: ProfileHeaderProps) {
           )}
           <div className="flex flex-wrap items-center gap-2 mt-0.5">
             <span className="tabular text-sm text-text-muted font-mono">
-              {shortAddress(wallet, 8, 6)}
+              {accountHandle(wallet)}
             </span>
             <button
               type="button"

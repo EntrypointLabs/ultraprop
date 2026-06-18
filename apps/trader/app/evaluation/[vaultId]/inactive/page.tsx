@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { use } from "react";
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/components/ui";
 import { useEquityCurve, useSession, useVault } from "@/lib/mock/hooks";
 import type { VaultState } from "@/lib/mock/types";
+import { usePaperEngine } from "@/lib/sim/usePaperEngine";
 import { formatPct, formatUsd } from "@/lib/utils";
 
 /** Derives days idle from inactiveAt and a fixed 7-day window. */
@@ -26,9 +28,19 @@ function daysIdle(vault: VaultState): number {
 }
 
 function InactiveContent({ vaultId }: { vaultId: string }) {
+  const router = useRouter();
   const vault = useVault(vaultId);
   const equityCurve = useEquityCurve(vaultId);
   const { session } = useSession();
+  const { resume } = usePaperEngine(vaultId, vault.tier);
+
+  // Resume reactivates the paused eval, then returns to its cockpit. The cockpit
+  // routes terminal states itself, so a vault that re-activates lands on the
+  // live cockpit and a still-terminal one bounces straight back.
+  function handleResume() {
+    resume();
+    router.replace(`/evaluation/${vaultId}`);
+  }
 
   const equitySpark = React.useMemo(
     () => equityCurve.map((p) => p.equity),
@@ -161,8 +173,8 @@ function InactiveContent({ vaultId }: { vaultId: string }) {
         <CardContent className="space-y-3">
           <p className="text-sm text-text-muted">
             Open a new evaluation for the same tier and pick up from where your
-            trading discipline left off. Your previous stats and credential level are
-            unchanged.
+            trading discipline left off. Your previous stats and credential
+            level are unchanged.
           </p>
 
           <ul className="space-y-2 text-sm text-text-muted">
@@ -198,11 +210,14 @@ function InactiveContent({ vaultId }: { vaultId: string }) {
 
       {/* CTAs */}
       <div className="flex flex-col sm:flex-row items-stretch gap-3">
-        <Link href="/start" className="flex-1">
-          <Button variant="brand" size="lg" className="w-full">
-            Resume trading — {vault.tier.name}
-          </Button>
-        </Link>
+        <Button
+          variant="brand"
+          size="lg"
+          className="flex-1"
+          onClick={handleResume}
+        >
+          Resume trading — {vault.tier.name}
+        </Button>
         <Link href="/leaderboard" className="flex-1 sm:flex-none">
           <Button variant="outline" size="lg" className="w-full">
             Leaderboard

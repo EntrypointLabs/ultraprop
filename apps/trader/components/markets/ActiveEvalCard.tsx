@@ -13,10 +13,26 @@ import {
 } from "@/components/ui";
 import { DEMO_VAULT_ID } from "@/lib/mock/fixtures";
 import { useVault } from "@/lib/mock/hooks";
+import { toVaultState, useSimStore } from "@/lib/sim/store";
 import { cn, formatPct, formatUsd } from "@/lib/utils";
 
-export function ActiveEvalCard() {
-  const vault = useVault(DEMO_VAULT_ID);
+interface ActiveEvalCardProps {
+  /** The vault to resume — the signed-in user's per-user vault, or the demo vault. */
+  vaultId?: string;
+}
+
+export function ActiveEvalCard({ vaultId }: ActiveEvalCardProps = {}) {
+  const resolvedId = vaultId ?? DEMO_VAULT_ID;
+  // The demo vault is seeded in the RQ cache, so read it via `useVault`. A signed-in
+  // user's per-user vault lives in the persisted sim store and may not be mirrored
+  // into RQ on a page where the cockpit isn't mounted (the home screen) — read it
+  // straight from the store so "Resume" shows that vault's real equity/return.
+  const demoVault = useVault(DEMO_VAULT_ID);
+  const simVault = useSimStore((s) => s.vaults[resolvedId]);
+  const vault =
+    resolvedId === DEMO_VAULT_ID || !simVault
+      ? demoVault
+      : toVaultState(simVault);
   const tier = vault.tier;
 
   const returnUsd = vault.equity - vault.startingEquity;
@@ -37,7 +53,7 @@ export function ActiveEvalCard() {
           <Badge variant="leverage">{tier.leverage}X</Badge>
           <span className="text-xs text-text-muted">Active evaluation</span>
         </div>
-        <Link href={`/evaluation/${vault.vaultId}`}>
+        <Link href={`/evaluation/${vaultId ?? DEMO_VAULT_ID}`}>
           <Button variant="primary" size="sm" className="gap-1.5 shrink-0">
             Resume
             <ArrowRight className="h-3.5 w-3.5" />

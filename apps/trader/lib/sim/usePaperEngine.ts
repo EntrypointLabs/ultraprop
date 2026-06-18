@@ -4,10 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 import { DEMO_WALLET, INITIAL_PRICES, TIERS } from "@/lib/mock/fixtures";
 import { usePrices, useSession } from "@/lib/mock/hooks";
-import type { PriceTick } from "@/lib/mock/types";
+import type { PriceTick, Tier } from "@/lib/mock/types";
 import { type OrderIntent, toVaultState, useSimStore } from "./store";
-
-const DEFAULT_TIER = TIERS[0]; // Starter — the single demo evaluation's tier
 
 /**
  * The paper-trading controller and the SINGLE writer of the evaluation caches.
@@ -17,11 +15,32 @@ const DEFAULT_TIER = TIERS[0]; // Starter — the single demo evaluation's tier
  * (`["vault"|"positions"|"trades"|"equity", vaultId]`). A real engine/indexer
  * can later replace this writer without touching a single component.
  *
+ * `tier` is the tier the evaluation opens AT on first creation (carried from the
+ * onboarding tier picker) — it's ignored for an already-open vault, since
+ * `startEvaluation` never resets a live eval.
+ *
  * Mount it once where the cockpit lives; it returns the order actions.
  */
-export function usePaperEngine(vaultId: string): {
+export function usePaperEngine(
+  vaultId: string,
+  tier: Tier = TIERS[0],
+): {
   submitOrder: (intent: OrderIntent) => void;
-  closePosition: (positionId: string) => void;
+  /** Close a position; pass `closeUsd` for a partial close, omit for a full one. */
+  closePosition: (positionId: string, closeUsd?: number) => void;
+  /** Arm/edit a position's TP/SL bracket; `null` clears a leg, omit to leave it. */
+  setBracket: (
+    positionId: string,
+    bracket: {
+      takeProfit?: number | null;
+      stopLoss?: number | null;
+      expiresAt?: number | null;
+    },
+  ) => void;
+  /** Cancel a position's bracket — one leg, or both when `leg` is omitted. */
+  cancelBracket: (positionId: string, leg?: "tp" | "sl") => void;
+  pause: () => void;
+  resume: () => void;
 } {
   const qc = useQueryClient();
   const prices = usePrices(); // re-renders this hook every price tick
@@ -42,10 +61,10 @@ export function usePaperEngine(vaultId: string): {
   useEffect(() => {
     if (!hydrated) return;
     const store = useSimStore.getState();
-    store.startEvaluation(vaultId, DEFAULT_TIER, owner, Date.now());
+    store.startEvaluation(vaultId, tier, owner, Date.now());
     store.tick(vaultId, prices, Date.now());
     sync();
-  }, [hydrated, prices, vaultId, owner, sync]);
+  }, [hydrated, prices, vaultId, owner, tier, sync]);
 
   const livePrices = useCallback(
     () => qc.getQueryData<PriceTick[]>(["prices"]) ?? INITIAL_PRICES,
@@ -63,14 +82,54 @@ export function usePaperEngine(vaultId: string): {
   );
 
   const closePosition = useCallback(
-    (positionId: string) => {
+    (positionId: string, closeUsd?: number) => {
       useSimStore
         .getState()
-        .closePosition(vaultId, positionId, livePrices(), Date.now());
+        .closePosition(vaultId, positionId, livePrices(), Date.now(), closeUsd);
       sync();
     },
     [vaultId, livePrices, sync],
   );
 
-  return { submitOrder, closePosition };
+  const setBracket = useCallback(
+    (
+      positionId: string,
+      bracket: {
+        takeProfit?: number | null;
+        stopLoss?: number | null;
+        expiresAt?: number | null;
+      },
+    ) => {
+      useSimStore.getState().setBracket(vaultId, positionId, bracket);
+      sync();
+    },
+    [vaultId, sync],
+  );
+
+  const cancelBracket = useCallback(
+    (positionId: string, leg?: "tp" | "sl") => {
+      useSimStore.getState().cancelBracket(vaultId, positionId, leg);
+      sync();
+    },
+    [vaultId, sync],
+  );
+
+  const pause = useCallback(() => {
+    useSimStore.getState().pauseEvaluation(vaultId, Date.now());
+    sync();
+  }, [vaultId, sync]);
+
+  const resume = useCallback(() => {
+    useSimStore.getState().resumeEvaluation(vaultId, Date.now());
+    sync();
+  }, [vaultId, sync]);
+
+  return {
+    submitOrder,
+    closePosition,
+    setBracket,
+    cancelBracket,
+    pause,
+    resume,
+  };
 }

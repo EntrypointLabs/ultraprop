@@ -8,7 +8,7 @@ import {
   Thead,
   Tr,
 } from "@/components/ui";
-import { shortAddress } from "@/lib/utils";
+import { accountHandle } from "@/lib/identity";
 
 interface DayRow {
   date: string;
@@ -116,7 +116,7 @@ export function DailyScores() {
                         {row.trader}
                       </div>
                       <div className="tabular text-xs text-text-faint">
-                        {shortAddress(row.wallet, 6, 4)}
+                        {accountHandle(row.wallet)}
                       </div>
                     </div>
                   </div>

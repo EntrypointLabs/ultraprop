@@ -29,8 +29,8 @@ export function LoginFlow() {
   // first-time traders and passes returning ones straight to the app.
   const afterAuth = () => router.push("/onboarding");
 
-  // Email OTP is the real factor; the password field is collected for parity
-  // with the expected flow. Privy itself is passwordless.
+  // Privy is passwordless: email OTP (or OAuth) is the only factor, so there is
+  // no password field.
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: afterAuth,
   });
@@ -43,7 +43,6 @@ export function LoginFlow() {
   const [phase, setPhase] = React.useState<"form" | "verify">("form");
   const [email, setEmail] = React.useState("");
   const [emailError, setEmailError] = React.useState("");
-  const [password, setPassword] = React.useState("");
   const [formError, setFormError] = React.useState("");
   const [code, setCode] = React.useState("");
   const [codeError, setCodeError] = React.useState("");
@@ -54,7 +53,7 @@ export function LoginFlow() {
   const [submitting, setSubmitting] = React.useState(false);
 
   const emailValid = EMAIL_RE.test(email.trim());
-  const valid = emailValid && password.length > 0;
+  const valid = emailValid;
   const codeValid = code.length >= OTP_LENGTH;
   const oauthBusy = oauthState.status === "loading";
 
@@ -155,55 +154,34 @@ export function LoginFlow() {
                 {formError}
               </p>
             )}
-            <div className="flex flex-col gap-3">
-              <AuthField
-                id="login-email"
-                label="Email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                autoFocus
-                spellCheck={false}
-                value={email}
-                error={emailError}
-                onChange={(v) => {
-                  setEmail(v);
-                  if (emailError) setEmailError("");
-                  if (formError) setFormError("");
-                }}
-                onBlur={() =>
-                  setEmailError(
-                    email.trim() && !emailValid
-                      ? "Enter a valid email address."
-                      : "",
-                  )
-                }
-              />
-              <AuthField
-                id="login-password"
-                label="Password"
-                autoComplete="current-password"
-                reveal
-                value={password}
-                onChange={(v) => {
-                  setPassword(v);
-                  if (formError) setFormError("");
-                }}
-              />
-            </div>
-            <div className="mt-2.5 flex justify-end">
-              <a
-                href="#"
-                className="text-sm text-text-muted underline-offset-2 transition-colors hover:text-text hover:underline"
-              >
-                Forgot password?
-              </a>
-            </div>
+            <AuthField
+              id="login-email"
+              label="Email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoFocus
+              spellCheck={false}
+              value={email}
+              error={emailError}
+              onChange={(v) => {
+                setEmail(v);
+                if (emailError) setEmailError("");
+                if (formError) setFormError("");
+              }}
+              onBlur={() =>
+                setEmailError(
+                  email.trim() && !emailValid
+                    ? "Enter a valid email address."
+                    : "",
+                )
+              }
+            />
             <Button
               type="submit"
               variant="primary"
               disabled={!valid || sending}
-              className="mt-4 h-14 w-full rounded-full text-base"
+              className="mt-6 h-14 w-full rounded-full text-base"
             >
               {sending ? (
                 <Loader2 className="h-5 w-5 animate-spin" aria-hidden />

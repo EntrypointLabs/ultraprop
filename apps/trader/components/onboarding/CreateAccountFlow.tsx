@@ -7,6 +7,7 @@ import * as React from "react";
 import { AuthHeading, AuthShell } from "@/components/auth/AuthShell";
 import { Button } from "@/components/ui/Button";
 import { suiWalletAddress } from "@/lib/auth";
+import { useSuiWalletProvision } from "@/lib/sui/useSuiWalletProvision";
 import {
   useCreateAccount,
   useTradingAccount,
@@ -41,6 +42,7 @@ export function CreateAccountFlow() {
   const suiAddress = suiWalletAddress(user);
   const account = useTradingAccount(suiAddress);
   const create = useCreateAccount();
+  const wallet = useSuiWalletProvision();
 
   React.useEffect(() => {
     if (ready && !authenticated) router.replace("/login");
@@ -60,6 +62,10 @@ export function CreateAccountFlow() {
 
   const provisioning = !suiAddress;
   const busy = create.isPending;
+  // Wallet provisioning has failed and left us without an address — onboarding
+  // can't proceed, so surface the error and let the user re-attempt instead of
+  // sitting on "Preparing your account…" forever.
+  const walletFailed = provisioning && !wallet.pending && wallet.error != null;
 
   async function open() {
     if (!suiAddress || busy) return;
@@ -69,6 +75,14 @@ export function CreateAccountFlow() {
     } catch {
       // Surfaced below via create.error; the button stays available for retry.
     }
+  }
+
+  function onCta() {
+    if (walletFailed) {
+      wallet.retry();
+      return;
+    }
+    void open();
   }
 
   return (
@@ -92,23 +106,30 @@ export function CreateAccountFlow() {
           ))}
         </ul>
 
-        {create.error && (
+        {(walletFailed || create.error) && (
           <p role="alert" className="mt-6 text-sm text-down">
-            {create.error instanceof Error
-              ? create.error.message
-              : "We couldn't open your account. Please try again."}
+            {walletFailed
+              ? (wallet.error ??
+                "We couldn't set up your wallet. Please try again.")
+              : create.error instanceof Error
+                ? create.error.message
+                : "We couldn't open your account. Please try again."}
           </p>
         )}
 
         <Button
           type="button"
           variant="primary"
-          onClick={open}
-          disabled={provisioning || busy}
+          onClick={onCta}
+          // Block only while a step is genuinely in flight; a failed provision
+          // must leave the button live so the user can retry.
+          disabled={busy || (provisioning && !walletFailed)}
           className="mt-8 h-14 w-full rounded-full text-base"
         >
           {busy ? (
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+          ) : walletFailed ? (
+            "Try again"
           ) : create.error ? (
             "Try again"
           ) : (
@@ -121,11 +142,13 @@ export function CreateAccountFlow() {
           aria-live="polite"
           className="mt-3 min-h-5 text-center text-xs text-text-muted"
         >
-          {provisioning
-            ? "Preparing your account…"
-            : busy
-              ? "Opening your account…"
-              : ""}
+          {walletFailed
+            ? ""
+            : provisioning
+              ? "Preparing your account…"
+              : busy
+                ? "Opening your account…"
+                : ""}
         </p>
 
         <p className="mt-4 text-center text-sm">

@@ -42,6 +42,35 @@ function SideBadge({ side }: { side: "long" | "short" }) {
   );
 }
 
+/**
+ * Why a position closed — shown only for an automated exit (TP/SL hit a trigger
+ * or liquidation force-closed it). A manual close (or the opening entry) carries
+ * no marker, so nothing renders for those rows.
+ */
+function CloseReasonBadge({ reason }: { reason: TradeRecord["closedBy"] }) {
+  if (!reason || reason === "manual") return null;
+  const styles: Record<"tp" | "sl" | "liquidation", string> = {
+    tp: "bg-up/15 text-on-up",
+    sl: "bg-down/15 text-on-down",
+    liquidation: "bg-warn/15 text-on-warn",
+  };
+  const labels: Record<"tp" | "sl" | "liquidation", string> = {
+    tp: "TP",
+    sl: "SL",
+    liquidation: "Liq",
+  };
+  return (
+    <span
+      className={[
+        "inline-flex items-center rounded-sm px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide",
+        styles[reason],
+      ].join(" ")}
+    >
+      {labels[reason]}
+    </span>
+  );
+}
+
 function mockCsvExport(trades: TradeRecord[]) {
   const header =
     "id,symbol,side,sizeUsd,marketPrice,fill,slippageBps,feeUsd,realizedPnl,ts";
@@ -146,6 +175,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                 sortable
                 sortDir={sortDir4("ts")}
                 onSort={() => toggleSort("ts")}
+                className="hidden sm:table-cell"
               >
                 Time
               </Th>
@@ -171,7 +201,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Size
               </Th>
-              <Th numeric>Mkt Price</Th>
+              <Th numeric className="hidden sm:table-cell">Mkt Price</Th>
               <Th
                 numeric
                 sortable
@@ -185,17 +215,18 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                 sortable
                 sortDir={sortDir4("slippageBps")}
                 onSort={() => toggleSort("slippageBps")}
+                className="hidden md:table-cell"
               >
                 Impact
               </Th>
-              <Th numeric>Fee</Th>
+              <Th numeric className="hidden md:table-cell">Fee</Th>
               <Th
                 numeric
                 sortable
                 sortDir={sortDir4("realizedPnl")}
                 onSort={() => toggleSort("realizedPnl")}
               >
-                Realized PnL
+                PnL
               </Th>
             </Tr>
           </Thead>
@@ -214,7 +245,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
 
               return (
                 <Tr key={trade.id}>
-                  <Td>
+                  <Td className="hidden sm:table-cell">
                     <span className="tabular text-xs text-text-muted">
                       {timeStr}
                     </span>
@@ -226,10 +257,13 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                     </div>
                   </Td>
                   <Td>
-                    <SideBadge side={trade.side} />
+                    <div className="flex items-center gap-1.5">
+                      <SideBadge side={trade.side} />
+                      <CloseReasonBadge reason={trade.closedBy} />
+                    </div>
                   </Td>
                   <Td numeric>{formatUsd(trade.sizeUsd, { decimals: 0 })}</Td>
-                  <Td numeric>
+                  <Td numeric className="hidden sm:table-cell">
                     <span className="tabular text-text-muted">
                       {trade.oracleMid.toLocaleString("en-US", {
                         minimumFractionDigits: priceDecimals,
@@ -245,14 +279,14 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                       })}
                     </span>
                   </Td>
-                  <Td numeric>
+                  <Td numeric className="hidden md:table-cell">
                     <Tooltip content="Size impact bps at fill">
                       <span className="tabular text-text-muted">
                         {trade.slippageBps.toFixed(1)} bps
                       </span>
                     </Tooltip>
                   </Td>
-                  <Td numeric>
+                  <Td numeric className="hidden md:table-cell">
                     <Tooltip content="Hyperliquid taker fee on the fill notional">
                       <span className="tabular text-warn">
                         {formatUsd(trade.feeUsd, { decimals: 2 })}

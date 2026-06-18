@@ -26,8 +26,9 @@ export function StartEvalHero() {
             Start your evaluation
           </h2>
           <p className="max-w-md text-sm text-text-muted">
-            Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against live market prices. Hit
-            your profit target to pass — every fill is shown pre-submit.
+            Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against
+            live market prices. Hit your profit target to pass — every fill is
+            shown pre-submit.
           </p>
 
           <div className="flex flex-wrap gap-4 pt-1">

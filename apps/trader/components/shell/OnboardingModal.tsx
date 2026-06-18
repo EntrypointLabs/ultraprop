@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { PixelBanner } from "@/components/ui/PixelBanner";
@@ -8,6 +9,7 @@ import { useMockStore } from "@/lib/mock/store";
 const BRAND = "Ultraprop";
 
 export function OnboardingModal() {
+  const router = useRouter();
   const hydrated = useMockStore((s) => s.hydrated);
   const dismissed = useMockStore((s) => s.onboardingDismissed);
   const dismiss = useMockStore((s) => s.dismissOnboarding);
@@ -16,6 +18,11 @@ export function OnboardingModal() {
   const getStarted = () => {
     dismiss();
     openLogin();
+  };
+
+  const learnMore = () => {
+    dismiss();
+    router.push("/start");
   };
 
   // Only show after rehydration so the persisted dismissal is respected and the
@@ -27,7 +34,9 @@ export function OnboardingModal() {
       <PixelBanner height={120} className="mb-5">
         <span className="text-2xl font-bold tracking-tight">GENESIS</span>
       </PixelBanner>
-      <h2 className="text-balance text-xl font-semibold text-text">Welcome to {BRAND}</h2>
+      <h2 className="text-balance text-xl font-semibold text-text">
+        Welcome to {BRAND}
+      </h2>
       <p className="mt-2 text-sm text-text-muted">
         A proprietary trading firm. Trade the full Bluefin, DeepBook &amp;
         Hyperliquid perpetual catalog in simulation against live market prices.
@@ -40,7 +49,7 @@ export function OnboardingModal() {
         <Button variant="primary" onClick={getStarted}>
           Get started
         </Button>
-        <Button variant="ghost" onClick={dismiss}>
+        <Button variant="ghost" onClick={learnMore}>
           Learn more
         </Button>
       </div>

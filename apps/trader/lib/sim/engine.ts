@@ -54,14 +54,20 @@ export function applyFill(
  * The fill price to close a position. Closing a long means selling (short-side
  * fill, below mid); closing a short means buying (long-side fill, above mid).
  * Either way the trader crosses the spread again, so a round trip pays the
- * taker fee twice — a position can be underwater on fees alone.
+ * taker fee twice — a position can be underwater on fees alone. `closeUsd`
+ * defaults to the whole position; a partial close prices slippage off the
+ * smaller closed notional.
  */
-export function closeFill(pos: Position, oracleMid: number): number {
+export function closeFill(
+  pos: Position,
+  oracleMid: number,
+  closeUsd: number = pos.sizeUsd,
+): number {
   const exitSide: Side = pos.side === "long" ? "short" : "long";
   return slippagePreview({
     marketId: pos.symbol,
     side: exitSide,
-    sizeUsd: pos.sizeUsd,
+    sizeUsd: closeUsd,
     oracleMid,
   }).fill;
 }
@@ -191,10 +197,69 @@ export function markPositions(
   });
 }
 
-/** Realized PnL in USD when a position is closed at `exitFill`. */
-export function realizedOnClose(pos: Position, exitFill: number): number {
+/**
+ * Realized PnL in USD when a `closeUsd` slice of a position is closed at
+ * `exitFill`. Defaults to the position's full `sizeUsd` (a whole close); pass a
+ * smaller slice for a partial close. PnL is proportional to the closed notional,
+ * so closing half realizes half the PnL.
+ */
+export function realizedOnClose(
+  pos: Position,
+  exitFill: number,
+  closeUsd: number = pos.sizeUsd,
+): number {
   const pnlPct = ((exitFill - pos.entryPrice) / pos.entryPrice) * dir(pos.side);
-  return round2(pos.sizeUsd * pnlPct);
+  return round2(closeUsd * pnlPct);
+}
+
+/**
+ * Resolve how much of a position to close from a requested close amount, and
+ * the size that remains. The request is clamped to (0, sizeUsd]; a request at
+ * or above the full size closes the whole position (remainder 0). Positions are
+ * INDEPENDENT — this only ever shrinks ONE position's `sizeUsd`; it never nets
+ * or merges across positions.
+ */
+export function resolveCloseSize(
+  pos: Position,
+  closeUsd: number,
+): { closeUsd: number; remainderUsd: number } {
+  const requested = Math.min(Math.max(closeUsd, 0), pos.sizeUsd);
+  const remainder = round2(pos.sizeUsd - requested);
+  return { closeUsd: round2(requested), remainderUsd: remainder };
+}
+
+/** A bracket leg is armed only when its trigger is a finite, positive number. */
+const isArmed = (price: number | null | undefined): price is number =>
+  typeof price === "number" && Number.isFinite(price) && price > 0;
+
+/**
+ * Detect whether a position's take-profit or stop-loss has crossed on MARK
+ * (never mid/last — consistent with PnL and liquidation). Long: TP when
+ * `markPx >= takeProfit`, SL when `markPx <= stopLoss`; short is the inverse.
+ * Only armed legs (finite, positive) are considered. If BOTH would trigger in
+ * one call (a wide gap), the WORSE-for-trader leg (`sl`) wins so a gap-through
+ * is never booked as a profitable exit. Pure: no clocks, no IO — expiry and the
+ * close live in `store.recompute`.
+ */
+export function bracketTrigger(
+  pos: Position,
+  markPx: number,
+): "tp" | "sl" | null {
+  const tpArmed = isArmed(pos.takeProfit);
+  const slArmed = isArmed(pos.stopLoss);
+  const tpHit =
+    tpArmed &&
+    (pos.side === "long"
+      ? markPx >= (pos.takeProfit as number)
+      : markPx <= (pos.takeProfit as number));
+  const slHit =
+    slArmed &&
+    (pos.side === "long"
+      ? markPx <= (pos.stopLoss as number)
+      : markPx >= (pos.stopLoss as number));
+  if (slHit) return "sl";
+  if (tpHit) return "tp";
+  return null;
 }
 
 /** Notional equity = starting + booked realized + open unrealized. */

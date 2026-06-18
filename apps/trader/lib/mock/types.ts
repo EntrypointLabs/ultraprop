@@ -83,6 +83,12 @@ export interface Position {
   liquidationPrice: number | null;
   /** margin ratio = maintenance margin / equity-at-risk; null until computed */
   marginRatio: number | null;
+  /** take-profit trigger price (mark-crossing); null/undefined = no TP leg armed */
+  takeProfit?: number | null;
+  /** stop-loss trigger price (mark-crossing); null/undefined = no SL leg armed */
+  stopLoss?: number | null;
+  /** epoch ms after which an armed bracket is cancelled (not fired); null = never expires */
+  bracketExpiresAt?: number | null;
 }
 
 export interface TradeRecord {
@@ -104,6 +110,10 @@ export interface TradeRecord {
   ts: number;
   /** Sui object/tx digest for "View on Sui Explorer" */
   txDigest: string;
+  /** true when this close was a forced liquidation (mark crossed liq price) */
+  liquidated?: boolean;
+  /** why this position closed; undefined for the entry trade that opened it */
+  closedBy?: "manual" | "tp" | "sl" | "liquidation";
 }
 
 export type RuleKind =

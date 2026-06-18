@@ -1,21 +1,21 @@
 "use client";
 
-import { ChevronDown, Gift, HelpCircle } from "lucide-react";
+import { Gift, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AccountMenu } from "@/components/shell/AccountMenu";
 import { Logo } from "@/components/shell/Logo";
 import { Button } from "@/components/ui/Button";
 import { Identicon } from "@/components/ui/Identicon";
+import { accountHandle } from "@/lib/identity";
 import { useSession } from "@/lib/mock/hooks";
 import { useMockStore } from "@/lib/mock/store";
-import { cn, formatUsd, shortAddress } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/markets", label: "Markets" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/points", label: "Points" },
-  { href: "/docs", label: "Docs" },
 ];
 
 export function TopNav() {
@@ -69,19 +69,6 @@ export function TopNav() {
             <Gift className="h-4 w-4" aria-hidden="true" />
           </Link>
 
-          <button
-            type="button"
-            className="hidden items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface-3 sm:inline-flex"
-          >
-            <span className="tabular">
-              {formatUsd(session.balanceUsd, { decimals: 0 })}
-            </span>
-            <ChevronDown
-              className="h-3.5 w-3.5 text-text-muted"
-              aria-hidden="true"
-            />
-          </button>
-
           {!hydrated ? (
             <div className="h-9 w-24 animate-pulse rounded-[var(--radius)] bg-surface-2" />
           ) : signedIn ? (
@@ -92,7 +79,7 @@ export function TopNav() {
               >
                 <Identicon address={session.address ?? ""} size={18} />
                 <span className="tabular hidden sm:inline">
-                  {shortAddress(session.address ?? "")}
+                  {accountHandle(session.address ?? "")}
                 </span>
               </Link>
               <AccountMenu

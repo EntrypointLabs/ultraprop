@@ -6,7 +6,8 @@ import type {
   ISeriesApi,
   UTCTimestamp,
 } from "lightweight-charts";
-import { useEffect, useRef } from "react";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getChartColors } from "@/lib/chart-colors";
 import { coinOf, getMarket } from "@/lib/mock/markets";
 import type { MarketId } from "@/lib/mock/types";
@@ -14,7 +15,7 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 /** A single OHLCV bar as returned by our /api/candles route. */
-interface Candle {
+export interface Candle {
   t: number;
   T: number;
   open: number;
@@ -51,7 +52,17 @@ export interface HLCandleChartProps {
   /** HL candle interval, e.g. "1h", "4h", "1d" */
   interval?: string;
   className?: string;
+  /**
+   * Fired with the loaded history whenever it (re)loads. The cockpit uses this
+   * to derive the selected market's trailing-24h high/low from data the chart
+   * already fetched — HL's per-coin mark feed carries no 24h range, so reusing
+   * these candles avoids a second per-market request.
+   */
+  onHistory?: (candles: Candle[]) => void;
 }
+
+/** Chart data lifecycle, drives the loading / error / empty overlays. */
+type ChartStatus = "loading" | "ready" | "empty" | "error";
 
 const HISTORY_MS = 7 * 24 * 60 * 60 * 1000;
 /** How often to poll /api/candles for the latest (in-progress) bar. */
@@ -69,16 +80,24 @@ const toCandlestick = (c: Candle): CandlestickData => ({
  * Live candlestick chart fed via OUR `/api/candles` route — the browser never
  * touches Hyperliquid directly (indexer-fronted). Lightweight Charts v5, the
  * same terminal styling as `TVChart`: faint grid, magnet crosshair with axis
- * labels, a faint corner watermark, theme-tracking colors. On mount or market
- * change it loads ~7 days of 1h candles, then POLLS `/api/candles` every few
- * seconds for the latest bar and updates the in-progress bar in place (no
- * browser WebSocket to the venue). SSR-safe — `lightweight-charts` needs the
- * browser, so the cockpit dynamic-imports this with `ssr:false`.
+ * labels, theme-tracking colors. On mount or market change it loads ~7 days of
+ * 1h candles, then POLLS `/api/candles` every few seconds for the latest bar
+ * and updates the in-progress bar in place (no browser WebSocket to the venue).
+ * SSR-safe — `lightweight-charts` needs the browser, so the cockpit
+ * dynamic-imports this with `ssr:false`.
+ *
+ * Sizing is `autoSize: true` ONLY — Lightweight Charts owns its own
+ * ResizeObserver, so a second manual `applyOptions({ width })` observer would
+ * fight it and spam the "turn autoSize off" warning every frame. One strategy.
+ *
+ * When history fails or comes back empty (gateway/HL down), the chart surfaces
+ * an explicit overlay with a retry instead of leaving a silent blank canvas.
  */
 export function HLCandleChart({
   marketId,
   interval = "1h",
   className,
+  onHistory,
 }: HLCandleChartProps) {
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,12 +107,19 @@ export function HLCandleChart({
   const colorsRef = useRef(getChartColors(resolvedTheme));
   colorsRef.current = getChartColors(resolvedTheme);
 
-  // Create the chart once.
+  const [status, setStatus] = useState<ChartStatus>("loading");
+  // Bumping this re-runs the data effect to retry after a failed history load.
+  const [reloadKey, setReloadKey] = useState(0);
+  const retry = useCallback(() => {
+    setStatus("loading");
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  // Create the chart once. autoSize handles resizes natively (no manual RO).
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     let destroyed = false;
-    let ro: ResizeObserver | null = null;
 
     import("lightweight-charts").then(
       ({ createChart, CandlestickSeries, CrosshairMode }) => {
@@ -156,21 +182,11 @@ export function HLCandleChart({
           wickDownColor: c.down,
           borderVisible: false,
         });
-
-        ro = new ResizeObserver(() => {
-          if (containerRef.current && chartRef.current) {
-            chartRef.current.applyOptions({
-              width: containerRef.current.clientWidth,
-            });
-          }
-        });
-        ro.observe(containerRef.current);
       },
     );
 
     return () => {
       destroyed = true;
-      ro?.disconnect();
       chartRef.current?.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -178,9 +194,10 @@ export function HLCandleChart({
   }, []);
 
   // Load history, then poll /api/candles for the latest bar — on mount and
-  // whenever the market or interval changes. The `coin` is the bare HL ticker
-  // (incl. "kPEPE"). No browser WebSocket to the venue: live updates are polled
-  // through our own route so the FE stays indexer-fronted.
+  // whenever the market or interval changes (or a retry). The `coin` is the
+  // bare HL ticker (incl. "kPEPE"). No browser WebSocket to the venue: live
+  // updates are polled through our own route so the FE stays indexer-fronted.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey is intentionally a dep — the retry button bumps it to re-run this effect; it's not read in the body, so Biome reads it as redundant.
   useEffect(() => {
     let cancelled = false;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -223,10 +240,20 @@ export function HLCandleChart({
           now,
         );
         if (cancelled) return;
+        if (candles.length === 0) {
+          setStatus("empty");
+          onHistory?.([]);
+          return;
+        }
         series.setData(candles.map(toCandlestick));
         chartRef.current?.timeScale().fitContent();
+        setStatus("ready");
+        onHistory?.(candles);
       } catch {
-        // history fetch failed — the live poll still backfills as bars arrive
+        // The history fetch failed (gateway/HL down). Surface it instead of
+        // leaving a silent blank canvas; the user can retry.
+        if (!cancelled) setStatus("error");
+        return;
       }
       if (cancelled) return;
 
@@ -239,7 +266,7 @@ export function HLCandleChart({
       cancelled = true;
       if (pollTimer) clearInterval(pollTimer);
     };
-  }, [marketId, interval]);
+  }, [marketId, interval, reloadKey, onHistory]);
 
   // Recolor on theme change without remounting.
   useEffect(() => {
@@ -269,6 +296,7 @@ export function HLCandleChart({
   }, [resolvedTheme]);
 
   const market = getMarket(marketId);
+  const pairLabel = `${market?.symbol ?? marketId} / USD`;
 
   return (
     <div className={cn("relative h-full w-full", className)}>
@@ -276,13 +304,49 @@ export function HLCandleChart({
         aria-hidden
         className="pointer-events-none absolute left-3 top-2 z-10 select-none font-mono text-xs font-semibold uppercase tracking-[0.2em] text-text-faint/50"
       >
-        {market?.symbol ?? marketId} / USD
+        {pairLabel}
       </span>
       <div
         ref={containerRef}
+        role="img"
         className="h-full w-full"
-        aria-label={`${market?.symbol ?? marketId} / USD candlestick chart`}
+        aria-label={`${pairLabel} candlestick chart`}
       />
+
+      {status === "loading" && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 text-text-faint">
+          <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+          <span className="text-xs">Loading {pairLabel} chart…</span>
+        </div>
+      )}
+
+      {(status === "error" || status === "empty") && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-surface/80 text-center backdrop-blur-sm">
+          <AlertTriangle
+            className="h-6 w-6 text-text-faint"
+            aria-hidden="true"
+          />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-text-muted">
+              {status === "empty"
+                ? "No chart data for this market"
+                : "Chart data unavailable"}
+            </p>
+            <p className="text-xs text-text-faint">
+              {status === "empty"
+                ? "The venue returned no candles for this pair."
+                : "Couldn’t reach the market data feed."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={retry}
+            className="rounded-(--radius-sm) border border-border px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text"
+          >
+            Retry
+          </button>
+        </div>
+      )}
     </div>
   );
 }

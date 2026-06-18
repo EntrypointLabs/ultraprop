@@ -10,6 +10,7 @@ import {
   Sparkline,
 } from "@/components/ui";
 import type { VaultStatus, VaultSummary } from "@/lib/mock/types";
+import { suiAddressUrl } from "@/lib/sui/explorer";
 import { formatPct } from "@/lib/utils";
 
 /** Local seeded equity-curve stubs for visual variety without modifying shared mocks. */
@@ -77,7 +78,9 @@ function EvaluationRow({ eval_, index }: EvaluationRowProps) {
   const tone: "up" | "down" | "neutral" =
     eval_.status === "active" ? "neutral" : isPos ? "up" : "down";
 
-  const suiExplorerUrl = `https://suiexplorer.com/address/${eval_.vaultId}?network=mainnet`;
+  // Only a real on-chain vault id gets a live "Verify" link; mock vault ids
+  // (e.g. "vault_starter_001") resolve to null and the link is suppressed.
+  const verifyUrl = suiAddressUrl(eval_.vaultId);
 
   return (
     <div className="flex flex-col gap-3 py-4 border-b border-border-soft last:border-0 sm:flex-row sm:items-center sm:gap-4 -mx-4 px-4 rounded-[var(--radius)] transition-[background-color] duration-150 ease-out hover:bg-surface-2/50">
@@ -148,18 +151,20 @@ function EvaluationRow({ eval_, index }: EvaluationRowProps) {
         )}
       </div>
 
-      {/* Permalink */}
-      <a
-        href={suiExplorerUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-text-faint hover:text-info transition-colors shrink-0"
-        aria-label="Verify ↗"
-        title="Verify ↗"
-      >
-        <ExternalLink size={12} />
-        <span className="hidden sm:inline">Verify ↗</span>
-      </a>
+      {/* Permalink — only when the vault id is a real on-chain object */}
+      {verifyUrl && (
+        <a
+          href={verifyUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-xs text-text-faint hover:text-info transition-colors shrink-0"
+          aria-label="Verify ↗"
+          title="Verify ↗"
+        >
+          <ExternalLink size={12} />
+          <span className="hidden sm:inline">Verify ↗</span>
+        </a>
+      )}
     </div>
   );
 }

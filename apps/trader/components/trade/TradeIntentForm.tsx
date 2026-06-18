@@ -3,7 +3,9 @@
 import {
   Activity,
   AlertTriangle,
+  ArrowLeftRight,
   CheckCircle2,
+  ChevronDown,
   Clock,
   Info,
   TrendingDown,
@@ -42,17 +44,19 @@ type MarginMode = "isolated" | "cross";
 
 interface TradeIntentFormProps {
   vaultId: string;
-  /** When provided the form is controlled — internal asset tab row is hidden. */
   marketId?: MarketId;
   onMarketChange?: (id: MarketId) => void;
-  /** Opens a notional position in the paper-trading engine on confirmed submit. */
   onSubmitOrder?: (intent: {
     symbol: MarketId;
     side: Side;
     sizeUsd: number;
     marginMode: MarginMode;
     leverage: number;
+    takeProfit?: number | null;
+    stopLoss?: number | null;
   }) => void;
+  isGuestAllowed?: boolean;
+  initialSide?: Side;
 }
 
 type SubmitState =
@@ -69,7 +73,15 @@ type SubmitState =
   | { phase: "error"; message: string };
 
 /* -------------------------------------------------------------------------- */
-/* Symbol selector tab button (used only when uncontrolled)                    */
+/* TP/SL preset configurations                                                  */
+/* -------------------------------------------------------------------------- */
+
+const TP_PRESETS = [25, 50, 75, 100, 500, 900] as const;
+const SL_PRESETS = [5, 10, 25, 50, 75] as const;
+const SIZE_PRESETS = [250, 500, 1000, 2500] as const;
+
+/* -------------------------------------------------------------------------- */
+/* Uncontrolled symbol tab (secondary — only rendered without a marketId prop) */
 /* -------------------------------------------------------------------------- */
 
 function SymbolTab({
@@ -115,16 +127,21 @@ function SymbolTab({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Side toggle: Long / Short                                                    */
+/* Side toggle: Long / Short — each shows its live mark price                   */
 /* -------------------------------------------------------------------------- */
 
 function SideToggle({
   value,
   onValueChange,
+  symbol,
 }: {
   value: Side;
   onValueChange: (v: Side) => void;
+  symbol: MarketId;
 }) {
+  const tick = usePrice(symbol);
+  const markPx = tick?.markPx ?? null;
+
   return (
     <div className="grid grid-cols-2 gap-1.5">
       <button
@@ -132,177 +149,483 @@ function SideToggle({
         aria-pressed={value === "long"}
         onClick={() => onValueChange("long")}
         className={cn(
-          "flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border py-2.5 text-sm font-semibold transition-colors",
+          "flex flex-col items-center gap-0.5 rounded-[var(--radius-sm)] border py-2.5 text-sm font-semibold transition-colors",
           value === "long"
-            ? "border-up bg-up/20 text-on-up"
+            ? "border-up bg-up/15 text-on-up"
             : "border-border bg-transparent text-text-muted hover:border-up/40 hover:text-up",
         )}
       >
-        <TrendingUp className="h-4 w-4" />
-        Long
+        <div className="flex items-center gap-1.5">
+          <TrendingUp className="h-4 w-4" />
+          Long
+        </div>
+        {markPx != null && (
+          <span className="tabular text-xs font-normal opacity-70">
+            {formatUsd(markPx, { decimals: markPx > 100 ? 2 : 4 })}
+          </span>
+        )}
       </button>
       <button
         type="button"
         aria-pressed={value === "short"}
         onClick={() => onValueChange("short")}
         className={cn(
-          "flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border py-2.5 text-sm font-semibold transition-colors",
+          "flex flex-col items-center gap-0.5 rounded-[var(--radius-sm)] border py-2.5 text-sm font-semibold transition-colors",
           value === "short"
-            ? "border-down bg-down/20 text-on-down"
+            ? "border-down bg-down/15 text-on-down"
             : "border-border bg-transparent text-text-muted hover:border-down/40 hover:text-down",
         )}
       >
-        <TrendingDown className="h-4 w-4" />
-        Short
+        <div className="flex items-center gap-1.5">
+          <TrendingDown className="h-4 w-4" />
+          Short
+        </div>
+        {markPx != null && (
+          <span className="tabular text-xs font-normal opacity-70">
+            {formatUsd(markPx, { decimals: markPx > 100 ? 2 : 4 })}
+          </span>
+        )}
       </button>
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/* Margin mode: Cross / Isolated                                                */
-/* -------------------------------------------------------------------------- */
-
-function MarginModeToggle({
-  value,
-  onValueChange,
-  forcedIsolated,
-}: {
-  value: MarginMode;
-  onValueChange: (v: MarginMode) => void;
-  forcedIsolated: boolean;
-}) {
-  const modes: MarginMode[] = ["cross", "isolated"];
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <CardLabel>Margin mode</CardLabel>
-        {forcedIsolated && (
-          <span className="text-xs text-text-faint">Isolated only</span>
-        )}
-      </div>
-      <div className="grid grid-cols-2 gap-1.5 rounded-[var(--radius)] border border-border bg-surface p-1">
-        {modes.map((mode) => {
-          const active = value === mode;
-          const disabled = forcedIsolated && mode === "cross";
-          return (
-            <button
-              key={mode}
-              type="button"
-              aria-pressed={active}
-              disabled={disabled}
-              onClick={() => onValueChange(mode)}
-              className={cn(
-                "rounded-[var(--radius-sm)] py-1.5 text-xs font-semibold capitalize transition-colors",
-                active
-                  ? "bg-surface-3 text-text"
-                  : "text-text-muted hover:bg-surface-2 hover:text-text",
-                disabled &&
-                  "cursor-not-allowed opacity-40 hover:bg-transparent",
-              )}
-            >
-              {mode}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Leverage selector: slider + stepper bounded to the effective cap            */
+/* Leverage selector: slider + preset pills capped to the effective max        */
 /* -------------------------------------------------------------------------- */
 
 function LeverageSelector({
   value,
   cap,
   onValueChange,
+  marginMode,
+  onMarginModeChange,
+  forcedIsolated,
 }: {
   value: number;
   cap: number;
   onValueChange: (v: number) => void;
+  marginMode: MarginMode;
+  onMarginModeChange: (v: MarginMode) => void;
+  forcedIsolated: boolean;
 }) {
   const clamp = (n: number) => Math.max(1, Math.min(cap, Math.round(n)));
+  const visiblePresets = React.useMemo(() => {
+    const roundHalf = (v: number) => Math.round(v * 2) / 2;
+    const pts = [1, roundHalf(cap / 4), roundHalf(cap / 2), cap];
+    return [...new Set(pts)].filter((v) => v >= 1 && v <= cap);
+  }, [cap]);
+
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-between">
-        <CardLabel>Leverage</CardLabel>
-        <span className="tabular text-xs text-text-faint">Max {cap}×</span>
+    <div className="flex flex-col gap-2">
+      {/* Row: label + value + margin mode inline */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <CardLabel>Leverage</CardLabel>
+          {/* Compact margin mode — two tiny pills inline with the label */}
+          <div className="flex items-center rounded-[var(--radius-sm)] border border-border bg-surface p-0.5">
+            {(["cross", "isolated"] as MarginMode[]).map((mode) => {
+              const active = marginMode === mode;
+              const disabled = forcedIsolated && mode === "cross";
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={active}
+                  disabled={disabled}
+                  onClick={() => onMarginModeChange(mode)}
+                  className={cn(
+                    "rounded-sm px-1.5 py-0.5 text-[10px] font-semibold capitalize transition-colors",
+                    active
+                      ? "bg-surface-3 text-text"
+                      : "text-text-faint hover:text-text-muted",
+                    disabled && "cursor-not-allowed opacity-30",
+                  )}
+                >
+                  {mode}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <span className="tabular text-sm font-bold text-text">{value}×</span>
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          aria-label="Decrease leverage"
-          onClick={() => onValueChange(clamp(value - 1))}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-border text-text-muted transition-colors hover:border-border-soft hover:text-text"
-        >
-          −
-        </button>
-        <input
-          type="range"
-          min={1}
-          max={cap}
-          step={1}
-          value={value}
-          onChange={(e) => onValueChange(clamp(Number(e.target.value)))}
-          aria-label="Leverage"
-          className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-surface-3 accent-brand"
-        />
-        <button
-          type="button"
-          aria-label="Increase leverage"
-          onClick={() => onValueChange(clamp(value + 1))}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-border text-text-muted transition-colors hover:border-border-soft hover:text-text"
-        >
-          +
-        </button>
-        <span className="tabular w-10 shrink-0 text-right text-sm font-bold text-text">
-          {value}×
-        </span>
+
+      {/* Slider */}
+      <input
+        type="range"
+        min={1}
+        max={cap}
+        step={1}
+        value={value}
+        onChange={(e) => onValueChange(clamp(Number(e.target.value)))}
+        aria-label="Leverage"
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-surface-3 accent-brand"
+      />
+
+      {/* Preset pills */}
+      <div className="flex gap-1">
+        {visiblePresets.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            onClick={() => onValueChange(preset)}
+            className={cn(
+              "flex-1 rounded-sm border py-1 text-xs font-medium transition-colors",
+              value === preset
+                ? "border-brand/50 bg-brand/15 text-brand"
+                : "border-border bg-transparent text-text-faint hover:border-border-soft hover:text-text-muted",
+            )}
+          >
+            {preset}×
+          </button>
+        ))}
       </div>
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/* Slippage breakdown row                                                       */
+/* TP/SL collapsible section                                                    */
 /* -------------------------------------------------------------------------- */
 
-function SlippageRow({
+interface TpSlState {
+  tpPrice: string;
+  tpPct: string;
+  slPrice: string;
+  slPct: string;
+}
+
+function TpSlSection({
+  state,
+  onChange,
+  side,
+  entry,
+  leverage,
+  collateral,
+}: {
+  state: TpSlState;
+  onChange: (next: Partial<TpSlState>) => void;
+  side: Side;
+  entry: number | null;
+  leverage: number;
+  collateral: number;
+}) {
+  const [open, setOpen] = React.useState(false);
+
+  // price → % and % → price conversion helpers
+  const priceFromPct = React.useCallback(
+    (pct: number, leg: "tp" | "sl"): number | null => {
+      if (!entry || entry <= 0 || leverage <= 0) return null;
+      const direction = leg === "tp" ? 1 : -1;
+      const sign = side === "long" ? direction : -direction;
+      return entry * (1 + (sign * pct) / (leverage * 100));
+    },
+    [entry, leverage, side],
+  );
+
+  const pctFromPrice = React.useCallback(
+    (price: number, leg: "tp" | "sl"): number | null => {
+      if (!entry || entry <= 0 || leverage <= 0) return null;
+      const direction = leg === "tp" ? 1 : -1;
+      const sign = side === "long" ? direction : -direction;
+      return ((price / entry - 1) / sign) * leverage * 100;
+    },
+    [entry, leverage, side],
+  );
+
+  const handleTpPrice = (raw: string) => {
+    const price = parseFloat(raw);
+    if (raw === "" || !Number.isFinite(price)) {
+      onChange({ tpPrice: raw, tpPct: "" });
+      return;
+    }
+    const pct = pctFromPrice(price, "tp");
+    onChange({
+      tpPrice: raw,
+      tpPct: pct != null && pct > 0 ? pct.toFixed(1) : "",
+    });
+  };
+
+  const handleTpPct = (raw: string) => {
+    const pct = parseFloat(raw);
+    if (raw === "" || !Number.isFinite(pct)) {
+      onChange({ tpPct: raw, tpPrice: "" });
+      return;
+    }
+    const price = priceFromPct(pct, "tp");
+    onChange({
+      tpPct: raw,
+      tpPrice:
+        price != null && price > 0
+          ? price.toFixed(price > 100 ? 2 : 4)
+          : "",
+    });
+  };
+
+  const handleSlPrice = (raw: string) => {
+    const price = parseFloat(raw);
+    if (raw === "" || !Number.isFinite(price)) {
+      onChange({ slPrice: raw, slPct: "" });
+      return;
+    }
+    const pct = pctFromPrice(price, "sl");
+    onChange({
+      slPrice: raw,
+      slPct: pct != null && pct > 0 ? pct.toFixed(1) : "",
+    });
+  };
+
+  const handleSlPct = (raw: string) => {
+    const pct = parseFloat(raw);
+    if (raw === "" || !Number.isFinite(pct)) {
+      onChange({ slPct: raw, slPrice: "" });
+      return;
+    }
+    const price = priceFromPct(pct, "sl");
+    onChange({
+      slPct: raw,
+      slPrice:
+        price != null && price > 0
+          ? price.toFixed(price > 100 ? 2 : 4)
+          : "",
+    });
+  };
+
+  const applyTpPreset = (pct: number) => {
+    const price = priceFromPct(pct, "tp");
+    onChange({
+      tpPct: String(pct),
+      tpPrice:
+        price != null && price > 0
+          ? price.toFixed(price > 100 ? 2 : 4)
+          : "",
+    });
+  };
+
+  const applySlPreset = (pct: number | null) => {
+    if (pct === null) {
+      onChange({ slPct: "", slPrice: "" });
+      return;
+    }
+    const price = priceFromPct(pct, "sl");
+    onChange({
+      slPct: String(pct),
+      slPrice:
+        price != null && price > 0
+          ? price.toFixed(price > 100 ? 2 : 4)
+          : "",
+    });
+  };
+
+  const tpPctNum = parseFloat(state.tpPct);
+  const slPctNum = parseFloat(state.slPct);
+  const hasTP = Number.isFinite(tpPctNum) && tpPctNum > 0;
+  const hasSL = Number.isFinite(slPctNum) && slPctNum > 0;
+
+  const maxProfit = hasTP ? collateral * (tpPctNum / 100) : null;
+  const maxLoss = hasSL ? collateral * (slPctNum / 100) : null;
+
+  // Summary shown on the collapsed header
+  const summary = [
+    hasTP ? `TP ${tpPctNum}%` : null,
+    hasSL ? `SL ${slPctNum}%` : "SL None",
+  ]
+    .filter(Boolean)
+    .join(" / ");
+
+  const activeTpPreset = hasTP
+    ? (TP_PRESETS.find((p) => p === tpPctNum) ?? null)
+    : null;
+  const activeSlPreset = hasSL
+    ? (SL_PRESETS.find((p) => p === slPctNum) ?? null)
+    : null;
+
+  return (
+    <div className="rounded-[var(--radius)] border border-border bg-surface-2 overflow-hidden">
+      {/* Header row — always visible */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2.5 transition-colors hover:bg-surface-3"
+        aria-expanded={open}
+      >
+        <span className="text-xs font-semibold text-text-muted">TP / SL</span>
+        <div className="flex items-center gap-2">
+          {(hasTP || hasSL) && (
+            <span className="text-xs text-text-faint">{summary}</span>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 text-text-faint transition-transform duration-200",
+              open && "rotate-180",
+            )}
+          />
+        </div>
+      </button>
+
+      {/* Expandable body */}
+      {open && (
+        <div className="flex flex-col gap-3 border-t border-border px-3 pb-3 pt-3">
+          {/* Take profit */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-text-faint">Take Profit</span>
+              {maxProfit != null && (
+                <span className="tabular text-xs font-medium text-up">
+                  Max Profit: {formatUsd(maxProfit, { decimals: 2 })}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Input
+                mono
+                type="number"
+                min={0}
+                step="any"
+                value={state.tpPrice}
+                onChange={(e) => handleTpPrice(e.target.value)}
+                placeholder="Price"
+                aria-label="Take profit price"
+                className="h-8 text-xs"
+              />
+              <Input
+                mono
+                type="number"
+                min={0}
+                step="any"
+                value={state.tpPct}
+                onChange={(e) => handleTpPct(e.target.value)}
+                placeholder="Gain %"
+                aria-label="Take profit percentage"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="flex gap-1">
+              {TP_PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => applyTpPreset(p)}
+                  className={cn(
+                    "flex-1 rounded-sm border py-0.5 text-[10px] font-medium transition-colors",
+                    activeTpPreset === p
+                      ? "border-up/50 bg-up/15 text-up"
+                      : "border-border bg-transparent text-text-faint hover:border-border-soft hover:text-text-muted",
+                  )}
+                >
+                  {p}%
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stop loss */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-text-faint">Stop Loss</span>
+              {maxLoss != null && (
+                <span className="tabular text-xs font-medium text-down">
+                  Max Loss: {formatUsd(maxLoss, { decimals: 2 })}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Input
+                mono
+                type="number"
+                min={0}
+                step="any"
+                value={state.slPrice}
+                onChange={(e) => handleSlPrice(e.target.value)}
+                placeholder="Price"
+                aria-label="Stop loss price"
+                className="h-8 text-xs"
+              />
+              <Input
+                mono
+                type="number"
+                min={0}
+                step="any"
+                value={state.slPct}
+                onChange={(e) => handleSlPct(e.target.value)}
+                placeholder="Loss %"
+                aria-label="Stop loss percentage"
+                className="h-8 text-xs"
+              />
+            </div>
+            <div className="flex gap-1">
+              {SL_PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => applySlPreset(p)}
+                  className={cn(
+                    "flex-1 rounded-sm border py-0.5 text-[10px] font-medium transition-colors",
+                    activeSlPreset === p
+                      ? "border-down/50 bg-down/15 text-down"
+                      : "border-border bg-transparent text-text-faint hover:border-border-soft hover:text-text-muted",
+                  )}
+                >
+                  {p}%
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => applySlPreset(null)}
+                className={cn(
+                  "flex-1 rounded-sm border py-0.5 text-[10px] font-medium transition-colors",
+                  !hasSL
+                    ? "border-border-soft bg-surface-3 text-text-muted"
+                    : "border-border bg-transparent text-text-faint hover:border-border-soft hover:text-text-muted",
+                )}
+              >
+                None
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Disclosure row — Ostium-style dense two-column label/value                   */
+/* -------------------------------------------------------------------------- */
+
+function DisclosureRow({
   label,
   value,
-  highlight,
-  muted,
+  separator,
   warn,
+  highlight,
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
-  highlight?: boolean;
-  muted?: boolean;
+  separator?: boolean;
   warn?: boolean;
+  highlight?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-2 py-1",
-        highlight && "border-t border-border-soft pt-2",
-      )}
-    >
-      <span
-        className={cn("text-xs", muted ? "text-text-muted" : "text-text-faint")}
-      >
-        {label}
-      </span>
-      <span
-        className={cn(
-          "tabular text-xs font-medium",
-          warn ? "text-warn" : highlight ? "text-text" : "text-text-muted",
-        )}
-      >
-        {value}
-      </span>
-    </div>
+    <>
+      {separator && <div className="my-1 border-t border-border-soft" />}
+      <div className="flex items-center justify-between gap-2 py-0.5">
+        <span className="text-xs text-text-faint">{label}</span>
+        <span
+          className={cn(
+            "tabular text-xs",
+            warn
+              ? "text-warn"
+              : highlight
+                ? "font-semibold text-text"
+                : "text-text-muted",
+          )}
+        >
+          {value}
+        </span>
+      </div>
+    </>
   );
 }
 
@@ -441,12 +764,6 @@ function DisabledBanner({ message }: { message: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Quick-size preset buttons                                                    */
-/* -------------------------------------------------------------------------- */
-
-const SIZE_PRESETS = [250, 500, 1000, 2500] as const;
-
-/* -------------------------------------------------------------------------- */
 /* Main component                                                               */
 /* -------------------------------------------------------------------------- */
 
@@ -455,6 +772,8 @@ export function TradeIntentForm({
   marketId: marketIdProp,
   onMarketChange,
   onSubmitOrder,
+  isGuestAllowed = false,
+  initialSide,
 }: TradeIntentFormProps) {
   const vault: VaultState = useVault(vaultId);
   const { halted } = useDivergenceHalt();
@@ -470,7 +789,7 @@ export function TradeIntentForm({
     ? (onMarketChange ?? (() => {}))
     : setSymbolInternal;
 
-  const [side, setSide] = React.useState<Side>("long");
+  const [side, setSide] = React.useState<Side>(initialSide ?? "long");
   const [marginMode, setMarginMode] = React.useState<MarginMode>("cross");
   const [leverage, setLeverage] = React.useState(1);
   const [rawSize, setRawSize] = React.useState("1000");
@@ -479,13 +798,17 @@ export function TradeIntentForm({
   });
   const [lastSubmitAt, setLastSubmitAt] = React.useState<number | null>(null);
   const [priceInfoOpen, setPriceInfoOpen] = React.useState(false);
+  const [tpsl, setTpsl] = React.useState<TpSlState>({
+    tpPrice: "",
+    tpPct: "",
+    slPrice: "",
+    slPct: "",
+  });
 
   const tick = usePrice(symbol);
-  // Fill path: entry/exit prices off mid (mid ± slippage), never mark.
   const marketMid = tick?.midPx ?? null;
+  const markPx = tick?.markPx ?? null;
 
-  // Effective usable leverage = min(per-market venue cap, tier flat cap). Falls
-  // to the market cap when a low-leverage perp's max sits BELOW the tier cap.
   const catalog = useMarketCatalog();
   const market = React.useMemo(
     () => catalog.find((m) => m.id === symbol || m.symbol === symbol),
@@ -496,25 +819,38 @@ export function TradeIntentForm({
     vault.tier.leverage,
   );
   const forcedIsolated = market?.onlyIsolated ?? false;
-  // The selected leverage/mode kept inside the venue/tier bounds as the market
-  // changes — clamp on overshoot, force isolated where the market requires it.
+
   React.useEffect(() => {
     setLeverage((lev) => Math.max(1, Math.min(effectiveLeverageCap, lev)));
   }, [effectiveLeverageCap]);
   React.useEffect(() => {
     if (forcedIsolated) setMarginMode("isolated");
   }, [forcedIsolated]);
+
   const effectiveLeverage = Math.max(
     1,
     Math.min(effectiveLeverageCap, leverage),
   );
   const effectiveMode: MarginMode = forcedIsolated ? "isolated" : marginMode;
 
+  const maxSize = vault.tier.shadowAllocation;
+  const clampSize = React.useCallback(
+    (raw: string): string => {
+      if (raw === "") return raw;
+      const n = parseFloat(raw);
+      if (!Number.isFinite(n)) return raw;
+      if (n < 0) return "0";
+      if (n > maxSize) return String(maxSize);
+      return raw;
+    },
+    [maxSize],
+  );
+
   const sizeUsd = parseFloat(rawSize) || 0;
-  // USD-notional order → implied leverage against the tier's shadow allocation.
   const impliedLeverage =
     vault.tier.shadowAllocation > 0 ? sizeUsd / vault.tier.shadowAllocation : 0;
   const isOverLeverageCap = impliedLeverage > effectiveLeverageCap;
+
   const preview = React.useMemo(() => {
     if (sizeUsd <= 0 || marketMid == null || marketMid <= 0) return null;
     return slippagePreview({
@@ -525,13 +861,10 @@ export function TradeIntentForm({
     });
   }, [symbol, side, sizeUsd, marketMid]);
 
-  // Funding disclosure: positive rate ⇒ longs pay shorts.
   const fundingRate = tick?.fundingRate ?? null;
   const fundingPayer =
     fundingRate == null ? null : fundingRate >= 0 ? "longs pay" : "shorts pay";
 
-  // Estimated liquidation off the fill, for the selected mode + leverage. Cross
-  // availability is the account equity; isolated is the allocated initial margin.
   const estLiquidation = React.useMemo(() => {
     if (!preview || sizeUsd <= 0 || !market) return null;
     const maxLev = market.maxLeverage;
@@ -557,6 +890,11 @@ export function TradeIntentForm({
     vault.equity,
   ]);
 
+  // Display-only collateral and size-in-asset-units derived from the notional
+  const collateral = effectiveLeverage > 0 ? sizeUsd / effectiveLeverage : 0;
+  const sizeAsset =
+    markPx != null && markPx > 0 ? sizeUsd / markPx : null;
+
   /* ------------------------------------------------------------------ */
   /* Disable conditions                                                   */
   /* ------------------------------------------------------------------ */
@@ -567,12 +905,19 @@ export function TradeIntentForm({
   const isRateLimited = rateLimitUntil !== null && Date.now() < rateLimitUntil;
 
   const isVaultPaused = vault.status !== "active";
-  // No live oracle price (or a stale/halted feed) -> never quote or fill.
   const isPriceUnavailable = marketMid == null || marketMid <= 0;
   const isFeedStale = halted || connection === "stale";
-  const isNotSignedIn = !session.address;
+  const isAuthGated = !session.address && !isGuestAllowed;
   const isSizeInvalid = sizeUsd <= 0;
   const isSubmitting = submitState.phase === "submitting";
+
+  const usedMargin = vault.positions.reduce(
+    (sum, p) => sum + (p.leverage > 0 ? p.sizeUsd / p.leverage : 0),
+    0,
+  );
+  const freeMargin = vault.equity - usedMargin;
+  const requiredMargin = sizeUsd / effectiveLeverage;
+  const isInsufficientMargin = !isSizeInvalid && requiredMargin > freeMargin;
 
   let disabledReason: string | null = null;
   if (isFeedStale)
@@ -583,15 +928,18 @@ export function TradeIntentForm({
   else if (isSizeInvalid) disabledReason = "Enter a position size";
   else if (isOverLeverageCap)
     disabledReason = `Leverage exceeds ${effectiveLeverageCap}× cap for ${market?.symbol ?? symbol}`;
+  else if (isInsufficientMargin)
+    disabledReason = `Insufficient margin — needs ${formatUsd(requiredMargin, { decimals: 0 })}, ${formatUsd(Math.max(0, freeMargin), { decimals: 0 })} free`;
   else if (isRateLimited) disabledReason = null;
 
   const canSubmit =
-    !isNotSignedIn &&
+    !isAuthGated &&
     !isFeedStale &&
     !isPriceUnavailable &&
     !isVaultPaused &&
     !isSizeInvalid &&
     !isOverLeverageCap &&
+    !isInsufficientMargin &&
     !isRateLimited &&
     !isSubmitting;
 
@@ -607,6 +955,14 @@ export function TradeIntentForm({
     const capturedSize = sizeUsd;
     const capturedMode = effectiveMode;
     const capturedLeverage = effectiveLeverage;
+
+    const tpPrice = parseFloat(tpsl.tpPrice);
+    const slPrice = parseFloat(tpsl.slPrice);
+    const capturedTp =
+      Number.isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null;
+    const capturedSl =
+      Number.isFinite(slPrice) && slPrice > 0 ? slPrice : null;
+
     setSubmitState({ phase: "submitting" });
     setTimeout(() => {
       onSubmitOrder?.({
@@ -615,6 +971,8 @@ export function TradeIntentForm({
         sizeUsd: capturedSize,
         marginMode: capturedMode,
         leverage: capturedLeverage,
+        takeProfit: capturedTp,
+        stopLoss: capturedSl,
       });
       setSubmitState({
         phase: "confirmed",
@@ -626,6 +984,7 @@ export function TradeIntentForm({
       });
       setLastSubmitAt(Date.now());
       setRawSize("1000");
+      setTpsl({ tpPrice: "", tpPct: "", slPrice: "", slPct: "" });
     }, 650);
   }, [
     canSubmit,
@@ -636,6 +995,7 @@ export function TradeIntentForm({
     sizeUsd,
     effectiveMode,
     effectiveLeverage,
+    tpsl,
     onSubmitOrder,
   ]);
 
@@ -643,10 +1003,7 @@ export function TradeIntentForm({
     setSubmitState({ phase: "idle" });
   }, []);
 
-  // The selected leverage, shown against the real usable cap (per-market venue
-  // cap clamped to the tier cap) — so a low-leverage perp shows its lower ceiling.
   const leverageLabel = `${effectiveLeverage}×`;
-  // Strip the "venue:" prefix so UI labels show "BTC" not "hyperliquid:BTC".
   const displaySymbol =
     market?.symbol ?? (symbol.includes(":") ? symbol.split(":")[1]! : symbol);
 
@@ -657,7 +1014,7 @@ export function TradeIntentForm({
   return (
     <div className="flex w-full flex-col gap-0 overflow-hidden">
       {/* Header */}
-      <div className="flex w-full items-center justify-between px-4 py-3 border-b border-border">
+      <div className="flex w-full items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
             New Order
@@ -687,25 +1044,13 @@ export function TradeIntentForm({
           </div>
         )}
 
-        {/* Side toggle */}
-        <SideToggle value={side} onValueChange={setSide} />
+        {/* Side toggle — shows live mark price per side */}
+        <SideToggle value={side} onValueChange={setSide} symbol={symbol} />
 
-        {/* Margin mode + leverage */}
-        <MarginModeToggle
-          value={effectiveMode}
-          onValueChange={setMarginMode}
-          forcedIsolated={forcedIsolated}
-        />
-        <LeverageSelector
-          value={effectiveLeverage}
-          cap={effectiveLeverageCap}
-          onValueChange={setLeverage}
-        />
-
-        {/* Size input */}
+        {/* Collateral / Size input */}
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <CardLabel>Size (USD)</CardLabel>
+          <div className="mb-1.5 flex items-center justify-between">
+            <CardLabel>Collateral</CardLabel>
             <span className="tabular text-xs text-text-faint">
               Max: {formatUsd(vault.tier.shadowAllocation, { decimals: 0 })}
             </span>
@@ -718,22 +1063,45 @@ export function TradeIntentForm({
               mono
               type="number"
               min={1}
+              max={maxSize}
               step={50}
               autoComplete="off"
               value={rawSize}
-              onChange={(e) => setRawSize(e.target.value)}
+              onChange={(e) => setRawSize(clampSize(e.target.value))}
               placeholder="0"
               className="pl-7"
               aria-label="Position size in USD"
             />
           </div>
+          {/* Derived display: collateral and estimated asset size */}
+          {sizeUsd > 0 && (
+            <div className="mt-1 flex items-center justify-between px-0.5">
+              <div className="flex items-center gap-1 text-xs text-text-faint">
+                <span>Collateral</span>
+                <span className="tabular text-text-muted">
+                  {formatUsd(collateral, { decimals: 2 })}
+                </span>
+              </div>
+              {sizeAsset != null && (
+                <div className="flex items-center gap-1 text-xs text-text-faint">
+                  <ArrowLeftRight className="h-3 w-3" />
+                  <span className="tabular text-text-muted">
+                    {sizeAsset < 1
+                      ? sizeAsset.toFixed(6)
+                      : formatNum(sizeAsset, 4)}{" "}
+                    {displaySymbol}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           {/* Quick-size presets */}
           <div className="mt-1.5 flex gap-1">
             {SIZE_PRESETS.map((preset) => (
               <button
                 key={preset}
                 type="button"
-                onClick={() => setRawSize(String(preset))}
+                onClick={() => setRawSize(clampSize(String(preset)))}
                 className={cn(
                   "flex-1 rounded-sm border py-1 text-xs transition-colors",
                   rawSize === String(preset)
@@ -747,11 +1115,31 @@ export function TradeIntentForm({
           </div>
         </div>
 
+        {/* Leverage + inline margin mode */}
+        <LeverageSelector
+          value={effectiveLeverage}
+          cap={effectiveLeverageCap}
+          onValueChange={setLeverage}
+          marginMode={effectiveMode}
+          onMarginModeChange={setMarginMode}
+          forcedIsolated={forcedIsolated}
+        />
+
+        {/* TP/SL collapsible */}
+        <TpSlSection
+          state={tpsl}
+          onChange={(next) => setTpsl((prev) => ({ ...prev, ...next }))}
+          side={side}
+          entry={markPx}
+          leverage={effectiveLeverage}
+          collateral={collateral}
+        />
+
         {/* Status banners */}
         {isRateLimited && rateLimitUntil && (
           <RateLimitBanner until={rateLimitUntil} />
         )}
-        {disabledReason && !isRateLimited && !isNotSignedIn && (
+        {disabledReason && !isRateLimited && !isAuthGated && (
           <DisabledBanner message={disabledReason} />
         )}
 
@@ -766,197 +1154,143 @@ export function TradeIntentForm({
           />
         )}
 
-        {/* CTA above the fill-preview disclosure: confident traders act without
-            scrolling past the breakdown. Signed-out users get an enabled
-            sign-in button that opens the login modal. */}
-        <div className="flex flex-col gap-2">
-          <Button
-            type="button"
-            variant={
-              isNotSignedIn ? "primary" : side === "long" ? "long" : "short"
-            }
-            size="lg"
-            disabled={!isNotSignedIn && !canSubmit}
-            onClick={isNotSignedIn ? openLogin : handleSubmit}
-            className="w-full font-bold tracking-wide"
-          >
-            {isNotSignedIn ? (
-              "Sign in to trade"
-            ) : isSubmitting ? (
-              <span className="flex items-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Submitting…
-              </span>
-            ) : side === "long" ? (
-              <span className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Long {displaySymbol}
-                {preview && (
-                  <span className="tabular opacity-80">
-                    @{" "}
-                    {formatUsd(preview.fill, {
-                      decimals: preview.fill > 100 ? 0 : 2,
-                    })}
-                  </span>
-                )}
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <TrendingDown className="h-4 w-4" />
-                Short {displaySymbol}
-                {preview && (
-                  <span className="tabular opacity-80">
-                    @{" "}
-                    {formatUsd(preview.fill, {
-                      decimals: preview.fill > 100 ? 0 : 2,
-                    })}
-                  </span>
-                )}
-              </span>
-            )}
-          </Button>
-
-          <p className="text-center text-xs text-text-faint">
-            Simulated · No real funds · Evaluation account
-          </p>
-        </div>
-
-        {/* Fill preview — full cost/risk disclosure, below the CTA */}
-        {preview && sizeUsd > 0 && (
-          <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 px-3 py-3">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                  Fill preview
+        {/* Submit CTA */}
+        <Button
+          type="button"
+          variant={isAuthGated ? "primary" : side === "long" ? "long" : "short"}
+          size="lg"
+          disabled={!isAuthGated && !canSubmit}
+          onClick={isAuthGated ? openLogin : handleSubmit}
+          className="w-full font-bold tracking-wide"
+        >
+          {isAuthGated ? (
+            "Sign in to trade"
+          ) : isSubmitting ? (
+            <span className="flex items-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Submitting…
+            </span>
+          ) : side === "long" ? (
+            <span className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Long {displaySymbol}
+              {preview && (
+                <span className="tabular opacity-80">
+                  @{" "}
+                  {formatUsd(preview.fill, {
+                    decimals: preview.fill > 100 ? 0 : 2,
+                  })}
                 </span>
-                <Tooltip
-                  content={
-                    <PriceTooltipContent
-                      symbol={symbol}
-                      price={preview.oracleMid}
-                    />
-                  }
-                  side="top"
+              )}
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <TrendingDown className="h-4 w-4" />
+              Short {displaySymbol}
+              {preview && (
+                <span className="tabular opacity-80">
+                  @{" "}
+                  {formatUsd(preview.fill, {
+                    decimals: preview.fill > 100 ? 0 : 2,
+                  })}
+                </span>
+              )}
+            </span>
+          )}
+        </Button>
+
+        <p className="text-center text-xs text-text-faint">
+          Simulated · No real funds · Evaluation account
+        </p>
+
+        {/* Disclosure rows — Ostium-style dense two-column */}
+        {preview && sizeUsd > 0 && (
+          <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 px-3 py-2">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+                Order details
+              </span>
+              <Tooltip
+                content={
+                  <PriceTooltipContent
+                    symbol={symbol}
+                    price={preview.oracleMid}
+                  />
+                }
+                side="top"
+              >
+                <button
+                  type="button"
+                  onClick={() => setPriceInfoOpen(true)}
+                  className="flex items-center text-text-faint transition-colors hover:text-text-muted"
+                  aria-label="Price details"
                 >
-                  <button
-                    type="button"
-                    onClick={() => setPriceInfoOpen(true)}
-                    className="flex items-center text-text-faint transition-colors hover:text-text-muted"
-                    aria-label="Price details"
-                  >
-                    <Info className="h-3.5 w-3.5" />
-                  </button>
-                </Tooltip>
-              </div>
-              <span className="text-xs text-text-faint">Market price</span>
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
             </div>
 
             <div className="flex flex-col">
-              <SlippageRow
-                label="Market price"
-                value={formatUsd(preview.oracleMid, { decimals: 2 })}
-                muted
+              <DisclosureRow
+                label="Slippage"
+                value={`${formatNum(preview.slippageBps, 2)} bps`}
               />
-              <SlippageRow
-                label={
-                  <span className="flex items-center gap-1">
-                    Size impact
-                    <Tooltip
-                      content={`Size-driven impact on fill price. ${formatNum(preview.slippageBps, 2)} bps for ${formatUsd(sizeUsd, { decimals: 0 })} notional.`}
-                    >
-                      <Info className="h-3 w-3" />
-                    </Tooltip>
-                  </span>
-                }
-                value={`+${formatNum(preview.slippageBps, 2)} bps`}
-                muted
+              <DisclosureRow
+                label="Simulated spread"
+                value={`${((preview.slippageBps / 10000) * 100).toFixed(4)}%`}
               />
-              <SlippageRow
-                label={
-                  <span className="flex items-center gap-1 text-warn">
-                    Est. fee (taker)
-                    <Tooltip content="Hyperliquid taker fee charged on the fill notional. A round trip pays this twice.">
-                      <Info className="h-3 w-3" />
-                    </Tooltip>
-                  </span>
-                }
-                value={`−${formatUsd(preview.feeUsd, { decimals: 2 })}`}
-                warn
-              />
-              <SlippageRow
-                label={
-                  <span className="flex items-center gap-1">
-                    Funding
-                    <Tooltip content="Current per-interval funding rate. Positive rate ⇒ longs pay shorts; negative ⇒ shorts pay longs. Charged on the oracle-price notional at each settlement.">
-                      <Info className="h-3 w-3" />
-                    </Tooltip>
-                  </span>
-                }
+              <DisclosureRow
+                label="Amount"
                 value={
-                  fundingRate == null
-                    ? "—"
-                    : `${(fundingRate * 100).toFixed(4)}% · ${fundingPayer}`
+                  sizeAsset != null
+                    ? `${sizeAsset < 1 ? sizeAsset.toFixed(6) : formatNum(sizeAsset, 4)} ${displaySymbol}`
+                    : "—"
                 }
-                muted
               />
-              <SlippageRow
-                label={
-                  <span className="flex items-center gap-1">
-                    Est. liquidation
-                    <Tooltip content="Estimated liquidation price off mark for the selected margin mode and leverage. Cross uses account equity; isolated uses the position's allocated margin.">
-                      <Info className="h-3 w-3" />
-                    </Tooltip>
-                  </span>
-                }
+              <DisclosureRow
+                label="Exposure"
+                value={formatUsd(sizeUsd, { decimals: 2 })}
+              />
+              <DisclosureRow
+                label="Collateral at open"
+                value={formatUsd(collateral, { decimals: 2 })}
+              />
+              <DisclosureRow
+                label="Liquidation price"
                 value={
                   estLiquidation == null || estLiquidation <= 0
                     ? "—"
                     : formatUsd(estLiquidation, { decimals: 2 })
                 }
-                muted
               />
-
-              <div className="my-1.5 border-t border-border-soft" />
-
-              <div className="flex items-center justify-between py-1">
-                <span className="text-sm font-semibold text-text">
-                  Your fill
-                </span>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "tabular text-sm font-bold",
-                      side === "long" ? "text-down" : "text-up",
-                    )}
-                  >
-                    {formatUsd(preview.fill, { decimals: 2 })}
-                  </span>
-                  <Badge
-                    variant={side === "long" ? "down" : "up"}
-                    className="text-xs"
-                  >
-                    {side === "long" ? "above mid" : "below mid"}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between border-t border-border-soft pt-2">
-                <span className="text-xs text-text-muted">Total cost</span>
-                <span className="tabular text-xs font-semibold text-text">
-                  {formatUsd(preview.totalCost, { decimals: 2 })}
-                </span>
-              </div>
-
-              <div className="mt-2 flex items-center gap-1.5 rounded-sm bg-surface px-2 py-1.5">
-                <AlertTriangle className="h-3 w-3 shrink-0 text-warn" />
-                <span className="text-xs text-text-faint">
-                  Fill is{" "}
-                  <span className="tabular font-medium text-warn">
-                    {formatNum(preview.slippageBps, 2)} bps
-                  </span>{" "}
-                  worse than market price, before the taker fee
-                </span>
-              </div>
+              {effectiveMode === "cross" && estLiquidation != null && (
+                <p className="pb-0.5 text-[10px] leading-tight text-text-faint">
+                  Cross liq tracks account value, not leverage set.
+                </p>
+              )}
+              <DisclosureRow
+                label="Fees · open"
+                value={`${formatUsd(preview.feeUsd, { decimals: 2 })} (${HL_TAKER_BPS} bps)`}
+                separator
+                warn
+              />
+              <DisclosureRow
+                label="Fees · close (est.)"
+                value={`~${formatUsd(preview.feeUsd, { decimals: 2 })}`}
+                warn
+              />
+              {fundingRate != null && (
+                <DisclosureRow
+                  label="Funding"
+                  value={`${(fundingRate * 100).toFixed(4)}% · ${fundingPayer}`}
+                />
+              )}
+              <DisclosureRow
+                label="Your fill"
+                value={formatUsd(preview.fill, { decimals: 2 })}
+                separator
+                highlight
+              />
             </div>
           </div>
         )}

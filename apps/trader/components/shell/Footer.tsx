@@ -1,6 +1,5 @@
 "use client";
 
-import { Bug, FileText } from "lucide-react";
 import { ConnectionDot } from "@/components/ui/ConnectionDot";
 import { useConnection } from "@/lib/mock/hooks";
 
@@ -34,7 +33,6 @@ function XIcon() {
 
 const ICON_LINK =
   "rounded-sm p-1.5 text-text-faint transition-colors hover:bg-surface-2 hover:text-text";
-const TEXT_LINK = "text-text-faint transition-colors hover:text-text";
 
 export function Footer() {
   const connection = useConnection();
@@ -43,25 +41,23 @@ export function Footer() {
       <div className="mx-auto flex max-w-[1440px] flex-col items-center justify-between gap-3 px-4 py-4 text-xs sm:flex-row sm:px-6">
         <ConnectionDot status={connection} />
         <div className="flex items-center gap-4">
-          <a href="#" className={`inline-flex items-center gap-1 ${TEXT_LINK}`}>
-            <Bug className="h-3.5 w-3.5" />
-            Report a bug
-          </a>
-          <a href="#" className={TEXT_LINK}>
-            Terms
-          </a>
-          <a href="#" className={TEXT_LINK}>
-            Privacy
-          </a>
-          <span className="h-3 w-px bg-border" />
-          <a href="#" aria-label="Discord" className={ICON_LINK}>
+          <a
+            href="https://discord.gg/ultraprop"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Discord"
+            className={ICON_LINK}
+          >
             <DiscordIcon />
           </a>
-          <a href="#" aria-label="X" className={ICON_LINK}>
+          <a
+            href="https://x.com/ultraprop"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="X"
+            className={ICON_LINK}
+          >
             <XIcon />
-          </a>
-          <a href="#" aria-label="Docs" className={ICON_LINK}>
-            <FileText className="h-4 w-4" />
           </a>
         </div>
       </div>
