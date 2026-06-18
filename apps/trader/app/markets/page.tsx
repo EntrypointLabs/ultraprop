@@ -1,4 +1,6 @@
-import { HomeMarketsTable } from "@/components/home/HomeMarketsTable";
+import { GenesisBanner } from "@/components/markets/GenesisBanner";
+import { MarketsBrowser } from "@/components/markets/MarketsBrowser";
+import { StartEvalHero } from "@/components/markets/StartEvalHero";
 
 export const metadata = {
   title: "Markets · Ultraprop",
@@ -14,12 +16,14 @@ export default function MarketsPage() {
           Markets
         </h1>
         <p className="max-w-prose text-pretty text-sm leading-relaxed text-text-muted">
-          Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in
-          simulation against live market prices, with a 2 bps house spread
-          shown on every fill.
+          Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against
+          live market prices, with a 2 bps house spread shown on every fill.
         </p>
       </header>
-      <HomeMarketsTable />
+
+      <GenesisBanner />
+      <StartEvalHero />
+      <MarketsBrowser />
     </div>
   );
 }

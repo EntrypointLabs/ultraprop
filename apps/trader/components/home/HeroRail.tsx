@@ -3,8 +3,9 @@
 import { ArrowRight, Lock } from "lucide-react";
 import Link from "next/link";
 import { Avatar, Badge, Button } from "@/components/ui";
+import { accountHandle } from "@/lib/identity";
 import { useLeaderboard, useTiers } from "@/lib/mock/hooks";
-import { cn, formatPct, formatUsd, shortAddress } from "@/lib/utils";
+import { cn, formatPct, formatUsd } from "@/lib/utils";
 
 export function HeroRail() {
   return (
@@ -129,7 +130,7 @@ function TrendingTraders() {
               <Avatar address={entry.wallet} size={24} />
               <div className="flex-1 min-w-0">
                 <div className="truncate text-sm font-medium text-text">
-                  {entry.displayName ?? shortAddress(entry.wallet, 4, 4)}
+                  {entry.displayName ?? accountHandle(entry.wallet)}
                 </div>
                 <Badge variant="tier" className="mt-0.5 uppercase text-[10px]">
                   {entry.tier}

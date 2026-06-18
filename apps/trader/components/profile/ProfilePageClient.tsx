@@ -24,10 +24,10 @@ import { StatGrid } from "@/components/profile/StatGrid";
 import { TradingAccountSection } from "@/components/profile/TradingAccountSection";
 import { Tabs } from "@/components/ui/Tabs";
 import { suiWalletAddress } from "@/lib/auth";
+import { accountHandle } from "@/lib/identity";
 import { useProfile, useSbt } from "@/lib/mock/hooks";
 import { useMockStore } from "@/lib/mock/store";
 import { useAccountSetup } from "@/lib/sui/useTradingAccount";
-import { shortAddress } from "@/lib/utils";
 
 /** Total trades across all evaluations — rough proxy using eval count * a per-eval fixture. */
 const TRADES_PER_EVAL = 12;
@@ -86,8 +86,8 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
               <SettingsList>
                 <SettingRow
                   icon={Wallet}
-                  label="Wallet"
-                  value={shortAddress(wallet)}
+                  label="Account"
+                  value={accountHandle(wallet)}
                 />
                 <SettingRow
                   icon={Mail}

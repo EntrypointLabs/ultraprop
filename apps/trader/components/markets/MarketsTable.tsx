@@ -17,8 +17,8 @@ import {
   Tooltip,
   Tr,
 } from "@/components/ui";
-import { useMarkets } from "@/lib/mock/hooks";
-import { getMarket } from "@/lib/mock/markets";
+import { useMarketCatalog, usePrices } from "@/lib/mock/hooks";
+import { coinOf, getMarket, type Market } from "@/lib/mock/markets";
 import type { MarketId, PriceTick } from "@/lib/mock/types";
 import { cn, formatPctOrDash, formatUsdOrDash } from "@/lib/utils";
 
@@ -49,7 +49,8 @@ function usePrevPrice(price: number | null) {
 
 function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
   const market = getMarket(tick.symbol);
-  const name = market?.name ?? tick.symbol;
+  const ticker = coinOf(tick.symbol);
+  const name = market?.name ?? ticker;
   const leverage = market?.maxLeverage ?? 10;
   const hasChange = tick.change24h != null;
   const isUp = (tick.change24h ?? 0) >= 0;
@@ -64,7 +65,7 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
       <Td className="w-10">
         <button
           type="button"
-          aria-label={`${favorited ? "Remove" : "Add"} ${tick.symbol} favorite`}
+          aria-label={`${favorited ? "Remove" : "Add"} ${ticker} favorite`}
           onClick={onToggleFav}
           className={cn(
             "rounded-sm p-1 transition-colors hover:text-warn",
@@ -78,9 +79,9 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
       {/* Asset */}
       <Td className="min-w-[160px]">
         <div className="flex items-center gap-2.5">
-          <AssetIcon symbol={tick.symbol} size={28} />
+          <AssetIcon symbol={ticker} size={28} />
           <div className="flex flex-col leading-tight">
-            <span className="font-semibold text-text">{tick.symbol}</span>
+            <span className="font-semibold text-text">{ticker}</span>
             <span className="text-xs text-text-muted">{name}</span>
           </div>
         </div>
@@ -172,7 +173,8 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
 /** Mobile stacked card fallback for small screens */
 function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
   const market = getMarket(tick.symbol);
-  const name = market?.name ?? tick.symbol;
+  const ticker = coinOf(tick.symbol);
+  const name = market?.name ?? ticker;
   const leverage = market?.maxLeverage ?? 10;
   const hasChange = tick.change24h != null;
   const isUp = (tick.change24h ?? 0) >= 0;
@@ -183,7 +185,7 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
       <div className="flex items-center gap-3 px-4 py-3">
         <button
           type="button"
-          aria-label={`${favorited ? "Remove" : "Add"} ${tick.symbol} favorite`}
+          aria-label={`${favorited ? "Remove" : "Add"} ${ticker} favorite`}
           onClick={onToggleFav}
           className={cn(
             "shrink-0 rounded-sm p-0.5 transition-colors hover:text-warn",
@@ -193,12 +195,12 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
           <Star className={cn("h-3.5 w-3.5", favorited && "fill-warn")} />
         </button>
 
-        <AssetIcon symbol={tick.symbol} size={32} />
+        <AssetIcon symbol={ticker} size={32} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <div className="font-semibold text-text">{tick.symbol}</div>
+              <div className="font-semibold text-text">{ticker}</div>
               <div className="text-xs text-text-muted">{name}</div>
             </div>
             <div className="text-right">
@@ -275,6 +277,27 @@ interface MarketsTableProps {
   showFavoritesOnly: boolean;
   favorites: Set<MarketId>;
   onToggleFav: (sym: MarketId) => void;
+  /**
+   * Restrict the table to a fixed set of market ids (the home spotlight uses
+   * this to stay small). When omitted, the FULL live catalog renders.
+   */
+  marketIds?: MarketId[];
+}
+
+/** A live-price placeholder for a catalog market with no feed tick yet. */
+function placeholderTick(market: Market): PriceTick {
+  return {
+    symbol: market.id,
+    markPx: null as unknown as number,
+    oraclePx: 0,
+    midPx: 0,
+    fundingRate: 0,
+    change24h: null,
+    spark: [],
+    high24h: null,
+    low24h: null,
+    ts: 0,
+  };
 }
 
 export function MarketsTable({
@@ -282,10 +305,23 @@ export function MarketsTable({
   showFavoritesOnly,
   favorites,
   onToggleFav,
+  marketIds,
 }: MarketsTableProps) {
-  const markets = useMarkets();
+  // The catalog is the source of breadth (full HL universe); live prices ride
+  // on top per market, with a placeholder ("—") until a tick arrives. This is
+  // why `/markets` shows the whole universe even before the feed warms up.
+  const catalog = useMarketCatalog();
+  const prices = usePrices();
 
-  const filtered = markets.filter((t) => {
+  const rows: PriceTick[] = React.useMemo(() => {
+    const byId = new Map(prices.map((p) => [p.symbol, p]));
+    const restrict = marketIds ? new Set(marketIds) : null;
+    return catalog
+      .filter((m) => !m.isDelisted && (!restrict || restrict.has(m.id)))
+      .map((m) => byId.get(m.id) ?? placeholderTick(m));
+  }, [catalog, prices, marketIds]);
+
+  const filtered = rows.filter((t) => {
     const name = getMarket(t.symbol)?.name ?? t.symbol;
     const matchesSearch =
       searchQuery === "" ||

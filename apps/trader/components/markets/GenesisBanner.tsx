@@ -23,8 +23,9 @@ export function GenesisBanner() {
             </span>
           </div>
           <p className="max-w-md text-xs text-text-muted">
-            Closed beta is open. Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against live market prices
-            — earn a non-transferable credential as verifiable proof of skill.
+            Closed beta is open. Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in
+            simulation against live market prices — earn a non-transferable
+            credential as verifiable proof of skill.
           </p>
 
           <div className="mt-1 flex flex-wrap items-center gap-4">
@@ -58,7 +59,7 @@ export function GenesisBanner() {
           </div>
         </div>
 
-        <Link href="/points" className="shrink-0">
+        <Link href="/cohort" className="shrink-0">
           <Button
             variant="outline"
             size="sm"

@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { Avatar } from "@/components/ui";
+import { accountHandle } from "@/lib/identity";
 import type { LeaderboardAxis, LeaderboardEntry } from "@/lib/mock/types";
-import { cn, formatUsd, shortAddress } from "@/lib/utils";
+import { cn, formatUsd } from "@/lib/utils";
 
 interface LeaderboardMobileCardsProps {
   entries: LeaderboardEntry[];
@@ -87,7 +88,7 @@ export function LeaderboardMobileCards({
               <div className="flex items-center gap-1.5">
                 <TierDot tier={entry.tier} />
                 <span className="truncate text-sm font-medium text-text">
-                  {entry.displayName ?? shortAddress(entry.wallet, 4, 4)}
+                  {entry.displayName ?? accountHandle(entry.wallet)}
                 </span>
                 <span className="shrink-0 rounded-sm bg-violet/15 px-1 py-0.5 text-xs font-semibold uppercase text-on-accent">
                   {entry.tier}

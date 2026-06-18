@@ -37,11 +37,11 @@ export function Pill({
   const pct = Math.max(0, Math.min(1, progress)) * 100;
   const content = (
     <>
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium uppercase tracking-wide text-text-muted">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-xs font-medium uppercase tracking-wide text-text-muted">
           {label}
         </span>
-        <span className={cn("tabular text-sm font-semibold", zoneText[zone])}>
+        <span className={cn("truncate tabular text-xs font-semibold", zoneText[zone])}>
           {value}
         </span>
       </div>
@@ -58,7 +58,7 @@ export function Pill({
   );
 
   const base =
-    "block w-full rounded-[var(--radius)] border border-border bg-surface px-3 py-2 text-left transition-colors duration-150";
+    "block w-full rounded-[var(--radius)] border border-border bg-surface px-2.5 py-2 text-left transition-colors duration-150";
 
   if (as === "div") {
     return (

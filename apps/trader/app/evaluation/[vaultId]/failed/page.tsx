@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { use } from "react";
 import { FailureDebrief } from "@/components/terminal/FailureDebrief";
@@ -12,56 +13,29 @@ import {
   CardHeader,
   CardLabel,
 } from "@/components/ui";
-import { DEMO_TRADES, SEED_NOW, TIERS } from "@/lib/mock/fixtures";
+import { TIERS } from "@/lib/mock/fixtures";
 import {
   useCohortStats,
   useEquityCurve,
   useSession,
   useVault,
 } from "@/lib/mock/hooks";
-import type { RuleKind, TradeRecord, VaultState } from "@/lib/mock/types";
-
-/**
- * Local fixture that adds a failed state to the demo vault for display purposes.
- * This avoids modifying the shared mock layer while still providing a realistic
- * terminal-state screen.
- */
-const FAILED_TRIGGER_TRADE: TradeRecord = {
-  ...DEMO_TRADES[0],
-  id: "trd_fail_1",
-  symbol: "ETH",
-  side: "short",
-  sizeUsd: 3500,
-  oracleMid: 3_488.4,
-  fill: 3_487.7,
-  slippageBps: 0,
-  feeUsd: 1.57,
-  realizedPnl: -520.0,
-  ts: SEED_NOW - 2 * 60_000,
-  txDigest: "7Bz9kR4Nm2Tz6Lv1Cx8Ws3Hj5Af0Ed4Yk7Nc9Pr2Qx",
-};
-
-const FAILED_VIOLATED_RULE: RuleKind = "drawdown";
-
-function buildFailedVault(vault: VaultState): VaultState {
-  const failedEquity = vault.startingEquity * 0.892;
-  const peakEquity = vault.startingEquity * 1.032;
-  return {
-    ...vault,
-    status: "failed",
-    equity: failedEquity,
-    peakEquity,
-    triggerTrade: FAILED_TRIGGER_TRADE,
-    violatedRule: FAILED_VIOLATED_RULE,
-  };
-}
 
 function FailedContent({ vaultId }: { vaultId: string }) {
-  const rawVault = useVault(vaultId);
-  const vault = React.useMemo(() => buildFailedVault(rawVault), [rawVault]);
+  const router = useRouter();
+  const vault = useVault(vaultId);
   const cohort = useCohortStats();
   const equityCurve = useEquityCurve(vaultId);
   const { session } = useSession();
+
+  // The failed screen reflects the REAL terminated vault. A vault reached here
+  // only via the cockpit flipping status to "failed"; a direct nav (or a vault
+  // that never failed) has no debrief to show, so bounce back to its cockpit
+  // rather than fabricating a failure.
+  const isFailed = vault.status === "failed";
+  React.useEffect(() => {
+    if (!isFailed) router.replace(`/evaluation/${vaultId}`);
+  }, [isFailed, router, vaultId]);
 
   const equitySpark = React.useMemo(
     () => equityCurve.map((p) => p.equity),
@@ -74,6 +48,8 @@ function FailedContent({ vaultId }: { vaultId: string }) {
       : vault.tier.id === "basic"
         ? TIERS.find((t) => t.id === "starter")
         : null;
+
+  if (!isFailed) return null;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12 space-y-8">

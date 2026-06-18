@@ -1,9 +1,10 @@
 "use client";
 
 import { Badge, Button, Card } from "@/components/ui";
+import { accountHandle } from "@/lib/identity";
 import { DEMO_WALLET } from "@/lib/mock/fixtures";
 import { useSbt } from "@/lib/mock/hooks";
-import { shortAddress } from "@/lib/utils";
+import { suiObjectUrl } from "@/lib/sui/explorer";
 
 interface ProofPillar {
   icon: string;
@@ -46,6 +47,9 @@ const PROOF_PILLARS: ProofPillar[] = [
 
 export function WhatItProves() {
   const sbt = useSbt(DEMO_WALLET);
+  // A live "Verify" link only for a real on-chain object id; otherwise the
+  // example record shows its reference as plain text (no dead proof link).
+  const verifyUrl = suiObjectUrl(sbt.objectId);
 
   return (
     <section className="space-y-6">
@@ -99,7 +103,7 @@ export function WhatItProves() {
             <p className="text-xs text-text-muted">
               Account:{" "}
               <code className="tabular rounded bg-surface-2 px-1.5 py-0.5 text-xs text-text-faint">
-                {shortAddress(sbt.owner, 10, 6)}
+                {accountHandle(sbt.owner)}
               </code>
             </p>
           </div>
@@ -127,21 +131,19 @@ export function WhatItProves() {
             <code className="tabular break-all text-xs text-text-faint">
               Reference: {sbt.objectId}
             </code>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="shrink-0"
-              aria-label="Verify"
-              onClick={() =>
-                window.open(
-                  `https://suiexplorer.com/object/${sbt.objectId}`,
-                  "_blank",
-                  "noopener,noreferrer",
-                )
-              }
-            >
-              Verify ↗
-            </Button>
+            {verifyUrl && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0"
+                aria-label="Verify"
+                onClick={() =>
+                  window.open(verifyUrl, "_blank", "noopener,noreferrer")
+                }
+              >
+                Verify ↗
+              </Button>
+            )}
           </div>
         )}
       </div>

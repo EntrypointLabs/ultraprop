@@ -8,7 +8,19 @@ export const metadata = {
     "Pick a tier and open your evaluation. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices with automatic rule enforcement.",
 };
 
-export default function StartPage() {
+export default async function StartPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    symbol?: string | string[];
+    side?: string | string[];
+  }>;
+}) {
+  // Carry the optional deep-link intent (?symbol=&side=) from /markets or a
+  // spotlight CTA through the tier picker into the cockpit. Absent → unchanged.
+  const sp = await searchParams;
+  const symbol = Array.isArray(sp.symbol) ? sp.symbol[0] : sp.symbol;
+  const side = Array.isArray(sp.side) ? sp.side[0] : sp.side;
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6">
       {/* Hero intro */}
@@ -23,11 +35,12 @@ export default function StartPage() {
         </h1>
 
         <p className="text-base text-text-muted max-w-2xl leading-relaxed">
-          Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against live market prices.
-          Every rule is enforced automatically in real time — drawdown, daily
-          loss, profit target — and emits verifiable pass/fail events. Pass an
-          evaluation to level your non-transferable Genesis credential: proof of
-          trading skill earned in the closed beta.
+          Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog
+          in simulation against live market prices. Every rule is enforced
+          automatically in real time — drawdown, daily loss, profit target — and
+          emits verifiable pass/fail events. Pass an evaluation to level your
+          non-transferable Genesis credential: proof of trading skill earned in
+          the closed beta.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-3">
@@ -50,7 +63,7 @@ export default function StartPage() {
           </span>
         </div>
 
-        <TierGrid />
+        <TierGrid symbol={symbol} side={side} />
       </section>
 
       {/* Footer note */}
@@ -79,7 +92,8 @@ export default function StartPage() {
               03
             </span>
             <span>
-              Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog in simulation against live market prices. Every fill is
+              Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual
+              catalog in simulation against live market prices. Every fill is
               shown pre-submit with market mid, slippage, and the +2 bps house
               tilt — no hidden math.
             </span>

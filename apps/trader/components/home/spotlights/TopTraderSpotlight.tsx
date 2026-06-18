@@ -4,9 +4,10 @@ import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { TVChart } from "@/components/charts/TVChart";
 import { Avatar, Badge } from "@/components/ui";
+import { accountHandle } from "@/lib/identity";
 import { DEMO_VAULT_ID, DEMO_WALLET } from "@/lib/mock/fixtures";
 import { useEquityCurve, useLeaderboard, useProfile } from "@/lib/mock/hooks";
-import { formatPct, formatUsd, shortAddress } from "@/lib/utils";
+import { formatPct, formatUsd } from "@/lib/utils";
 
 export function TopTraderSpotlight() {
   const entries = useLeaderboard({ axis: "shadowPnl", window: "all" });
@@ -50,7 +51,7 @@ export function TopTraderSpotlight() {
         <Avatar address={profileWallet} size={40} />
         <div className="flex flex-col gap-0.5">
           <span className="font-semibold text-text">
-            {profile.displayName ?? shortAddress(profileWallet, 6, 4)}
+            {profile.displayName ?? accountHandle(profileWallet)}
           </span>
           <div className="flex items-center gap-1.5">
             <Badge variant="tier" className="uppercase">
