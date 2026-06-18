@@ -28,6 +28,17 @@ export function usePaperEngine(
   submitOrder: (intent: OrderIntent) => void;
   /** Close a position; pass `closeUsd` for a partial close, omit for a full one. */
   closePosition: (positionId: string, closeUsd?: number) => void;
+  /** Arm/edit a position's TP/SL bracket; `null` clears a leg, omit to leave it. */
+  setBracket: (
+    positionId: string,
+    bracket: {
+      takeProfit?: number | null;
+      stopLoss?: number | null;
+      expiresAt?: number | null;
+    },
+  ) => void;
+  /** Cancel a position's bracket — one leg, or both when `leg` is omitted. */
+  cancelBracket: (positionId: string, leg?: "tp" | "sl") => void;
   pause: () => void;
   resume: () => void;
 } {
@@ -80,6 +91,29 @@ export function usePaperEngine(
     [vaultId, livePrices, sync],
   );
 
+  const setBracket = useCallback(
+    (
+      positionId: string,
+      bracket: {
+        takeProfit?: number | null;
+        stopLoss?: number | null;
+        expiresAt?: number | null;
+      },
+    ) => {
+      useSimStore.getState().setBracket(vaultId, positionId, bracket);
+      sync();
+    },
+    [vaultId, sync],
+  );
+
+  const cancelBracket = useCallback(
+    (positionId: string, leg?: "tp" | "sl") => {
+      useSimStore.getState().cancelBracket(vaultId, positionId, leg);
+      sync();
+    },
+    [vaultId, sync],
+  );
+
   const pause = useCallback(() => {
     useSimStore.getState().pauseEvaluation(vaultId, Date.now());
     sync();
@@ -90,5 +124,12 @@ export function usePaperEngine(
     sync();
   }, [vaultId, sync]);
 
-  return { submitOrder, closePosition, pause, resume };
+  return {
+    submitOrder,
+    closePosition,
+    setBracket,
+    cancelBracket,
+    pause,
+    resume,
+  };
 }

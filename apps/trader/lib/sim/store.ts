@@ -26,6 +26,7 @@ import { applyFees } from "@/lib/slippage-preview";
 import {
   accrueFunding,
   applyFill,
+  bracketTrigger,
   closeFill,
   computeEquity,
   detectOutcome,
@@ -72,6 +73,10 @@ export interface OrderIntent {
   marginMode: "isolated" | "cross";
   /** leverage SET for the position; rejected if above the effective cap */
   leverage: number;
+  /** optional TP trigger (mark-crossing) to ARM on the new position at open */
+  takeProfit?: number | null;
+  /** optional SL trigger (mark-crossing) to ARM on the new position at open */
+  stopLoss?: number | null;
 }
 
 interface SimStore {
@@ -97,6 +102,31 @@ interface SimStore {
     nowMs: number,
     /** USD slice to close; omitted/≥ sizeUsd closes the whole position */
     closeUsd?: number,
+  ) => void;
+  /**
+   * Arm/edit a position's TP/SL bracket. Only the named legs change — an
+   * unspecified leg is left as-is; pass `null` to CLEAR a leg. `expiresAt` sets
+   * (or clears, with null) the bracket's cancel-not-fire deadline. No-ops on a
+   * missing/closed position; never touches any other position.
+   */
+  setBracket: (
+    vaultId: string,
+    positionId: string,
+    bracket: {
+      takeProfit?: number | null;
+      stopLoss?: number | null;
+      expiresAt?: number | null;
+    },
+  ) => void;
+  /**
+   * Cancel a position's bracket. `leg` clears just that leg ("tp" or "sl");
+   * omitting it clears both legs and the expiry. No-ops on a missing/closed
+   * position; never touches any other position.
+   */
+  cancelBracket: (
+    vaultId: string,
+    positionId: string,
+    leg?: "tp" | "sl",
   ) => void;
   tick: (vaultId: string, prices: PriceTick[], nowMs: number) => void;
   resetEvaluation: (vaultId: string) => void;
@@ -265,6 +295,89 @@ function closeLiquidations(
       ts: nowMs,
       txDigest: mockDigest(),
       liquidated: true,
+      closedBy: "liquidation",
+    });
+  }
+
+  return { survivors, trades, realizedTotal: running };
+}
+
+interface BracketResult {
+  survivors: Position[];
+  trades: TradeRecord[];
+  realizedTotal: number;
+}
+
+/**
+ * Per-tick take-profit / stop-loss firing — the user-set sibling of
+ * `closeLiquidations`. For each open position: an armed bracket past its
+ * `bracketExpiresAt` is CANCELLED (legs cleared, position kept) and never fired;
+ * otherwise if its MARK has crossed a leg (`engine.bracketTrigger`) the WHOLE
+ * position is force-closed AT the trigger price through the same realized path as
+ * a manual close (`realizedOnClose` + a taker fee on the trigger notional), the
+ * net folds into `realizedTotal`, and a `TradeRecord` flagged `closedBy: tp|sl`
+ * is emitted. OCO is implicit — closing the position drops both legs at once, so
+ * there is never a double-close or an orphan leg. Positions stay INDEPENDENT:
+ * only the position that crossed is touched; every survivor (including a
+ * same-symbol opposite-direction position) is returned untouched, with any
+ * expiry-cleared bracket reflected.
+ */
+function fireBrackets(
+  positions: Position[],
+  realizedTotal: number,
+  nowMs: number,
+): BracketResult {
+  const survivors: Position[] = [];
+  const trades: TradeRecord[] = [];
+  let running = realizedTotal;
+
+  for (const pos of positions) {
+    // Expiry is checked BEFORE firing: a bracket past its expiry is cancelled,
+    // not fired, even if the mark has crossed it this tick.
+    const expired =
+      pos.bracketExpiresAt != null &&
+      Number.isFinite(pos.bracketExpiresAt) &&
+      nowMs > pos.bracketExpiresAt;
+    if (expired) {
+      survivors.push({
+        ...pos,
+        takeProfit: null,
+        stopLoss: null,
+        bracketExpiresAt: null,
+      });
+      continue;
+    }
+
+    const leg = bracketTrigger(pos, pos.markPrice);
+    if (leg === null) {
+      survivors.push(pos);
+      continue;
+    }
+
+    // Close AT the trigger price (the resting bracket fills at its set level).
+    const triggerPrice = (
+      leg === "tp" ? pos.takeProfit : pos.stopLoss
+    ) as number;
+    const realized = realizedOnClose(pos, triggerPrice);
+    // Taker fee on the exit notional at the trigger — a round trip pays taker
+    // twice, and a bracket fill is still a taker fill.
+    const exitNotional = (pos.sizeUsd / pos.entryPrice) * triggerPrice;
+    const exitFee = applyFees(exitNotional, "taker");
+    running = Number((running + realized - exitFee).toFixed(2));
+    trades.push({
+      id: `trd_${crypto.randomUUID()}`,
+      symbol: pos.symbol,
+      side: pos.side,
+      sizeUsd: pos.sizeUsd,
+      oracleMid: pos.markPrice,
+      fill: triggerPrice,
+      slippageBps: 0,
+      feeUsd: exitFee,
+      venue: "hyperliquid",
+      realizedPnl: Number((realized - exitFee).toFixed(2)),
+      ts: nowMs,
+      txDigest: mockDigest(),
+      closedBy: leg,
     });
   }
 
@@ -333,16 +446,43 @@ function recompute(v: SimVault, prices: PriceTick[], nowMs: number): SimVault {
     ? attachLiquidation(positions, finalEquity, finalSummedMaint)
     : positions;
 
+  // Fire take-profit / stop-loss on the liquidation SURVIVORS. PRECEDENCE is
+  // liquidation > SL > TP: a liquidated position is already closed above (so it
+  // can never also fire a bracket — no double-close), and within a single tick
+  // bracketTrigger returns the worse-for-trader leg (`sl`) over `tp`. The close
+  // is booked AT the trigger price (+ taker fee), folded into realizedTotal, and
+  // OCO is implicit — closing the position removes both legs. Expired brackets
+  // are cancelled here (not fired); survivors keep their (possibly cleared)
+  // brackets. detectOutcome is unchanged — the rules-based eval stays authority.
+  const brkClose = fireBrackets(finalPositions, finalRealizedTotal, nowMs);
+  const closedPositions = brkClose.survivors;
+  const allTrades = brkClose.trades.length
+    ? [...brkClose.trades, ...trades]
+    : trades;
+  const closedRealizedTotal = brkClose.realizedTotal;
+  const closedEquity = brkClose.trades.length
+    ? computeEquity(v.startingEquity, closedRealizedTotal, closedPositions)
+    : finalEquity;
+  const closedPeak = Math.max(finalPeak, closedEquity);
+  const closedSummedMaint = closedPositions.reduce(
+    (sum, p) =>
+      sum + maintenanceMargin(p.sizeUsd, getMarket(p.symbol)?.maxLeverage ?? 1),
+    0,
+  );
+  const settledPositions = brkClose.trades.length
+    ? attachLiquidation(closedPositions, closedEquity, closedSummedMaint)
+    : closedPositions;
+
   const rules = evaluateRules({
     startingEquity: v.startingEquity,
-    equity: finalEquity,
+    equity: closedEquity,
     dailyAnchorEquity,
     tier: v.tier,
     intentCount: v.intentCount,
   });
-  // The trade blamed for a breach is the most recent — a liquidation booked this
-  // recompute, else the last existing trade.
-  const lastTrade = trades.length ? trades[0] : null;
+  // The trade blamed for a breach is the most recent — a forced close (bracket
+  // or liquidation) booked this recompute, else the last existing trade.
+  const lastTrade = allTrades.length ? allTrades[0] : null;
   const outcome = detectOutcome(v.status, rules, lastTrade);
 
   // The equity chart maps timestamps to whole seconds, so two ticks within the
@@ -353,19 +493,19 @@ function recompute(v: SimVault, prices: PriceTick[], nowMs: number): SimVault {
   const sameSecond =
     lastPoint && Math.floor(lastPoint.ts / 1000) === Math.floor(nowMs / 1000);
   const equityCurve = sameSecond
-    ? [...v.equityCurve.slice(0, -1), { ts: nowMs, equity: finalEquity }]
+    ? [...v.equityCurve.slice(0, -1), { ts: nowMs, equity: closedEquity }]
     : [
         ...v.equityCurve.slice(-(MAX_CURVE_POINTS - 1)),
-        { ts: nowMs, equity: finalEquity },
+        { ts: nowMs, equity: closedEquity },
       ];
 
   return {
     ...v,
-    positions: finalPositions,
-    trades,
-    realizedTotal: finalRealizedTotal,
-    equity: finalEquity,
-    peakEquity: finalPeak,
+    positions: settledPositions,
+    trades: allTrades,
+    realizedTotal: closedRealizedTotal,
+    equity: closedEquity,
+    peakEquity: closedPeak,
     dailyAnchorEquity,
     dailyResetAt,
     rules,
@@ -574,6 +714,11 @@ export const useSimStore = create<SimStore>()(
             fundingPaid: 0,
             liquidationPrice: null,
             marginRatio: null,
+            // Arm the bracket AT open from the intent (omit ⇒ no leg). The next
+            // recompute's fireBrackets owns firing/OCO/precedence — no trigger
+            // logic is duplicated here.
+            takeProfit: intent.takeProfit ?? null,
+            stopLoss: intent.stopLoss ?? null,
           };
           const trade: TradeRecord = {
             id: `trd_${crypto.randomUUID()}`,
@@ -668,6 +813,62 @@ export const useSimStore = create<SimStore>()(
             nowMs,
           );
           return { vaults: { ...s.vaults, [vaultId]: next } };
+        }),
+
+      // Arm/edit one position's bracket. A bracket is a resting trigger, so this
+      // is a pure state edit — it does NOT carry prices/nowMs and does NOT fire
+      // here even if the position is already crossed; the next tick (which the
+      // engine drives on every price update) evaluates and fires it through
+      // recompute. Only the named legs change; `undefined` leaves a leg as-is,
+      // `null` clears it. Positions stay INDEPENDENT — only the target is touched.
+      setBracket: (vaultId, positionId, bracket) =>
+        set((s) => {
+          const v = s.vaults[vaultId];
+          if (!v || v.status !== "active") return s;
+          if (!v.positions.some((p) => p.id === positionId)) return s;
+          const positions = v.positions.map((p) =>
+            p.id === positionId
+              ? {
+                  ...p,
+                  ...("takeProfit" in bracket
+                    ? { takeProfit: bracket.takeProfit }
+                    : {}),
+                  ...("stopLoss" in bracket
+                    ? { stopLoss: bracket.stopLoss }
+                    : {}),
+                  ...("expiresAt" in bracket
+                    ? { bracketExpiresAt: bracket.expiresAt }
+                    : {}),
+                }
+              : p,
+          );
+          return {
+            vaults: { ...s.vaults, [vaultId]: { ...v, positions } },
+          };
+        }),
+
+      // Cancel one position's bracket — a single leg ("tp"/"sl") or, when no leg
+      // is given, both legs and the expiry. No-ops on a missing/closed position;
+      // never touches any other position.
+      cancelBracket: (vaultId, positionId, leg) =>
+        set((s) => {
+          const v = s.vaults[vaultId];
+          if (!v || v.status !== "active") return s;
+          if (!v.positions.some((p) => p.id === positionId)) return s;
+          const positions = v.positions.map((p) => {
+            if (p.id !== positionId) return p;
+            if (leg === "tp") return { ...p, takeProfit: null };
+            if (leg === "sl") return { ...p, stopLoss: null };
+            return {
+              ...p,
+              takeProfit: null,
+              stopLoss: null,
+              bracketExpiresAt: null,
+            };
+          });
+          return {
+            vaults: { ...s.vaults, [vaultId]: { ...v, positions } },
+          };
         }),
 
       tick: (vaultId, prices, nowMs) =>

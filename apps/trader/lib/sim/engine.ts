@@ -228,6 +228,40 @@ export function resolveCloseSize(
   return { closeUsd: round2(requested), remainderUsd: remainder };
 }
 
+/** A bracket leg is armed only when its trigger is a finite, positive number. */
+const isArmed = (price: number | null | undefined): price is number =>
+  typeof price === "number" && Number.isFinite(price) && price > 0;
+
+/**
+ * Detect whether a position's take-profit or stop-loss has crossed on MARK
+ * (never mid/last — consistent with PnL and liquidation). Long: TP when
+ * `markPx >= takeProfit`, SL when `markPx <= stopLoss`; short is the inverse.
+ * Only armed legs (finite, positive) are considered. If BOTH would trigger in
+ * one call (a wide gap), the WORSE-for-trader leg (`sl`) wins so a gap-through
+ * is never booked as a profitable exit. Pure: no clocks, no IO — expiry and the
+ * close live in `store.recompute`.
+ */
+export function bracketTrigger(
+  pos: Position,
+  markPx: number,
+): "tp" | "sl" | null {
+  const tpArmed = isArmed(pos.takeProfit);
+  const slArmed = isArmed(pos.stopLoss);
+  const tpHit =
+    tpArmed &&
+    (pos.side === "long"
+      ? markPx >= (pos.takeProfit as number)
+      : markPx <= (pos.takeProfit as number));
+  const slHit =
+    slArmed &&
+    (pos.side === "long"
+      ? markPx <= (pos.stopLoss as number)
+      : markPx >= (pos.stopLoss as number));
+  if (slHit) return "sl";
+  if (tpHit) return "tp";
+  return null;
+}
+
 /** Notional equity = starting + booked realized + open unrealized. */
 export function computeEquity(
   startingEquity: number,
