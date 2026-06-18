@@ -54,14 +54,20 @@ export function applyFill(
  * The fill price to close a position. Closing a long means selling (short-side
  * fill, below mid); closing a short means buying (long-side fill, above mid).
  * Either way the trader crosses the spread again, so a round trip pays the
- * taker fee twice — a position can be underwater on fees alone.
+ * taker fee twice — a position can be underwater on fees alone. `closeUsd`
+ * defaults to the whole position; a partial close prices slippage off the
+ * smaller closed notional.
  */
-export function closeFill(pos: Position, oracleMid: number): number {
+export function closeFill(
+  pos: Position,
+  oracleMid: number,
+  closeUsd: number = pos.sizeUsd,
+): number {
   const exitSide: Side = pos.side === "long" ? "short" : "long";
   return slippagePreview({
     marketId: pos.symbol,
     side: exitSide,
-    sizeUsd: pos.sizeUsd,
+    sizeUsd: closeUsd,
     oracleMid,
   }).fill;
 }
@@ -191,10 +197,35 @@ export function markPositions(
   });
 }
 
-/** Realized PnL in USD when a position is closed at `exitFill`. */
-export function realizedOnClose(pos: Position, exitFill: number): number {
+/**
+ * Realized PnL in USD when a `closeUsd` slice of a position is closed at
+ * `exitFill`. Defaults to the position's full `sizeUsd` (a whole close); pass a
+ * smaller slice for a partial close. PnL is proportional to the closed notional,
+ * so closing half realizes half the PnL.
+ */
+export function realizedOnClose(
+  pos: Position,
+  exitFill: number,
+  closeUsd: number = pos.sizeUsd,
+): number {
   const pnlPct = ((exitFill - pos.entryPrice) / pos.entryPrice) * dir(pos.side);
-  return round2(pos.sizeUsd * pnlPct);
+  return round2(closeUsd * pnlPct);
+}
+
+/**
+ * Resolve how much of a position to close from a requested close amount, and
+ * the size that remains. The request is clamped to (0, sizeUsd]; a request at
+ * or above the full size closes the whole position (remainder 0). Positions are
+ * INDEPENDENT — this only ever shrinks ONE position's `sizeUsd`; it never nets
+ * or merges across positions.
+ */
+export function resolveCloseSize(
+  pos: Position,
+  closeUsd: number,
+): { closeUsd: number; remainderUsd: number } {
+  const requested = Math.min(Math.max(closeUsd, 0), pos.sizeUsd);
+  const remainder = round2(pos.sizeUsd - requested);
+  return { closeUsd: round2(requested), remainderUsd: remainder };
 }
 
 /** Notional equity = starting + booked realized + open unrealized. */

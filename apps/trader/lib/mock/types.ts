@@ -104,6 +104,8 @@ export interface TradeRecord {
   ts: number;
   /** Sui object/tx digest for "View on Sui Explorer" */
   txDigest: string;
+  /** true when this close was a forced liquidation (mark crossed liq price) */
+  liquidated?: boolean;
 }
 
 export type RuleKind =
