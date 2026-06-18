@@ -8,6 +8,7 @@ import type { Candle } from "@/components/charts/HLCandleChart";
 import { DailyResetCountdown } from "@/components/evaluation/DailyResetCountdown";
 import { DrawdownGauge } from "@/components/evaluation/DrawdownGauge";
 import { MarketSelector } from "@/components/evaluation/MarketSelector";
+import { OrdersPanel } from "@/components/evaluation/OrdersPanel";
 import { PositionsTable } from "@/components/evaluation/PositionsTable";
 import { RulePills } from "@/components/evaluation/RulePills";
 import { TradeHistory } from "@/components/evaluation/TradeHistory";
@@ -71,10 +72,11 @@ const HLCandleChart = dynamic(
 /* Bottom tab labels                                                            */
 /* -------------------------------------------------------------------------- */
 
-type BottomTab = "positions" | "history" | "account";
+type BottomTab = "positions" | "orders" | "history" | "account";
 
 const BOTTOM_TABS: { id: BottomTab; label: string }[] = [
   { id: "positions", label: "Positions" },
+  { id: "orders", label: "Orders" },
   { id: "history", label: "Trade history" },
   { id: "account", label: "Account" },
 ];
@@ -346,10 +348,8 @@ export function EvaluationCockpit({
     return hit ? hit.id : resolveMarketId(initialSymbol);
   }, [catalog, initialSymbol]);
   const presetSide: Side | null = parseSide(initialSide);
-  const { submitOrder, closePosition, pause } = usePaperEngine(
-    vaultId,
-    initialTier,
-  );
+  const { submitOrder, closePosition, setBracket, cancelBracket, pause } =
+    usePaperEngine(vaultId, initialTier);
   const vault = useVault(vaultId);
   const equityCurve = useEquityCurve(vaultId);
   const positions = usePositions(vaultId);
@@ -425,11 +425,30 @@ export function EvaluationCockpit({
   const activeTabLabel =
     BOTTOM_TABS.find((t) => t.id === activeTab)?.label ?? "";
 
+  // Armed legs across all open positions — TP and SL count independently.
+  const activeBracketCount = positions.reduce(
+    (n, p) => n + (p.takeProfit != null ? 1 : 0) + (p.stopLoss != null ? 1 : 0),
+    0,
+  );
+
   // The active tab's body, reused by the inline panel and the expanded modal.
   const activeTabBody = (
     <>
       {activeTab === "positions" && (
-        <PositionsTable positions={positions} onClose={closePosition} />
+        <PositionsTable
+          positions={positions}
+          onClose={closePosition}
+          onSetBracket={setBracket}
+          onCancelBracket={cancelBracket}
+        />
+      )}
+
+      {activeTab === "orders" && (
+        <OrdersPanel
+          positions={positions}
+          onSetBracket={setBracket}
+          onCancelBracket={cancelBracket}
+        />
       )}
 
       {activeTab === "history" && <TradeHistory trades={trades} />}
@@ -480,7 +499,7 @@ export function EvaluationCockpit({
 
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 sm:py-8">
-      <div className="flex flex-col rounded-[var(--radius-lg)] border border-border bg-bg">
+      <div className="flex flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border bg-bg">
         {/* ── Market stats strip ─────────────────────────────────────────── */}
         <MarketStrip
           marketId={marketId}
@@ -495,9 +514,9 @@ export function EvaluationCockpit({
             Mobile (<md):   single column, everything stacks
             Tablet (md):    2-col [1fr 320px] — chart+compliance left, order right
             Desktop (lg+):  2-col [1fr 360px] — same structure, wider order rail  */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] md:grid-rows-[auto_auto] lg:grid-cols-[1fr_360px]">
+        <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[1fr_320px] md:grid-rows-[auto_auto] lg:grid-cols-[1fr_360px]">
           {/* LEFT TOP: chart + compliance strip */}
-          <div className="flex flex-col border-b border-border bg-surface md:col-start-1 md:row-start-1 md:border-r">
+          <div className="flex min-w-0 flex-col border-b border-border bg-surface md:col-start-1 md:row-start-1 md:border-r">
             {/* Live Hyperliquid candle feed for the selected market */}
             <div className="h-[300px] border-b border-border sm:h-[380px] lg:h-[460px]">
               <HLCandleChart marketId={marketId} onHistory={onChartHistory} />
@@ -518,7 +537,7 @@ export function EvaluationCockpit({
           </div>
 
           {/* RIGHT: order entry rail — spans the full height of the left column */}
-          <div className="flex flex-col border-b border-border bg-surface md:col-start-2 md:row-span-2 md:row-start-1 md:border-b-0">
+          <div className="flex min-w-0 flex-col border-b border-border bg-surface md:col-start-2 md:row-span-2 md:row-start-1 md:border-b-0 md:overflow-y-auto">
             <TradeIntentForm
               vaultId={vaultId}
               marketId={marketId}
@@ -552,6 +571,13 @@ export function EvaluationCockpit({
                       positions.length > 0 && (
                         <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
                           {positions.length}
+                        </span>
+                      )}
+                    {tab.id === "orders" &&
+                      !showSignInWall &&
+                      activeBracketCount > 0 && (
+                        <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-surface-3 px-1 text-xs text-text-faint">
+                          {activeBracketCount}
                         </span>
                       )}
                     {tab.id === "history" &&
