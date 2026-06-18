@@ -34,3 +34,6 @@ SUMMARY-*.md
 
 .impeccable/
 .vercel
+
+# IDE
+/.idea
