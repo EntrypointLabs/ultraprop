@@ -3,8 +3,8 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import * as React from "react";
 import { AuthHeading, AuthShell } from "@/components/auth/AuthShell";
+import { Redirect } from "@/components/Redirect";
 import { Button } from "@/components/ui/Button";
 import { suiWalletAddress } from "@/lib/auth";
 import { useSuiWalletProvision } from "@/lib/sui/useSuiWalletProvision";
@@ -44,13 +44,8 @@ export function CreateAccountFlow() {
   const create = useCreateAccount();
   const wallet = useSuiWalletProvision();
 
-  React.useEffect(() => {
-    if (ready && !authenticated) router.replace("/login");
-  }, [ready, authenticated, router]);
-
-  React.useEffect(() => {
-    if (account.data) router.replace("/markets");
-  }, [account.data, router]);
+  if (ready && !authenticated) return <Redirect href="/login" />;
+  if (account.data) return <Redirect href="/markets" />;
 
   if (!ready || !authenticated) {
     return <FullScreenLoader label="Loading your session…" />;

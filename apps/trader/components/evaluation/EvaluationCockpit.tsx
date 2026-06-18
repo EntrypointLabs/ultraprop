@@ -2,7 +2,6 @@
 
 import { Maximize2, PauseCircle } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Candle } from "@/components/charts/HLCandleChart";
 import { DailyResetCountdown } from "@/components/evaluation/DailyResetCountdown";
@@ -12,6 +11,7 @@ import { OrdersPanel } from "@/components/evaluation/OrdersPanel";
 import { PositionsTable } from "@/components/evaluation/PositionsTable";
 import { RulePills } from "@/components/evaluation/RulePills";
 import { TradeHistory } from "@/components/evaluation/TradeHistory";
+import { Redirect } from "@/components/Redirect";
 import { TradeIntentForm } from "@/components/trade";
 import { Badge, Button, ConnectionDot, Modal, Skeleton } from "@/components/ui";
 import { DEMO_TRADING_ENABLED } from "@/lib/auth";
@@ -332,7 +332,6 @@ export function EvaluationCockpit({
   initialSymbol,
   initialSide,
 }: EvaluationCockpitProps) {
-  const router = useRouter();
   // Resolve the deep-link market against the LIVE catalog so a bare ticker like
   // "BTC" maps to "hyperliquid:BTC" across the full universe; matching the
   // reactive catalog (not the module snapshot) means a deep-link to a market
@@ -362,16 +361,6 @@ export function EvaluationCockpit({
   // its sign-in gate. `DEMO_TRADING_ENABLED` is a dev/test-only bypass, off by default.
   const isDemoVault = vaultId === DEMO_VAULT_ID;
   const showSignInWall = !session.address && !isDemoVault;
-
-  // The engine flips status on breach/pass — route to the matching terminal screen.
-  useEffect(() => {
-    if (vault.status === "passed")
-      router.replace(`/evaluation/${vaultId}/passed`);
-    else if (vault.status === "failed")
-      router.replace(`/evaluation/${vaultId}/failed`);
-    else if (vault.status === "inactive")
-      router.replace(`/evaluation/${vaultId}/inactive`);
-  }, [vault.status, vaultId, router]);
 
   const [marketId, setMarketId] = useState<MarketId>(
     presetMarketId ?? DEFAULT_MARKET_ID,
@@ -496,6 +485,16 @@ export function EvaluationCockpit({
       )}
     </>
   );
+
+  // The engine flips status on breach/pass — route to the matching terminal
+  // screen. Render-time redirect (not an effect) so a terminal vault never flashes
+  // the live cockpit before navigating; placed after all hooks, before the return.
+  if (vault.status === "passed")
+    return <Redirect href={`/evaluation/${vaultId}/passed`} />;
+  if (vault.status === "failed")
+    return <Redirect href={`/evaluation/${vaultId}/failed`} />;
+  if (vault.status === "inactive")
+    return <Redirect href={`/evaluation/${vaultId}/inactive`} />;
 
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 sm:py-8">

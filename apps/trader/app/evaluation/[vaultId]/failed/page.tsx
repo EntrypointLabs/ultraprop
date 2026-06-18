@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import * as React from "react";
 import { use } from "react";
+import { Redirect } from "@/components/Redirect";
 import { FailureDebrief } from "@/components/terminal/FailureDebrief";
 import {
   Badge,
@@ -22,7 +22,6 @@ import {
 } from "@/lib/mock/hooks";
 
 function FailedContent({ vaultId }: { vaultId: string }) {
-  const router = useRouter();
   const vault = useVault(vaultId);
   const cohort = useCohortStats();
   const equityCurve = useEquityCurve(vaultId);
@@ -33,9 +32,6 @@ function FailedContent({ vaultId }: { vaultId: string }) {
   // that never failed) has no debrief to show, so bounce back to its cockpit
   // rather than fabricating a failure.
   const isFailed = vault.status === "failed";
-  React.useEffect(() => {
-    if (!isFailed) router.replace(`/evaluation/${vaultId}`);
-  }, [isFailed, router, vaultId]);
 
   const equitySpark = React.useMemo(
     () => equityCurve.map((p) => p.equity),
@@ -49,7 +45,7 @@ function FailedContent({ vaultId }: { vaultId: string }) {
         ? TIERS.find((t) => t.id === "starter")
         : null;
 
-  if (!isFailed) return null;
+  if (!isFailed) return <Redirect href={`/evaluation/${vaultId}`} />;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12 space-y-8">
