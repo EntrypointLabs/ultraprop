@@ -10,6 +10,7 @@ export type {
 export {
   type AssetCtx,
   type Candle,
+  ctxToMarkTick,
   fetchAssetCtxs,
   fetchCandles,
   HyperliquidAdapter,

@@ -16,7 +16,7 @@ import { getCatalog } from "./indexer.js";
  * failure surfaces as a logged 500, never a silently swallowed error.
  */
 
-const PORT = 8787;
+const PORT = Number(process.env.PORT) || 8787;
 const DEFAULT_HISTORY_MS = 7 * 24 * 60 * 60 * 1000;
 /** Keep the SSE line warm during quiet mark periods so the client's silence
  * timer never trips on a healthy connection (and recovers promptly on reconnect). */

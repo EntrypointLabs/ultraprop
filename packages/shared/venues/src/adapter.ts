@@ -48,6 +48,11 @@ export interface MarkTick {
   midPx: number;
   /** current per-interval funding rate, carried through; no accrual here. */
   fundingRate: number;
+  /**
+   * 24h price change as a percent, derived from the venue's prior-day mark.
+   * `null` when the venue gives no prior-day reference for this tick.
+   */
+  change24h: number | null;
   /** epoch ms of the next funding settlement, or 0 when unknown. */
   nextFundingTime: number;
   /** epoch ms this tick was stamped at the adapter edge (staleness clock). */

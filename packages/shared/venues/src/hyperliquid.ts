@@ -143,19 +143,27 @@ function toNum(v: unknown, fallback = 0): number {
  * Build a `MarkTick` from a raw HL asset ctx. HL omits `nextFundingTime` on
  * `assetCtx` (it lives on `predictedFundings`), so it is stamped 0 (unknown).
  * A thin book may report no `midPx`; fall back to `markPx` so fills still price.
+ *
+ * `change24h` is derived from HL's `prevDayPx` (the only 24h reference HL gives
+ * per-coin — it carries no 24h high/low here), and is `null` when prevDay is
+ * absent or zero so the FE shows "—" rather than a bogus 0%/Infinity.
  */
-function ctxToMarkTick(
+export function ctxToMarkTick(
   marketId: string,
-  ctx: Partial<RawAssetCtx>,
+  ctx: Partial<AssetCtx>,
   ts: number,
 ): MarkTick {
   const markPx = toNum(ctx.markPx);
+  const prevDayPx = toNum(ctx.prevDayPx);
+  const change24h =
+    prevDayPx > 0 ? ((markPx - prevDayPx) / prevDayPx) * 100 : null;
   return {
     marketId,
     markPx,
     oraclePx: toNum(ctx.oraclePx, markPx),
     midPx: ctx.midPx == null ? markPx : toNum(ctx.midPx, markPx),
     fundingRate: toNum(ctx.funding),
+    change24h,
     nextFundingTime: 0,
     ts,
   };

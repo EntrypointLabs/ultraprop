@@ -13,6 +13,13 @@ const nextConfig: NextConfig = {
   // server-side. `/api/feed` is SSE — Next's rewrite proxy streams the response
   // through unbuffered, so live ticks arrive in real time.
   async rewrites() {
+    // A prod deploy without GATEWAY_URL silently falls back to localhost, where
+    // nothing is listening — catalog/feed/candles all dead-end. Make that loud.
+    if (!process.env.GATEWAY_URL && process.env.NODE_ENV === "production") {
+      console.warn(
+        "[next.config] GATEWAY_URL is unset in production; falling back to http://localhost:8787. The venue gateway is almost certainly unreachable — catalog, feed, and candles will fail. Set GATEWAY_URL to the deployed gateway origin.",
+      );
+    }
     const gateway = process.env.GATEWAY_URL ?? "http://localhost:8787";
     return [
       { source: "/api/catalog", destination: `${gateway}/api/catalog` },
