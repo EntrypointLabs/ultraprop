@@ -333,9 +333,14 @@ export function MarketSelector({
     [onMarketChange],
   );
 
+  // Handled on the container (not just the search input) so Escape/Enter/Arrows
+  // keep working once focus moves off the input into the listbox. Only acts
+  // while open, so it never intercepts keys meant for the closed trigger button.
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (!open) return;
       if (e.key === "Escape") {
+        e.preventDefault();
         setOpen(false);
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -349,7 +354,7 @@ export function MarketSelector({
         if (picked) choose(picked.id);
       }
     },
-    [rows, highlight, choose],
+    [open, rows, highlight, choose],
   );
 
   const toggleSort = (key: SortKey) =>
@@ -364,7 +369,12 @@ export function MarketSelector({
     : undefined;
 
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
+    // biome-ignore lint/a11y/noStaticElementInteractions: combobox key handling lives on the container so Escape/Enter/Arrows work from any focus inside the open dropdown (input or listbox row); guarded to only act while open.
+    <div
+      ref={containerRef}
+      onKeyDown={onKeyDown}
+      className={cn("relative", className)}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -400,7 +410,6 @@ export function MarketSelector({
               ref={searchRef}
               type="text"
               role="combobox"
-              onKeyDown={onKeyDown}
               aria-expanded
               aria-controls={listId}
               aria-activedescendant={activeOptionId}

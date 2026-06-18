@@ -53,6 +53,13 @@ interface TradeIntentFormProps {
     marginMode: MarginMode;
     leverage: number;
   }) => void;
+  /**
+   * When true a visitor may submit paper orders without a Privy session (the
+   * shared demo vault). Per-user vaults leave this false and keep the auth wall.
+   */
+  isGuestAllowed?: boolean;
+  /** Pre-fill the side from a deep-link CTA (?side=long|short). */
+  initialSide?: Side;
 }
 
 type SubmitState =
@@ -455,6 +462,8 @@ export function TradeIntentForm({
   marketId: marketIdProp,
   onMarketChange,
   onSubmitOrder,
+  isGuestAllowed = false,
+  initialSide,
 }: TradeIntentFormProps) {
   const vault: VaultState = useVault(vaultId);
   const { halted } = useDivergenceHalt();
@@ -470,7 +479,7 @@ export function TradeIntentForm({
     ? (onMarketChange ?? (() => {}))
     : setSymbolInternal;
 
-  const [side, setSide] = React.useState<Side>("long");
+  const [side, setSide] = React.useState<Side>(initialSide ?? "long");
   const [marginMode, setMarginMode] = React.useState<MarginMode>("cross");
   const [leverage, setLeverage] = React.useState(1);
   const [rawSize, setRawSize] = React.useState("1000");
@@ -509,6 +518,23 @@ export function TradeIntentForm({
     Math.min(effectiveLeverageCap, leverage),
   );
   const effectiveMode: MarginMode = forcedIsolated ? "isolated" : marginMode;
+
+  // The size input can't exceed its displayed "Max" (the tier's shadow
+  // allocation) — clamp typed/pasted/preset values to [0, max]. This is a UI
+  // cap layered ON TOP of the over-leverage / insufficient-margin guards below,
+  // which still apply (a value within max can still trip those).
+  const maxSize = vault.tier.shadowAllocation;
+  const clampSize = React.useCallback(
+    (raw: string): string => {
+      if (raw === "") return raw;
+      const n = parseFloat(raw);
+      if (!Number.isFinite(n)) return raw;
+      if (n < 0) return "0";
+      if (n > maxSize) return String(maxSize);
+      return raw;
+    },
+    [maxSize],
+  );
 
   const sizeUsd = parseFloat(rawSize) || 0;
   // USD-notional order → implied leverage against the tier's shadow allocation.
@@ -570,9 +596,22 @@ export function TradeIntentForm({
   // No live oracle price (or a stale/halted feed) -> never quote or fill.
   const isPriceUnavailable = marketMid == null || marketMid <= 0;
   const isFeedStale = halted || connection === "stale";
-  const isNotSignedIn = !session.address;
+  // Auth wall only for per-user vaults; the demo vault lets guests submit. The
+  // size/leverage/feed reasons below still surface for a guest in the demo vault.
+  const isAuthGated = !session.address && !isGuestAllowed;
   const isSizeInvalid = sizeUsd <= 0;
   const isSubmitting = submitState.phase === "submitting";
+
+  // Free-margin gate (mirrors the store guard): the order's initial margin can't
+  // exceed equity not already committed to open positions. usedMargin sums each
+  // open position's initial margin; freeMargin is equity less that.
+  const usedMargin = vault.positions.reduce(
+    (sum, p) => sum + (p.leverage > 0 ? p.sizeUsd / p.leverage : 0),
+    0,
+  );
+  const freeMargin = vault.equity - usedMargin;
+  const requiredMargin = sizeUsd / effectiveLeverage;
+  const isInsufficientMargin = !isSizeInvalid && requiredMargin > freeMargin;
 
   let disabledReason: string | null = null;
   if (isFeedStale)
@@ -583,15 +622,18 @@ export function TradeIntentForm({
   else if (isSizeInvalid) disabledReason = "Enter a position size";
   else if (isOverLeverageCap)
     disabledReason = `Leverage exceeds ${effectiveLeverageCap}× cap for ${market?.symbol ?? symbol}`;
+  else if (isInsufficientMargin)
+    disabledReason = `Insufficient margin — needs ${formatUsd(requiredMargin, { decimals: 0 })}, ${formatUsd(Math.max(0, freeMargin), { decimals: 0 })} free`;
   else if (isRateLimited) disabledReason = null;
 
   const canSubmit =
-    !isNotSignedIn &&
+    !isAuthGated &&
     !isFeedStale &&
     !isPriceUnavailable &&
     !isVaultPaused &&
     !isSizeInvalid &&
     !isOverLeverageCap &&
+    !isInsufficientMargin &&
     !isRateLimited &&
     !isSubmitting;
 
@@ -718,10 +760,11 @@ export function TradeIntentForm({
               mono
               type="number"
               min={1}
+              max={maxSize}
               step={50}
               autoComplete="off"
               value={rawSize}
-              onChange={(e) => setRawSize(e.target.value)}
+              onChange={(e) => setRawSize(clampSize(e.target.value))}
               placeholder="0"
               className="pl-7"
               aria-label="Position size in USD"
@@ -733,7 +776,7 @@ export function TradeIntentForm({
               <button
                 key={preset}
                 type="button"
-                onClick={() => setRawSize(String(preset))}
+                onClick={() => setRawSize(clampSize(String(preset)))}
                 className={cn(
                   "flex-1 rounded-sm border py-1 text-xs transition-colors",
                   rawSize === String(preset)
@@ -751,7 +794,7 @@ export function TradeIntentForm({
         {isRateLimited && rateLimitUntil && (
           <RateLimitBanner until={rateLimitUntil} />
         )}
-        {disabledReason && !isRateLimited && !isNotSignedIn && (
+        {disabledReason && !isRateLimited && !isAuthGated && (
           <DisabledBanner message={disabledReason} />
         )}
 
@@ -773,14 +816,14 @@ export function TradeIntentForm({
           <Button
             type="button"
             variant={
-              isNotSignedIn ? "primary" : side === "long" ? "long" : "short"
+              isAuthGated ? "primary" : side === "long" ? "long" : "short"
             }
             size="lg"
-            disabled={!isNotSignedIn && !canSubmit}
-            onClick={isNotSignedIn ? openLogin : handleSubmit}
+            disabled={!isAuthGated && !canSubmit}
+            onClick={isAuthGated ? openLogin : handleSubmit}
             className="w-full font-bold tracking-wide"
           >
-            {isNotSignedIn ? (
+            {isAuthGated ? (
               "Sign in to trade"
             ) : isSubmitting ? (
               <span className="flex items-center gap-2">
@@ -915,6 +958,14 @@ export function TradeIntentForm({
                 }
                 muted
               />
+              {/* Cross liq is driven by account value + maintenance margin (off
+                  market max leverage), not the leverage you set — so the slider
+                  moving it only in isolated mode is HL-faithful, not a bug. */}
+              {effectiveMode === "cross" && estLiquidation != null && (
+                <p className="px-0 pb-1 text-[11px] leading-tight text-text-faint">
+                  Cross liq tracks account value, not the leverage you set.
+                </p>
+              )}
 
               <div className="my-1.5 border-t border-border-soft" />
 

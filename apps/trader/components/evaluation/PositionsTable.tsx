@@ -15,8 +15,11 @@ import { formatPct, formatUsd } from "@/lib/utils";
 
 interface PositionsTableProps {
   positions: Position[];
-  /** Close a position at the current mark, booking realized P&L. */
-  onClose?: (id: string) => void;
+  /**
+   * Close a position at the current mark, booking realized P&L. `closeUsd` is a
+   * partial close amount; omit it to close the whole position.
+   */
+  onClose?: (id: string, closeUsd?: number) => void;
 }
 
 function SideBadge({ side }: { side: "long" | "short" }) {
@@ -46,12 +49,13 @@ export function PositionsTable({ positions, onClose }: PositionsTableProps) {
       <Thead>
         <Tr>
           <Th>Market</Th>
-          <Th>Side</Th>
-          <Th numeric>Size</Th>
-          <Th numeric>Entry</Th>
-          <Th numeric>Mark</Th>
-          <Th numeric>Unr. PnL</Th>
-          <Th numeric>PnL %</Th>
+          <Th className="hidden sm:table-cell">Side</Th>
+          <Th numeric className="hidden sm:table-cell">Size</Th>
+          <Th numeric className="hidden md:table-cell">Entry</Th>
+          <Th numeric className="hidden md:table-cell">Mark</Th>
+          {/* PnL always visible — most actionable column */}
+          <Th numeric>PnL</Th>
+          <Th numeric className="hidden sm:table-cell">PnL %</Th>
           <Th />
         </Tr>
       </Thead>
@@ -63,16 +67,24 @@ export function PositionsTable({ positions, onClose }: PositionsTableProps) {
           return (
             <Tr key={pos.id}>
               <Td>
-                <div className="flex items-center gap-2">
-                  <AssetIcon symbol={pos.symbol} size={18} />
-                  <span className="font-medium">{pos.symbol}</span>
+                <div className="flex items-center gap-1.5">
+                  <AssetIcon symbol={pos.symbol} size={16} />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-medium">{pos.symbol}</span>
+                    {/* Side badge inline on xs — shown when Side column is hidden */}
+                    <span className="sm:hidden">
+                      <SideBadge side={pos.side} />
+                    </span>
+                  </div>
                 </div>
               </Td>
-              <Td>
+              <Td className="hidden sm:table-cell">
                 <SideBadge side={pos.side} />
               </Td>
-              <Td numeric>{formatUsd(pos.sizeUsd, { decimals: 0 })}</Td>
-              <Td numeric>
+              <Td numeric className="hidden sm:table-cell">
+                {formatUsd(pos.sizeUsd, { decimals: 0 })}
+              </Td>
+              <Td numeric className="hidden md:table-cell">
                 <span className="tabular">
                   {pos.entryPrice.toLocaleString("en-US", {
                     minimumFractionDigits: priceDecimals,
@@ -80,7 +92,7 @@ export function PositionsTable({ positions, onClose }: PositionsTableProps) {
                   })}
                 </span>
               </Td>
-              <Td numeric>
+              <Td numeric className="hidden md:table-cell">
                 <span className="tabular">
                   {pos.markPrice.toLocaleString("en-US", {
                     minimumFractionDigits: priceDecimals,
@@ -89,24 +101,42 @@ export function PositionsTable({ positions, onClose }: PositionsTableProps) {
                 </span>
               </Td>
               <Td numeric>
-                <span className={["tabular font-semibold", pnlTone].join(" ")}>
+                <span className={["tabular font-semibold text-xs", pnlTone].join(" ")}>
                   {formatUsd(pos.unrealizedPnl, { sign: true })}
                 </span>
               </Td>
-              <Td numeric>
+              <Td numeric className="hidden sm:table-cell">
                 <span className={["tabular font-semibold", pnlTone].join(" ")}>
                   {formatPct(pos.unrealizedPnlPct)}
                 </span>
               </Td>
-              <Td>
-                <Button
-                  variant="danger"
-                  size="sm"
-                  aria-label={`Close ${pos.symbol} ${pos.side} position`}
-                  onClick={() => onClose?.(pos.id)}
-                >
-                  Close
-                </Button>
+              <Td className="pr-2 sm:pr-4">
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    aria-label={`Close 25% of ${pos.symbol} ${pos.side} position`}
+                    onClick={() => onClose?.(pos.id, pos.sizeUsd * 0.25)}
+                    className="hidden rounded-[var(--radius-sm)] border border-border px-1.5 py-1 text-xs font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text sm:inline-flex"
+                  >
+                    25%
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Close 50% of ${pos.symbol} ${pos.side} position`}
+                    onClick={() => onClose?.(pos.id, pos.sizeUsd * 0.5)}
+                    className="hidden rounded-[var(--radius-sm)] border border-border px-1.5 py-1 text-xs font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text sm:inline-flex"
+                  >
+                    50%
+                  </button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    aria-label={`Close ${pos.symbol} ${pos.side} position`}
+                    onClick={() => onClose?.(pos.id)}
+                  >
+                    Close
+                  </Button>
+                </div>
               </Td>
             </Tr>
           );

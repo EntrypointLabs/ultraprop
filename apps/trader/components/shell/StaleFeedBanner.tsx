@@ -1,30 +1,49 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { useConnection, useDivergenceHalt } from "@/lib/mock/hooks";
 
 const STALE_COPY =
   "Live market data is unavailable; trading is suspended until the oracle feed recovers.";
+const RECONNECTING_COPY =
+  "Reconnecting to the live feed — prices are momentarily not updating. Trading stays open.";
 
 export function StaleFeedBanner() {
   const status = useConnection();
   const { halted, toggle } = useDivergenceHalt();
   const stale = status === "stale";
+  const reconnecting = status === "reconnecting";
 
   if (!stale) {
-    // dev affordance: a tiny corner toggle so QA can simulate a feed halt.
-    if (process.env.NODE_ENV === "production") {
-      return null;
-    }
     return (
-      <button
-        type="button"
-        onClick={toggle}
-        title="Dev: simulate feed halt"
-        className="fixed bottom-3 left-3 z-30 rounded-full border border-border bg-surface-2/80 px-2 py-1 text-[10px] uppercase tracking-wide text-text-faint backdrop-blur transition-colors hover:text-warn"
-      >
-        sim halt
-      </button>
+      <>
+        {/* Non-blocking notice: the feed is mid-reconnect, so the sim is marking
+            against the last-known prices. Trading is NOT suspended (that is the
+            stale path); this just tells the user prices are briefly frozen. */}
+        {reconnecting && (
+          <div
+            role="status"
+            className="sticky top-14 z-30 flex items-center justify-center gap-2 border-b border-warn/30 bg-warn/10 px-4 py-1.5 text-xs text-warn/90"
+          >
+            <Loader2
+              className="h-3.5 w-3.5 shrink-0 animate-spin"
+              aria-hidden="true"
+            />
+            <span>{RECONNECTING_COPY}</span>
+          </div>
+        )}
+        {/* dev affordance: a tiny corner toggle so QA can simulate a feed halt. */}
+        {process.env.NODE_ENV !== "production" && (
+          <button
+            type="button"
+            onClick={toggle}
+            title="Dev: simulate feed halt"
+            className="fixed bottom-3 left-3 z-30 rounded-full border border-border bg-surface-2/80 px-2 py-1 text-[10px] uppercase tracking-wide text-text-faint backdrop-blur transition-colors hover:text-warn"
+          >
+            sim halt
+          </button>
+        )}
+      </>
     );
   }
 

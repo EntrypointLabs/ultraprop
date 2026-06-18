@@ -146,6 +146,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                 sortable
                 sortDir={sortDir4("ts")}
                 onSort={() => toggleSort("ts")}
+                className="hidden sm:table-cell"
               >
                 Time
               </Th>
@@ -171,7 +172,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Size
               </Th>
-              <Th numeric>Mkt Price</Th>
+              <Th numeric className="hidden sm:table-cell">Mkt Price</Th>
               <Th
                 numeric
                 sortable
@@ -185,17 +186,18 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                 sortable
                 sortDir={sortDir4("slippageBps")}
                 onSort={() => toggleSort("slippageBps")}
+                className="hidden md:table-cell"
               >
                 Impact
               </Th>
-              <Th numeric>Fee</Th>
+              <Th numeric className="hidden md:table-cell">Fee</Th>
               <Th
                 numeric
                 sortable
                 sortDir={sortDir4("realizedPnl")}
                 onSort={() => toggleSort("realizedPnl")}
               >
-                Realized PnL
+                PnL
               </Th>
             </Tr>
           </Thead>
@@ -214,7 +216,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
 
               return (
                 <Tr key={trade.id}>
-                  <Td>
+                  <Td className="hidden sm:table-cell">
                     <span className="tabular text-xs text-text-muted">
                       {timeStr}
                     </span>
@@ -229,7 +231,7 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                     <SideBadge side={trade.side} />
                   </Td>
                   <Td numeric>{formatUsd(trade.sizeUsd, { decimals: 0 })}</Td>
-                  <Td numeric>
+                  <Td numeric className="hidden sm:table-cell">
                     <span className="tabular text-text-muted">
                       {trade.oracleMid.toLocaleString("en-US", {
                         minimumFractionDigits: priceDecimals,
@@ -245,14 +247,14 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                       })}
                     </span>
                   </Td>
-                  <Td numeric>
+                  <Td numeric className="hidden md:table-cell">
                     <Tooltip content="Size impact bps at fill">
                       <span className="tabular text-text-muted">
                         {trade.slippageBps.toFixed(1)} bps
                       </span>
                     </Tooltip>
                   </Td>
-                  <Td numeric>
+                  <Td numeric className="hidden md:table-cell">
                     <Tooltip content="Hyperliquid taker fee on the fill notional">
                       <span className="tabular text-warn">
                         {formatUsd(trade.feeUsd, { decimals: 2 })}
