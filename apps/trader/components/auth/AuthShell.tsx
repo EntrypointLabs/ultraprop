@@ -16,7 +16,12 @@ interface AuthShellProps {
   children: React.ReactNode;
 }
 
-export function AuthShell({ step, totalSteps, onBack, children }: AuthShellProps) {
+export function AuthShell({
+  step,
+  totalSteps,
+  onBack,
+  children,
+}: AuthShellProps) {
   const router = useRouter();
   const showProgress = step != null && totalSteps != null && totalSteps > 1;
 
@@ -103,21 +108,8 @@ export function AuthLegal({ className }: { className?: string }) {
         className,
       )}
     >
-      By continuing you agree to our{" "}
-      <a
-        href="#"
-        className="text-text-muted underline-offset-2 hover:text-text hover:underline"
-      >
-        Terms
-      </a>{" "}
-      and{" "}
-      <a
-        href="#"
-        className="text-text-muted underline-offset-2 hover:text-text hover:underline"
-      >
-        Privacy Policy
-      </a>
-      .
+      By continuing you agree to our <span className="text-text">Terms</span>{" "}
+      and <span className="text-text">Privacy Policy</span>.
     </p>
   );
 }
