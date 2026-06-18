@@ -148,6 +148,40 @@ export function getMarket(id: MarketId): Market | undefined {
   return getCatalog().find((m) => m.id === id);
 }
 
+/**
+ * Resolve a deep-link `?symbol=` value to a catalog `MarketId`. Accepts either a
+ * fully-qualified id ("hyperliquid:BTC") or a bare venue ticker ("BTC", "btc"),
+ * matching case-insensitively against the active catalog's `id`/`symbol`. Returns
+ * `null` when nothing matches so a stray param falls back to the default market
+ * rather than selecting a non-existent pair.
+ */
+export function resolveMarketId(
+  raw: string | null | undefined,
+): MarketId | null {
+  if (!raw) return null;
+  const want = raw.trim().toLowerCase();
+  if (want === "") return null;
+  const catalog = getCatalog();
+  const byId = catalog.find((m) => m.id.toLowerCase() === want);
+  if (byId) return byId.id;
+  // Bare ticker: match the venue symbol ("BTC" → "hyperliquid:BTC").
+  const bySymbol = catalog.find((m) => m.symbol.toLowerCase() === want);
+  return bySymbol ? bySymbol.id : null;
+}
+
+/**
+ * Narrow a deep-link `?side=` value to "long" | "short" (case-insensitive),
+ * returning `null` for anything else so an absent/garbage param leaves the form
+ * on its default side. Kept here with `resolveMarketId` as the deep-link parsers.
+ */
+export function parseSide(
+  raw: string | null | undefined,
+): "long" | "short" | null {
+  if (!raw) return null;
+  const v = raw.trim().toLowerCase();
+  return v === "long" || v === "short" ? v : null;
+}
+
 /** The bare venue ticker for a market id, e.g. "hyperliquid:BTC" → "BTC". */
 export function coinOf(id: MarketId): string {
   return id.includes(":") ? id.slice(id.indexOf(":") + 1) : id;

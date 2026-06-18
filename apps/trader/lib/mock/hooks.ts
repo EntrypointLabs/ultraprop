@@ -142,8 +142,21 @@ function mergeMarket(live: LiveMarket): Market {
  * module `liveCatalog` is updated so synchronous `getMarket` readers see the
  * live universe too.
  */
-export function useMarketCatalog(): Market[] {
-  const { data } = useQuery({
+/**
+ * The catalog query result — the merged universe plus the fetch's error state.
+ * On a failed `/api/catalog` response the query keeps the last good data (the
+ * 3-market `SEED_CATALOG` if nothing loaded yet) AND surfaces `isError`/`error`
+ * so a consumer can show a non-blocking "showing a subset" notice. The graceful
+ * fallback is preserved either way.
+ */
+export interface MarketCatalogResult {
+  markets: Market[];
+  isError: boolean;
+  error: Error | null;
+}
+
+export function useMarketCatalogQuery(): MarketCatalogResult {
+  const { data, isError, error } = useQuery({
     queryKey: ["markets", "hl"],
     queryFn: async ({ signal }): Promise<Market[]> => {
       const res = await fetch("/api/catalog?venue=hl", { signal });
@@ -154,14 +167,27 @@ export function useMarketCatalog(): Market[] {
       return merged;
     },
     initialData: SEED_CATALOG,
-    // The seed is only the 3-market SSR snapshot. Mark it stale-from-epoch so
-    // the live /api/catalog fetch fires on mount — otherwise `staleTime` keeps
-    // the seed "fresh" forever and the full ~179-market universe never loads.
+    // The seed is only the 3-market SSR snapshot. `refetchOnMount: "always"`
+    // forces the live /api/catalog fetch the moment any consumer mounts —
+    // without it the `initialData` + `staleTime` pair can keep the 3-market seed
+    // "fresh" and the full ~179-market universe never loads (`/markets` then
+    // shows only 3). `initialDataUpdatedAt: 0` keeps the seed stale-from-epoch
+    // for the background refetch interval too.
     initialDataUpdatedAt: 0,
     staleTime: 60_000,
+    refetchOnMount: "always",
     refetchInterval: 60_000,
   });
-  return data ?? SEED_CATALOG;
+  return {
+    markets: data ?? SEED_CATALOG,
+    isError,
+    error: error instanceof Error ? error : null,
+  };
+}
+
+/** The merged catalog only — the common case. Errors surface via `useMarketCatalogQuery`. */
+export function useMarketCatalog(): Market[] {
+  return useMarketCatalogQuery().markets;
 }
 
 /** Keep the sparkline bounded; it samples the mark, oldest -> newest. */
@@ -171,9 +197,10 @@ const SPARK_MAX = 48;
  * Fold a batch of live `MarkTick`s onto the current `["prices"]` snapshot.
  * `MarkTick.marketId` and `PriceTick.symbol` are both the venue-qualified id
  * ("hyperliquid:BTC"), so they match directly. Updated markets carry their new
- * mark/oracle/mid/funding/ts and append the mark to the spark; seeded markets
- * not yet in the feed are left untouched (display-only `change24h`/`high24h`/
- * `low24h` ride along unchanged until a richer feed supplies them).
+ * mark/oracle/mid/funding/change24h/ts and append the mark to the spark. A tick
+ * with a `null` change24h (no prior-day reference yet) keeps the last known
+ * value rather than blanking a live %. `high24h`/`low24h` ride along unchanged —
+ * HL's per-coin assetCtx carries no 24h high/low, so they are derived elsewhere.
  */
 function mergeMarks(cur: PriceTick[], ticks: MarkTick[]): PriceTick[] {
   if (ticks.length === 0) return cur;
@@ -190,6 +217,7 @@ function mergeMarks(cur: PriceTick[], ticks: MarkTick[]): PriceTick[] {
       oraclePx: t.oraclePx,
       midPx: t.midPx,
       fundingRate: t.fundingRate,
+      change24h: t.change24h ?? p.change24h,
       spark: [...p.spark, t.markPx].slice(-SPARK_MAX),
       ts: t.ts,
     };
@@ -204,7 +232,7 @@ function mergeMarks(cur: PriceTick[], ticks: MarkTick[]): PriceTick[] {
       oraclePx: t.oraclePx,
       midPx: t.midPx,
       fundingRate: t.fundingRate,
-      change24h: null,
+      change24h: t.change24h,
       spark: [t.markPx],
       high24h: null,
       low24h: null,
@@ -241,8 +269,14 @@ let feedHandle: ReturnType<typeof openVenueFeed> | null = null;
  * Mount the live venue feed once (ref-counted across every `usePrices`
  * consumer) and route its batches into `["prices"]` via `mergeMarks` — the
  * single writer. Feed health flows into the store: `feedStatus` drives
- * `useConnection`, and a `"stale"` feed trips `divergenceHalt` so the existing
- * `StaleFeedBanner` lights up with no new UI. Runs only in a client effect.
+ * `useConnection`, and a CONFIRMED live->stale transition trips `divergenceHalt`
+ * so the existing `StaleFeedBanner` lights up with no new UI. Runs only in a
+ * client effect.
+ *
+ * The halt is auto-SET only on a `"stale"` feed and auto-CLEARED only on `"live"`
+ * — `"reconnecting"` (cold start AND transport blips) leaves it untouched, so the
+ * trade form is NOT suspended during the initial reconnect window and a manual
+ * QA halt survives a brief reconnect.
  */
 function useVenueFeed(): void {
   const qc = useQueryClient();
@@ -260,7 +294,8 @@ function useVenueFeed(): void {
           ),
         (status) => {
           setFeedStatus(status);
-          setDivergenceHalt(status === "stale");
+          if (status === "stale") setDivergenceHalt(true);
+          else if (status === "live") setDivergenceHalt(false);
         },
       );
     }
@@ -376,11 +411,39 @@ export function useLeaderboard(opts: {
   const { axis, window } = opts;
   const { data } = useQuery({
     queryKey: ["leaderboard", axis, window],
-    queryFn: () => sortLeaderboard(DEMO_LEADERBOARD, axis),
-    initialData: sortLeaderboard(DEMO_LEADERBOARD, axis),
+    queryFn: () => sortLeaderboard(windowView(DEMO_LEADERBOARD, window), axis),
+    initialData: sortLeaderboard(windowView(DEMO_LEADERBOARD, window), axis),
     staleTime: Infinity,
   });
   return data ?? DEMO_LEADERBOARD;
+}
+
+/**
+ * Project the seeded all-time leaderboard onto a time window. "All-time" is the
+ * full cumulative set; "This Cohort" (the current weekly window) is the subset
+ * that has been active THIS week — fewer rows, and only the slice of each
+ * trader's cumulative PnL/passes booked inside the window. The two views are
+ * genuinely different sets and numbers, not the same rows relabeled.
+ *
+ * Deterministic off the seed: a trader's weekly share is a fixed fraction of
+ * their cumulative figure, and the "active this week" subset is the cohort
+ * minus the few members with no recent activity (the lowest cumulative passes).
+ */
+function windowView(
+  entries: LeaderboardEntry[],
+  window: LeaderboardWindow,
+): LeaderboardEntry[] {
+  if (window === "all") return entries;
+  // Weekly: keep only traders active this week (drop the long-dormant tail),
+  // and scale cumulative figures down to this week's contribution.
+  const WEEKLY_FRACTION = 0.18;
+  return entries
+    .filter((e) => e.passes >= 2)
+    .map((e) => ({
+      ...e,
+      shadowPnl: Number((e.shadowPnl * WEEKLY_FRACTION).toFixed(2)),
+      passes: Math.max(1, Math.round(e.passes * WEEKLY_FRACTION)),
+    }));
 }
 
 function sortLeaderboard(
