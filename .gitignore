@@ -17,10 +17,9 @@ target/
 
 # Chain-toolchain build dirs
 contracts/sui/build/
-contracts/solana/target/
 
 # Env / secrets
-.env*
+apps/trader/.env
 
 # OS
 .DS_Store
@@ -29,3 +28,12 @@ contracts/solana/target/
 PROGRESS-*.md
 VERIFIED-*.md
 SUMMARY-*.md
+.gstack/
+.agents/
+.trae/
+
+.impeccable/
+.vercel
+
+# IDE
+/.idea

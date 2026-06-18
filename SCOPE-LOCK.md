@@ -7,7 +7,7 @@ Source of truth: `docs/plans/Crypto-Native/PROJECT.md` § "Out of Scope (for v1,
 ## Hard-NO list (v1)
 
 - Real capital — v1 is shadow-allocation only; introducing real trader capital is v2 territory and requires the funded-vault custody model, payouts, and live risk engine that v1 deliberately defers.
-- Mainnet DEX execution — the platform smart contract is the only execution surface in v1; routing fills through Cetus / Jupiter / Aftermath / Kriya on mainnet requires the v2 custody model and an audited post-trade enforcement path.
+- Mainnet DEX execution — the platform smart contract is the only execution surface in v1; routing fills through Cetus / Aftermath / Kriya on mainnet requires the v2 custody model and an audited post-trade enforcement path.
 - Airdrop hunting — cannot be meaningfully paper-traded; airdrops require real qualifying transactions on mainnet, which v1's paper-trading sandbox cannot produce.
 - Prediction markets — require real settlement against an external oracle outcome; outside the spot-only evaluation surface and deferred per PRD §13.3.
 - Real stablecoin payouts — no real capital is at stake in v1, so there is nothing to pay out; rails (Squads payout vault, fiat off-ramp, jurisdictional KYC) all wait for v2.

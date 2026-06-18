@@ -34,5 +34,3 @@ function run(label, cmd, args, opts = {}) {
 
 console.log(`${DIM}building contract packages${RESET}`);
 run("sui move build", "sui", ["move", "build"], { cwd: resolve(ROOT, "contracts/sui") });
-// Anchor build deferred until programs/ has members (Phase 4).
-// run("anchor build", "anchor", ["build"], { cwd: resolve(ROOT, "contracts/solana") });

@@ -1,4 +1,0 @@
-[workspace]
-members = []
-resolver = "2"
-# programs/ members added in Phase 4

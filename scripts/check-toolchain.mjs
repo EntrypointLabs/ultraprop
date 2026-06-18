@@ -27,8 +27,6 @@ const tools = [
   { name: "cargo", probe: "cargo --version", required: false, why: "Rust services (risk-engine) + shared-slippage" },
   { name: "rustup", probe: "rustup --version", required: false, why: "Rust toolchain channel pinning" },
   { name: "sui", probe: "sui --version", required: false, why: "Sui Move contracts (Phase 1)" },
-  { name: "anchor", probe: "anchor --version", required: false, why: "Solana programs (Phase 4)" },
-  { name: "solana", probe: "solana --version", required: false, why: "Solana CLI for deploys (Phase 4)" },
 ];
 
 const versionsPath = resolve(ROOT, "VERSIONS.md");

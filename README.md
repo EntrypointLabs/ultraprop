@@ -1,6 +1,6 @@
 # prop-firm
 
-Crypto-native proprietary trading firm — v1 closed beta. A two-chain (Sui + Solana) paper-trading evaluation platform where invited traders prove themselves against live mainnet prices with a calibrated slippage and fill model. The platform smart contract is the only execution surface: it accepts trade intents, models fills deterministically, enforces drawdown / daily-loss / profit-target rules, and emits pass/fail events that mint or level a v1 cohort SBT.
+Crypto-native proprietary trading firm — v1 closed beta. A Sui paper-trading evaluation platform where invited traders prove themselves against live mainnet prices with a calibrated slippage and fill model. The platform smart contract is the only execution surface: it accepts trade intents, models fills deterministically, enforces drawdown / daily-loss / profit-target rules, and emits pass/fail events that mint or level a v1 cohort SBT.
 
 Full vision, success criteria, scope decisions, and roadmap live in [`docs/plans/Crypto-Native/PROJECT.md`](docs/plans/Crypto-Native/PROJECT.md). Out-of-scope items are canonised in [`SCOPE-LOCK.md`](SCOPE-LOCK.md). Toolchain pins are tracked in [`VERSIONS.md`](VERSIONS.md).
 
@@ -11,7 +11,7 @@ pnpm setup    # one-time: toolchain check, install, build shared layer, contract
 pnpm dev      # run every workspace concurrently — open whichever localhost you care about
 ```
 
-Requires Node >=22 (LTS 24 recommended via `.nvmrc`), pnpm >=9, and Rust stable (channel pinned in `rust-toolchain.toml`). Chain-specific tooling (`sui`, `anchor`, `solana`) is needed only when working inside `contracts/`. Setup gracefully skips steps for CLIs you don't have installed — install them when you want to work on that workspace.
+Requires Node >=22 (LTS 24 recommended via `.nvmrc`), pnpm >=9, and Rust stable (channel pinned in `rust-toolchain.toml`). Chain-specific tooling (`sui`) is needed only when working inside `contracts/`. Setup gracefully skips steps for CLIs you don't have installed — install them when you want to work on that workspace.
 
 ### Root scripts
 
@@ -26,7 +26,7 @@ Requires Node >=22 (LTS 24 recommended via `.nvmrc`), pnpm >=9, and Rust stable 
 | `pnpm format` | `biome format --write .` |
 | `pnpm check:toolchain` | Reports which optional CLIs are missing |
 | `pnpm build:rust` | `cargo build --workspace` only |
-| `pnpm build:contracts` | `sui move build` + (later) `anchor build` |
+| `pnpm build:contracts` | `sui move build` |
 | `pnpm clean` | Removes `node_modules`, `dist`, `.turbo`, `.next`, `target`, `*.tsbuildinfo` everywhere |
 
 ## Workspace Layout
@@ -42,11 +42,10 @@ prop-firm/
 ├── packages/
 │   └── shared/
 │       ├── events/              # Cross-chain event schema (TypeBox + codegen, Phase 0.3)
-│       ├── contracts-abi/       # Sui + Solana ABI bindings
+│       ├── contracts-abi/       # Sui ABI bindings
 │       └── slippage/            # Rust off-chain reference impl (Phase 1.3)
 ├── contracts/
-│   ├── sui/                     # Sui Move evaluation contract (Phase 1)
-│   └── solana/                  # Anchor port (Phase 4)
+│   └── sui/                     # Sui Move evaluation contract (Phase 1)
 ├── docs/
 │   └── plans/Crypto-Native/     # PROJECT.md, STATE.md, ROADMAP.md, phases/
 ├── package.json                 # pnpm workspace root
@@ -65,4 +64,4 @@ Rust crates (`services/risk-engine`, `packages/shared/slippage`) are managed by 
 
 ## Roadmap
 
-See [`docs/plans/Crypto-Native/ROADMAP.md`](docs/plans/Crypto-Native/ROADMAP.md) for the phased plan. Phase 0 (this scaffold) clears the prerequisites so Phases 1 (Sui contracts), 2 (backend/indexer), 3 (trader app), and 4 (Solana port) can each drop into a ready workspace without re-scaffolding.
+See [`docs/plans/Crypto-Native/ROADMAP.md`](docs/plans/Crypto-Native/ROADMAP.md) for the phased plan. Phase 0 (this scaffold) clears the prerequisites so Phases 1 (Sui contracts), 2 (backend/indexer), and 3 (trader app) can each drop into a ready workspace without re-scaffolding.

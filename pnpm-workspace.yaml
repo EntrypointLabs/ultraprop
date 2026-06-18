@@ -2,7 +2,24 @@ packages:
   - "apps/*"
   - "services/api-gateway"
   - "packages/shared/events"
+  - "packages/shared/venues"
   - "packages/shared/contracts-abi"
+# sharp (Next.js image optimization) ships prebuilt @img/* binaries and does not
+# need its own install script. pnpm 11 otherwise fails the whole install when that
+# build is ignored (ERR_PNPM_IGNORED_BUILDS); keep it a warning, not a failure.
+strictDepBuilds: false
+onlyBuiltDependencies:
+  - sharp
+allowBuilds:
+  '@reown/appkit': set this to true or false
+  bufferutil: set this to true or false
+  esbuild: true
+  keccak: set this to true or false
+  sharp: false
+  utf-8-validate: set this to true or false
+minimumReleaseAgeExclude:
+  - '@privy-io/node@0.21.0'
+
 # Rust crates (services/risk-engine, packages/shared/slippage) are intentionally
 # excluded — the root Cargo workspace owns them. Including a Rust crate dir under
 # a pnpm glob makes pnpm warn on every install because there is no package.json.
