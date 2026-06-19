@@ -1,8 +1,17 @@
 import type { SuiClient } from "@mysten/sui/client";
 import { Transaction } from "@mysten/sui/transactions";
-import { type PublicSuiConfig, publicSuiConfig, type TierName } from "./config";
+import {
+  CLOCK_OBJECT_ID,
+  type PublicSuiConfig,
+  publicSuiConfig,
+  TIER_NAMES,
+  type TierName,
+} from "./config";
 
 type MoveTarget = `${string}::${string}::${string}`;
+
+/** Canonical 32-byte zero address, a valid sender for read-only dry runs. */
+const ZERO_ADDRESS = `0x${"0".repeat(64)}`;
 
 /** Fully-qualified type of the owned cap that proves account ownership. */
 export function accountCapType(packageId: string): string {
@@ -84,6 +93,44 @@ export async function fetchEvalFee(
   return decodeU64(bytes);
 }
 
+/**
+ * Reads the tier an account is currently enrolled at, dry-running
+ * `user_account::account_tier` and decoding the returned `Tier`. `Tier` is a
+ * fieldless enum, so BCS encodes it as a single variant-index byte
+ * (0 Starter … 4 Whale) — the byte indexes straight into `TIER_NAMES`. Mirrors
+ * `fetchEvalFee`'s devInspect+decode pattern. Returns null when the account or
+ * package can't be read so callers can fall back gracefully.
+ */
+export async function getAccountTier(
+  client: SuiClient,
+  accountId: string,
+  config: PublicSuiConfig = publicSuiConfig(),
+): Promise<TierName | null> {
+  if (!config.packageId || !config.accountRegistryId) return null;
+
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${config.packageId}::user_account::account_tier`,
+    arguments: [tx.object(config.accountRegistryId), tx.pure.id(accountId)],
+  });
+
+  const result = await client.devInspectTransactionBlock({
+    // Any well-formed address works for a read-only inspection of shared state.
+    sender: ZERO_ADDRESS,
+    transactionBlock: tx,
+  });
+  if (result.error) {
+    throw new Error(`Could not read account tier on-chain: ${result.error}`);
+  }
+
+  const bytes = result.results?.at(-1)?.returnValues?.[0]?.[0];
+  const variant = bytes?.[0];
+  if (variant === undefined) {
+    throw new Error("Account tier inspection returned no value.");
+  }
+  return TIER_NAMES[variant] ?? null;
+}
+
 interface AccountCreatedJson {
   account_id?: string;
   owner?: string;
@@ -146,8 +193,161 @@ export function buildOpenAccountTransaction(params: {
       tierValue,
       payment,
       tx.pure.address(owner),
-      tx.object("0x6"),
+      tx.object(CLOCK_OBJECT_ID),
     ],
   });
+  return tx;
+}
+
+/** The on-chain coordinates needed to drive the executor-gated lifecycle. */
+type ExecutorConfig = PublicSuiConfig & { executorCapId: string };
+
+/**
+ * Records a closed trade's realized PnL on-chain. `pnl` is the trade's absolute
+ * realized PnL in USDC base units (6 dp), with the sign carried by `isWin`, so
+ * a loss is `{ isWin: false, pnl: |loss| }`. The chain applies it to equity,
+ * enforces the realized daily-loss and max-drawdown gates, and journals the
+ * entry with its `venue`/`market` attribution (REQ-07).
+ */
+export function buildLogTradeTransaction(params: {
+  config: ExecutorConfig;
+  accountId: string;
+  isWin: boolean;
+  pnl: bigint;
+  venue: string;
+  market: string;
+}): Transaction {
+  const { config, accountId, isWin, pnl, venue, market } = params;
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${config.packageId}::user_account::log_trade`,
+    arguments: [
+      tx.object(config.executorCapId),
+      tx.object(config.accessRegistryId),
+      tx.object(config.accountRegistryId),
+      tx.pure.id(accountId),
+      tx.pure.bool(isWin),
+      tx.pure.u64(pnl),
+      tx.pure.string(venue),
+      tx.pure.string(market),
+      tx.object(CLOCK_OBJECT_ID),
+    ],
+  });
+  return tx;
+}
+
+/**
+ * Assembles an executor-gated lifecycle call that takes only the account id
+ * (`pass_evaluation`, `fail_evaluation`, `register_dd_breach`). The contract
+ * arg order is identical across the three: cap, access registry, account
+ * registry, account id, clock.
+ */
+function buildLifecycleTransaction(
+  config: ExecutorConfig,
+  fn: "pass_evaluation" | "fail_evaluation" | "register_dd_breach",
+  accountId: string,
+): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${config.packageId}::user_account::${fn}`,
+    arguments: [
+      tx.object(config.executorCapId),
+      tx.object(config.accessRegistryId),
+      tx.object(config.accountRegistryId),
+      tx.pure.id(accountId),
+      tx.object(CLOCK_OBJECT_ID),
+    ],
+  });
+  return tx;
+}
+
+/** Marks the account's evaluation passed (equity must already meet the target). */
+export function buildPassEvaluationTransaction(
+  config: ExecutorConfig,
+  accountId: string,
+): Transaction {
+  return buildLifecycleTransaction(config, "pass_evaluation", accountId);
+}
+
+/** Marks the account's evaluation failed. */
+export function buildFailEvaluationTransaction(
+  config: ExecutorConfig,
+  accountId: string,
+): Transaction {
+  return buildLifecycleTransaction(config, "fail_evaluation", accountId);
+}
+
+/**
+ * Suspends the account for an off-chain risk event the engine caught outside the
+ * realized per-trade gates — e.g. an unrealized-equity drawdown breach that
+ * on-chain `log_trade` (realized PnL only) would never see.
+ */
+export function buildRegisterBreachTransaction(
+  config: ExecutorConfig,
+  accountId: string,
+): Transaction {
+  return buildLifecycleTransaction(config, "register_dd_breach", accountId);
+}
+
+// === User-side onboarding (signed by the trader's Privy wallet) ===
+
+/** The on-chain coordinates the user-signed onboarding txns need. */
+type OnboardingConfig = PublicSuiConfig;
+
+/**
+ * Reads the user's own USDC coins so the payment transaction can be funded.
+ * Mirrors the server's coin-gathering, but for the trader's wallet.
+ */
+export async function fetchUsdcCoins(
+  client: SuiClient,
+  owner: string,
+  usdcType: string,
+): Promise<{ coinObjectId: string; balance: bigint }[]> {
+  const { data } = await client.getCoins({ owner, coinType: usdcType });
+  return data.map((c) => ({
+    coinObjectId: c.coinObjectId,
+    balance: BigInt(c.balance),
+  }));
+}
+
+/**
+ * Calls the open mock-USDC `faucet` to mint `amount` (6 dp base units) of test
+ * USDC to the user's own wallet — the first step of the PAID path, so the trader
+ * has dollars to pay their evaluation fee. Testnet only.
+ */
+export function buildFaucetTransaction(params: {
+  config: OnboardingConfig;
+  amount: bigint;
+}): Transaction {
+  const { config, amount } = params;
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${config.usdcType.split("::")[0]}::usdc::faucet`,
+    arguments: [tx.object(config.usdcFaucetId), tx.pure.u64(amount)],
+  });
+  return tx;
+}
+
+/**
+ * Transfers exactly `evalFee` of the user's USDC to the firm's eval-funds
+ * address — the PAID path's payment step. The trader signs it; the resulting tx
+ * digest is forwarded to the server, which verifies the transfer before opening
+ * the account. The caller supplies the user's own USDC coin ids (gathered via
+ * `fetchUsdcCoins`).
+ */
+export function buildPayEvalFeeTransaction(params: {
+  config: OnboardingConfig;
+  evalFee: bigint;
+  usdcCoinIds: string[];
+}): Transaction {
+  const { config, evalFee, usdcCoinIds } = params;
+  if (usdcCoinIds.length === 0) {
+    throw new Error("You have no test USDC yet — mint some first.");
+  }
+  const tx = new Transaction();
+  const [primary, ...rest] = usdcCoinIds.map((id) => tx.object(id));
+  if (rest.length > 0) tx.mergeCoins(primary, rest);
+  const [payment] = tx.splitCoins(primary, [tx.pure.u64(evalFee)]);
+  tx.transferObjects([payment], tx.pure.address(config.evalFundsAddress));
   return tx;
 }

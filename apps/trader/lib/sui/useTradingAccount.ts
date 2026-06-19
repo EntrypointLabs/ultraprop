@@ -4,8 +4,8 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { suiWalletAddress } from "@/lib/auth";
 import { getSuiClient } from "@/lib/sui/client";
-import { isSuiConfigured } from "@/lib/sui/config";
-import { getTradingAccountId } from "@/lib/sui/propfirm";
+import { isSuiConfigured, type TierName } from "@/lib/sui/config";
+import { getAccountTier, getTradingAccountId } from "@/lib/sui/propfirm";
 
 const queryKey = (suiAddress: string | null) =>
   ["trading-account", suiAddress] as const;
@@ -21,6 +21,20 @@ export function useTradingAccount(suiAddress: string | null) {
     queryKey: queryKey(suiAddress),
     enabled: Boolean(suiAddress) && isSuiConfigured(),
     queryFn: () => getTradingAccountId(getSuiClient(), suiAddress as string),
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Reads the on-chain tier of an existing account. Returns null until the
+ * account id is known. Enabled only once we have an account id and the package
+ * is configured, so it never fires for users without an account.
+ */
+export function useAccountTier(accountId: string | null) {
+  return useQuery<TierName | null>({
+    queryKey: ["account-tier", accountId] as const,
+    enabled: Boolean(accountId) && isSuiConfigured(),
+    queryFn: () => getAccountTier(getSuiClient(), accountId as string),
     staleTime: 30_000,
   });
 }
