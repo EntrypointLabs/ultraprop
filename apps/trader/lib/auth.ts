@@ -15,16 +15,45 @@ export const DEMO_TRADING_ENABLED =
  * read the embedded-wallet accounts loosely. A Sui wallet is provisioned via
  * `@privy-io/react-auth/extended-chains`, which tags the account `chainType: "sui"`.
  */
-type LooseAccount = { type?: string; chainType?: string; address?: string };
+type LooseAccount = {
+  type?: string;
+  chainType?: string;
+  address?: string;
+  publicKey?: string;
+};
 
-export function suiWalletAddress(user: User | null | undefined): string | null {
+function findSuiAccount(user: User | null | undefined): LooseAccount | null {
   const accounts = (user?.linkedAccounts ?? []) as LooseAccount[];
   for (const account of accounts) {
     if (account.type === "wallet" && account.chainType === "sui") {
-      return account.address ?? null;
+      return account;
     }
   }
   return null;
+}
+
+export function suiWalletAddress(user: User | null | undefined): string | null {
+  return findSuiAccount(user)?.address ?? null;
+}
+
+export interface SuiWalletIdentity {
+  address: string;
+  /** Base64 Ed25519 public key Privy exposes on tier-2 (curve) wallet accounts.
+   * Required to assemble a serialized Sui signature for user-signed txns. */
+  publicKey: string;
+}
+
+/**
+ * The user's Sui embedded wallet with the public key needed to sign Sui txns
+ * client-side. Returns null until both the address and the public key are
+ * available (the pubkey is what lets us serialize an Ed25519 signature).
+ */
+export function suiWalletIdentity(
+  user: User | null | undefined,
+): SuiWalletIdentity | null {
+  const account = findSuiAccount(user);
+  if (!account?.address || !account.publicKey) return null;
+  return { address: account.address, publicKey: account.publicKey };
 }
 
 export function hasSuiWallet(user: User | null | undefined): boolean {

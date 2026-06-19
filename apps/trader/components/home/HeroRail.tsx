@@ -3,8 +3,10 @@
 import { ArrowRight, Lock } from "lucide-react";
 import Link from "next/link";
 import { Avatar, Badge, Button } from "@/components/ui";
+import { userVaultId } from "@/lib/auth";
 import { accountHandle } from "@/lib/identity";
 import { useLeaderboard, useTiers } from "@/lib/mock/hooks";
+import { useAccountSetup } from "@/lib/sui/useTradingAccount";
 import { cn, formatPct, formatUsd } from "@/lib/utils";
 
 export function HeroRail() {
@@ -18,6 +20,14 @@ export function HeroRail() {
 }
 
 function StartPromoCard() {
+  const { hasAccount, suiAddress } = useAccountSetup();
+  // A trader with an on-chain account is already evaluating — send them straight
+  // back into their cockpit instead of the tier picker.
+  const resume = Boolean(hasAccount && suiAddress);
+  const href = resume
+    ? `/evaluation/${userVaultId(suiAddress as string)}`
+    : "/start";
+
   return (
     <div className="rounded-[var(--radius-lg)] border border-violet/30 bg-surface overflow-hidden">
       {/* Violet gradient strip */}
@@ -27,16 +37,16 @@ function StartPromoCard() {
           v1 Genesis — Open now
         </div>
         <h3 className="text-base font-bold text-text leading-snug">
-          Start your evaluation
+          {resume ? "Your evaluation is live" : "Start your evaluation"}
         </h3>
         <p className="mt-1.5 text-sm text-text-muted leading-relaxed">
-          Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog
-          against live market prices. Every rule is enforced automatically.
-          Prove your edge.
+          {resume
+            ? "Pick up where you left off. Your account, balance, and rule compliance are tracked on-chain."
+            : "Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog against live market prices. Every rule is enforced automatically. Prove your edge."}
         </p>
-        <Link href="/start" className="mt-4 block">
+        <Link href={href} className="mt-4 block">
           <Button variant="primary" size="md" className="w-full gap-1.5">
-            Begin evaluation
+            {resume ? "Resume evaluation" : "Begin evaluation"}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </Link>

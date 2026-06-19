@@ -59,7 +59,7 @@ export default async function StartPage({
         <div className="flex items-baseline justify-between mb-4">
           <h2 className="text-lg font-semibold text-text">Choose a tier</h2>
           <span className="text-xs text-text-faint tabular">
-            Starter → Basic → Pro
+            One evaluation account per trader
           </span>
         </div>
 
@@ -83,8 +83,9 @@ export default async function StartPage({
               02
             </span>
             <span>
-              Pick a tier. Starter is open to all allowlisted traders. Basic and
-              Pro unlock progressively as you pass each level.
+              Pick a tier. Starter opens with an invite or a paid evaluation
+              fee. Basic requires paying its evaluation fee up front. You hold
+              one evaluation account at a time.
             </span>
           </li>
           <li className="flex gap-3">

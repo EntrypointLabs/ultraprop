@@ -15,7 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mysten/sui": "^1.45.2",
+    "@mysten/sui": "^2.19.0",
     "@privy-io/node": "^0.21.0",
     "@privy-io/react-auth": "^3.29.2",
     "@shared/venues": "workspace:*",

@@ -3,9 +3,14 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { suiWalletAddress } from "@/lib/auth";
-import { getSuiClient } from "@/lib/sui/client";
-import { isSuiConfigured } from "@/lib/sui/config";
-import { getTradingAccountId } from "@/lib/sui/propfirm";
+import { getGraphQLClient } from "@/lib/sui/client";
+import { isSuiConfigured, type TierName } from "@/lib/sui/config";
+import {
+  type AccountSummary,
+  getAccountSummary,
+  getAccountTier,
+  getTradingAccountId,
+} from "@/lib/sui/propfirm";
 
 const queryKey = (suiAddress: string | null) =>
   ["trading-account", suiAddress] as const;
@@ -20,8 +25,40 @@ export function useTradingAccount(suiAddress: string | null) {
   return useQuery({
     queryKey: queryKey(suiAddress),
     enabled: Boolean(suiAddress) && isSuiConfigured(),
-    queryFn: () => getTradingAccountId(getSuiClient(), suiAddress as string),
+    queryFn: () => getTradingAccountId(getGraphQLClient(), suiAddress as string),
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Reads the on-chain tier of an existing account. Returns null until the
+ * account id is known. Enabled only once we have an account id and the package
+ * is configured, so it never fires for users without an account.
+ */
+export function useAccountTier(accountId: string | null) {
+  return useQuery<TierName | null>({
+    queryKey: ["account-tier", accountId] as const,
+    enabled: Boolean(accountId) && isSuiConfigured(),
+    queryFn: () => getAccountTier(getGraphQLClient(), accountId as string),
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Reads the authoritative on-chain account state (realized equity, the rule
+ * floors, lifecycle status, tier, breach count) for an existing account. Polls
+ * every ~6s so it tracks the executor's writes (each realized close → `log_trade`,
+ * each pass/fail/breach → status flip) without a manual refetch. Disabled until
+ * the account id is known and the package is configured, so it never fires for
+ * users without an account.
+ */
+export function useAccountSummary(accountId: string | null) {
+  return useQuery<AccountSummary | null>({
+    queryKey: ["account-summary", accountId] as const,
+    enabled: Boolean(accountId) && isSuiConfigured(),
+    queryFn: () => getAccountSummary(getGraphQLClient(), accountId as string),
+    refetchInterval: 6_000,
+    staleTime: 5_000,
   });
 }
 
@@ -72,6 +109,26 @@ export function useCreateAccount() {
       queryClient.invalidateQueries({ queryKey: queryKey(suiAddress) });
     },
   });
+}
+
+/**
+ * Resolves the signed-in trader's on-chain account summary end-to-end: Privy
+ * session → Sui address → account id → `getAccountSummary` (polled). The cockpit
+ * and the trade form both read this so the verifiable equity/status/floors and
+ * the trade gate agree on one source of truth. All fields are null/undefined
+ * until the account is known and configured; consumers fall back to the engine
+ * overlay alone in that window.
+ */
+export function useOnchainAccountSummary() {
+  const { user } = usePrivy();
+  const suiAddress = suiWalletAddress(user);
+  const { data: accountId } = useTradingAccount(suiAddress);
+  const summary = useAccountSummary(accountId ?? null);
+  return {
+    accountId: accountId ?? null,
+    summary: summary.data ?? null,
+    isLoading: summary.isLoading,
+  };
 }
 
 export interface AccountSetup {

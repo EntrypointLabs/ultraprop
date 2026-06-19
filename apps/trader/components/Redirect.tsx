@@ -1,4 +1,4 @@
-import { redirect, type RedirectType } from "next/navigation";
+import { type RedirectType, redirect } from "next/navigation";
 
 /**
  * Declarative render-time redirect. Render it conditionally instead of reaching
