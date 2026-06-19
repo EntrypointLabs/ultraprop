@@ -277,10 +277,14 @@ function closeLiquidations(
         : Math.max(liqPrice, pos.markPrice);
     const realized = realizedOnClose(pos, exitFill);
     // Taker fee on the exit notional at the fill — a round trip pays taker
-    // twice, and a forced close is still a taker fill.
+    // twice, and a forced close is still a taker fill. A forced close is whole,
+    // so it recognizes the position's full carried entry fee + accrued funding.
     const exitNotional = (pos.sizeUsd / pos.entryPrice) * exitFill;
     const exitFee = applyFees(exitNotional, "taker");
-    running = Number((running + realized - exitFee).toFixed(2));
+    const tradePnl = Number(
+      (realized - exitFee - pos.entryFeeUsd + pos.fundingPaid).toFixed(2),
+    );
+    running = Number((running + tradePnl).toFixed(2));
     trades.push({
       id: `trd_${crypto.randomUUID()}`,
       symbol: pos.symbol,
@@ -291,7 +295,7 @@ function closeLiquidations(
       slippageBps: 0,
       feeUsd: exitFee,
       venue: "hyperliquid",
-      realizedPnl: Number((realized - exitFee).toFixed(2)),
+      realizedPnl: tradePnl,
       ts: nowMs,
       txDigest: mockDigest(),
       liquidated: true,
@@ -360,10 +364,14 @@ function fireBrackets(
     ) as number;
     const realized = realizedOnClose(pos, triggerPrice);
     // Taker fee on the exit notional at the trigger — a round trip pays taker
-    // twice, and a bracket fill is still a taker fill.
+    // twice, and a bracket fill is still a taker fill. A bracket fires a whole
+    // close, so it recognizes the position's full carried entry fee + funding.
     const exitNotional = (pos.sizeUsd / pos.entryPrice) * triggerPrice;
     const exitFee = applyFees(exitNotional, "taker");
-    running = Number((running + realized - exitFee).toFixed(2));
+    const tradePnl = Number(
+      (realized - exitFee - pos.entryFeeUsd + pos.fundingPaid).toFixed(2),
+    );
+    running = Number((running + tradePnl).toFixed(2));
     trades.push({
       id: `trd_${crypto.randomUUID()}`,
       symbol: pos.symbol,
@@ -374,7 +382,7 @@ function fireBrackets(
       slippageBps: 0,
       feeUsd: exitFee,
       venue: "hyperliquid",
-      realizedPnl: Number((realized - exitFee).toFixed(2)),
+      realizedPnl: tradePnl,
       ts: nowMs,
       txDigest: mockDigest(),
       closedBy: leg,
@@ -396,14 +404,14 @@ function recompute(v: SimVault, prices: PriceTick[], nowMs: number): SimVault {
     dailyResetAt = nextUtcMidnight(nowMs);
   }
 
-  // Discrete funding settles into booked realized PnL before marking.
-  let fundingBooked = 0;
-  const fundedPositions = v.positions.map((pos) => {
-    const { pos: next, funding } = settleFunding(pos, prices, nowMs);
-    fundingBooked += funding;
-    return next;
-  });
-  const realizedTotal = Number((v.realizedTotal + fundingBooked).toFixed(2));
+  // Discrete funding accrues onto each open position's `fundingPaid` (signed;
+  // negative when the trader pays) and is carried in equity via `computeEquity`.
+  // It is recognized into `realizedTotal` only at close, folded into the close
+  // trade's realized PnL — so funding never double-counts here.
+  const fundedPositions = v.positions.map(
+    (pos) => settleFunding(pos, prices, nowMs).pos,
+  );
+  const realizedTotal = v.realizedTotal;
 
   const marked = markPositions(fundedPositions, prices);
   const equity = computeEquity(v.startingEquity, realizedTotal, marked);
@@ -708,6 +716,10 @@ export const useSimStore = create<SimStore>()(
             openedAt: nowMs,
             marginMode,
             leverage: intent.leverage,
+            // The taker fee paid at open is carried as an unrecognized cost
+            // (subtracted from equity via computeEquity) and folded into the
+            // close trade's realized PnL — not booked into realizedTotal here.
+            entryFeeUsd: f.feeUsd,
             // No funding charged for the interval the position opened in until a
             // boundary is crossed; seed the watermark at the open.
             lastFundedAt: nowMs,
@@ -734,13 +746,15 @@ export const useSimStore = create<SimStore>()(
             ts: nowMs,
             txDigest: mockDigest(),
           };
-          // The taker fee is a realized cost booked at fill.
+          // The taker fee is carried on the position (entryFeeUsd) and folded
+          // into the close trade's realized PnL — not booked into realizedTotal
+          // at open. Equity still drops by the fee immediately via computeEquity.
           const next = recompute(
             {
               ...v,
               positions: [position, ...v.positions],
               trades: [trade, ...v.trades],
-              realizedTotal: Number((v.realizedTotal - f.feeUsd).toFixed(2)),
+              realizedTotal: v.realizedTotal,
               intentCount: v.intentCount + 1,
               inactiveAt: nowMs + 7 * DAY_MS,
             },
@@ -776,6 +790,16 @@ export const useSimStore = create<SimStore>()(
           // Taker fee on the CLOSED exit notional — a round trip pays taker twice.
           const exitNotional = (closedUsd / oracleMid) * exitFill;
           const exitFee = applyFees(exitNotional, "taker");
+          // Recognize the closed slice's share of the position's carried entry
+          // fee and accrued funding here, so the close trade's realized PnL
+          // carries the FULL lifecycle cost (price − exit fee − entry-fee share
+          // + funding share) and on-chain `log_trade` reconciles with equity.
+          const portion = pos.sizeUsd > 0 ? closedUsd / pos.sizeUsd : 1;
+          const entryFeeShare = pos.entryFeeUsd * portion;
+          const fundingShare = pos.fundingPaid * portion;
+          const tradePnl = Number(
+            (realized - exitFee - entryFeeShare + fundingShare).toFixed(2),
+          );
           const trade: TradeRecord = {
             id: `trd_${crypto.randomUUID()}`,
             symbol: pos.symbol,
@@ -786,26 +810,34 @@ export const useSimStore = create<SimStore>()(
             slippageBps: 0,
             feeUsd: exitFee,
             venue: "hyperliquid",
-            realizedPnl: Number((realized - exitFee).toFixed(2)),
+            realizedPnl: tradePnl,
             ts: nowMs,
             txDigest: mockDigest(),
           };
           // Full close removes the position; partial shrinks the same position's
-          // sizeUsd, keeping every other field (id/side/leverage/entry/mode).
+          // sizeUsd AND its carried costs by the un-closed proportion, keeping
+          // every other field (id/side/leverage/entry/mode).
           const positions =
             remainderUsd <= 0
               ? v.positions.filter((p) => p.id !== positionId)
               : v.positions.map((p) =>
-                  p.id === positionId ? { ...p, sizeUsd: remainderUsd } : p,
+                  p.id === positionId
+                    ? {
+                        ...p,
+                        sizeUsd: remainderUsd,
+                        entryFeeUsd: p.entryFeeUsd * (1 - portion),
+                        fundingPaid: Number(
+                          (p.fundingPaid * (1 - portion)).toFixed(2),
+                        ),
+                      }
+                    : p,
                 );
           const next = recompute(
             {
               ...v,
               positions,
               trades: [trade, ...v.trades],
-              realizedTotal: Number(
-                (v.realizedTotal + realized - exitFee).toFixed(2),
-              ),
+              realizedTotal: Number((v.realizedTotal + tradePnl).toFixed(2)),
               intentCount: v.intentCount + 1,
               inactiveAt: nowMs + 7 * DAY_MS,
             },

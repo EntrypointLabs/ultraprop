@@ -262,14 +262,25 @@ export function bracketTrigger(
   return null;
 }
 
-/** Notional equity = starting + booked realized + open unrealized. */
+/**
+ * Notional equity = starting + booked realized + open carrying value, where an
+ * open position's carrying value is its unrealized PnL net of its still-
+ * unrecognized lifecycle costs: minus the entry fee, plus signed accrued funding
+ * (funding is negative when the trader pays). Those costs are recognized into
+ * `realizedTotal` only at close — carrying them here keeps equity-while-open
+ * identical while letting each close trade's realized PnL fold in the full
+ * lifecycle cost so on-chain equity reconciles.
+ */
 export function computeEquity(
   startingEquity: number,
   realizedTotal: number,
   openPositions: Position[],
 ): number {
-  const unrealized = openPositions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
-  return round2(startingEquity + realizedTotal + unrealized);
+  const carry = openPositions.reduce(
+    (sum, p) => sum + p.unrealizedPnl - p.entryFeeUsd + p.fundingPaid,
+    0,
+  );
+  return round2(startingEquity + realizedTotal + carry);
 }
 
 export interface RuleInputs {
