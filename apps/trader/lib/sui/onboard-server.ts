@@ -1,7 +1,7 @@
 import "server-only";
 
-import type { SuiClient } from "@mysten/sui/client";
-import { getSuiClient } from "./client";
+import type { SuiGraphQLClient } from "@mysten/sui/graphql";
+import { getGraphQLClient } from "./client";
 import { serverSuiConfig, type TierName } from "./config";
 import { fetchEvalFee } from "./propfirm";
 import { adminOpenAccount, type OpenAccountResult } from "./server";
@@ -15,13 +15,6 @@ function normalizeAddress(address: string): string {
     .toLowerCase()
     .padStart(64, "0");
   return `0x${hex}`;
-}
-
-function ownerAddress(owner: unknown): string | null {
-  if (owner && typeof owner === "object" && "AddressOwner" in owner) {
-    return (owner as { AddressOwner: string }).AddressOwner;
-  }
-  return null;
 }
 
 /**
@@ -38,7 +31,7 @@ function ownerAddress(owner: unknown): string | null {
  * this further. There is none in v1.
  */
 async function verifyPayment(params: {
-  client: SuiClient;
+  client: SuiGraphQLClient;
   paymentDigest: string;
   suiAddress: string;
   evalFundsAddress: string;
@@ -54,21 +47,25 @@ async function verifyPayment(params: {
     evalFee,
   } = params;
 
-  let tx: Awaited<ReturnType<SuiClient["getTransactionBlock"]>>;
+  let result;
   try {
-    tx = await client.getTransactionBlock({
+    result = await client.getTransaction({
       digest: paymentDigest,
-      options: { showBalanceChanges: true, showEffects: true, showInput: true },
+      include: { balanceChanges: true, effects: true, transaction: true },
     });
   } catch {
     throw new Error("We couldn't find your payment on-chain. Please retry.");
   }
 
-  if (tx.effects?.status.status !== "success") {
+  if (result.$kind !== "Transaction") {
+    throw new Error("Your payment transaction did not succeed on-chain.");
+  }
+  const tx = result.Transaction;
+  if (!tx.status.success) {
     throw new Error("Your payment transaction did not succeed on-chain.");
   }
 
-  const sender = tx.transaction?.data.sender;
+  const sender = tx.transaction?.sender;
   if (!sender || normalizeAddress(sender) !== normalizeAddress(suiAddress)) {
     throw new Error("That payment was not sent from your wallet.");
   }
@@ -77,8 +74,7 @@ async function verifyPayment(params: {
   const received = (tx.balanceChanges ?? []).find(
     (change) =>
       change.coinType === usdcType &&
-      ownerAddress(change.owner) != null &&
-      normalizeAddress(ownerAddress(change.owner) as string) === firm &&
+      normalizeAddress(change.address) === firm &&
       BigInt(change.amount) >= evalFee,
   );
   if (!received) {
@@ -107,7 +103,7 @@ export async function onboardWithPayment(params: {
   }
 
   const config = serverSuiConfig();
-  const client = getSuiClient();
+  const client = getGraphQLClient();
 
   const evalFee = await fetchEvalFee(
     client,

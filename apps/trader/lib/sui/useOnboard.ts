@@ -5,7 +5,7 @@ import { useSignRawHash } from "@privy-io/react-auth/extended-chains";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import * as React from "react";
 import { type SuiWalletIdentity, suiWalletIdentity } from "@/lib/auth";
-import { getSuiClient } from "@/lib/sui/client";
+import { getGraphQLClient } from "@/lib/sui/client";
 import { publicSuiConfig, type TierName } from "@/lib/sui/config";
 import {
   buildFaucetTransaction,
@@ -85,7 +85,7 @@ export function useGetTestUsdc() {
         throw new Error("Your wallet isn't ready yet. Try again in a moment.");
       }
       const config = publicSuiConfig();
-      const client = getSuiClient();
+      const client = getGraphQLClient();
       const evalFee = await fetchEvalFee(client, wallet.address, tier, config);
       const tx = buildFaucetTransaction({ config, amount: evalFee });
       await signAndExecuteWithPrivy({
@@ -113,7 +113,7 @@ export function usePayAndStart() {
         throw new Error("Your wallet isn't ready yet. Try again in a moment.");
       }
       const config = publicSuiConfig();
-      const client = getSuiClient();
+      const client = getGraphQLClient();
 
       const evalFee = await fetchEvalFee(client, wallet.address, tier, config);
       const coins = await fetchUsdcCoins(client, wallet.address, config.usdcType);

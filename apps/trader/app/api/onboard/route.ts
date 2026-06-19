@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readJson, requireTrader, serverError } from "@/app/api/_lib/auth";
-import { getSuiClient } from "@/lib/sui/client";
+import { getGraphQLClient } from "@/lib/sui/client";
 import { type TierName } from "@/lib/sui/config";
 import {
   onboardWithInvite,
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   // can neither pay for nor redeem a second one, which is also what makes a
   // replayed payment digest or reused invite code a no-op.
   try {
-    const existing = await getTradingAccountId(getSuiClient(), suiAddress);
+    const existing = await getTradingAccountId(getGraphQLClient(), suiAddress);
     if (existing) {
       return NextResponse.json({ accountId: existing, created: false });
     }
