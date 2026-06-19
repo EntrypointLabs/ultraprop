@@ -82,23 +82,11 @@ use_environment = "testnet"
 manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
 deps = {}
 
-[pinned.testnet.MoveStdlib_1]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "a4185da5659d8d299d34e1bb2515ff1f7e32a20a" }
-use_environment = "testnet"
-manifest_digest = "C4FE4C91DE74CBF223B2E380AE40F592177D21870DC2D7EB6227D2D694E05363"
-deps = {}
-
 [pinned.testnet.Sui]
 source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "718ae563a42fb4ba0d055588f81c704dcef58c25" }
 use_environment = "testnet"
 manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
 deps = { MoveStdlib = "MoveStdlib" }
-
-[pinned.testnet.Sui_1]
-source = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "a4185da5659d8d299d34e1bb2515ff1f7e32a20a" }
-use_environment = "testnet"
-manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
-deps = { MoveStdlib = "MoveStdlib_1" }
 
 [pinned.testnet.openzeppelin_access]
 source = { git = "https://github.com/OpenZeppelin/contracts-sui.git", subdir = "contracts/access", rev = "43df7476266cd40c7de000d21f282291db2a567d" }
@@ -119,7 +107,7 @@ manifest_digest = "5745706258F61D6CE210904B3E6AE87A73CE9D31A6F93BE4718C442529332
 deps = { std = "MoveStdlib", sui = "Sui" }
 
 [pinned.testnet.openzeppelin_math_1]
-source = { git = "https://github.com/OpenZeppelin/contracts-sui.git", subdir = "math/core", rev = "4c7357cad7e57dd9973674d1cffa3d75b5b128a8" }
+source = { git = "https://github.com/OpenZeppelin/contracts-sui.git", subdir = "math/core", rev = "398ba1c59dc5a8a9214c9b323ddcec33a38761fe" }
 use_environment = "testnet"
 manifest_digest = "5745706258F61D6CE210904B3E6AE87A73CE9D31A6F93BE4718C442529332A87"
 deps = { std = "MoveStdlib", sui = "Sui" }
@@ -127,23 +115,11 @@ deps = { std = "MoveStdlib", sui = "Sui" }
 [pinned.testnet.propfirm]
 source = { root = true }
 use_environment = "testnet"
-manifest_digest = "9BA1E050E305E781FE9B5484A89096A83FAD9560F92DA4BC8528150A3ECE2660"
+manifest_digest = "10DDB5BEDA84EB22F928FA972EFF413173EAD6D00EE9BBF3D8E3AB7BC6469199"
 deps = { openzeppelin_access = "openzeppelin_access", openzeppelin_fp_math = "openzeppelin_fp_math", openzeppelin_math = "openzeppelin_math_1", std = "MoveStdlib", sui = "Sui", usdc = "usdc" }
 
-[pinned.testnet.stablecoin]
-source = { git = "https://github.com/circlefin/stablecoin-sui.git", subdir = "packages/stablecoin", rev = "d0904aec1bbe46b38f811654070032363a5a2966" }
-use_environment = "testnet"
-manifest_digest = "CA8A8C98A033B13B98F0E9D48DA2051BB8943A549EE1F9C080A84F7B9FAF0F0C"
-deps = { Sui = "Sui_1", sui_extensions = "sui_extensions" }
-
-[pinned.testnet.sui_extensions]
-source = { git = "https://github.com/circlefin/stablecoin-sui.git", subdir = "packages/sui_extensions", rev = "d0904aec1bbe46b38f811654070032363a5a2966" }
-use_environment = "testnet"
-manifest_digest = "1AD09726AC05F000A00A1E0CB700C2036E67E05ACD42D402DD6B54FF2EFBB1E9"
-deps = { Sui = "Sui_1" }
-
 [pinned.testnet.usdc]
-source = { git = "https://github.com/circlefin/stablecoin-sui.git", subdir = "packages/usdc", rev = "d0904aec1bbe46b38f811654070032363a5a2966" }
+source = { local = "../mock-usdc" }
 use_environment = "testnet"
-manifest_digest = "ABCB372881B4AA0562116087311A98C504CD81780C15E124BB70CD13E5A21CE4"
-deps = { Sui = "Sui_1", stablecoin = "stablecoin", sui_extensions = "sui_extensions" }
+manifest_digest = "ADADF33092C45A1CC90703687D2A24A27BB6CCFB07A8BC1F98838ABB466E8F9A"
+deps = { Sui = "Sui" }

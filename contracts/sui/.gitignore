@@ -4,3 +4,4 @@ traces/*
 .coverage*
 .idea
 .claude
+*.bak
