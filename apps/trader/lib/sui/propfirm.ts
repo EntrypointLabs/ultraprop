@@ -327,6 +327,31 @@ export function buildOpenAccountTransaction(params: {
   return tx;
 }
 
+/**
+ * Assembles the admin-gated `user_account::reactivate` call: puts a
+ * Failed/Suspended account back into evaluation on its existing tier, preserving
+ * reputation and history. Firm-sponsored re-entry, so the AdminCap signs it. Arg
+ * order matches the contract: admin cap, access registry, account registry,
+ * account id, clock.
+ */
+export function buildReactivateTransaction(
+  config: PublicSuiConfig & { adminCapId: string },
+  accountId: string,
+): Transaction {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${config.packageId}::user_account::reactivate`,
+    arguments: [
+      tx.object(config.adminCapId),
+      tx.object(config.accessRegistryId),
+      tx.object(config.accountRegistryId),
+      tx.pure.id(accountId),
+      tx.object(CLOCK_OBJECT_ID),
+    ],
+  });
+  return tx;
+}
+
 /** The on-chain coordinates needed to drive the executor-gated lifecycle. */
 type ExecutorConfig = PublicSuiConfig & { executorCapId: string };
 

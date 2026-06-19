@@ -131,6 +131,46 @@ export function useOnchainAccountSummary() {
   };
 }
 
+/**
+ * Re-enters the trader's Failed/Suspended account into evaluation on the same
+ * tier via the firm-signed `reactivate` endpoint. Sends the Privy access token
+ * so the server can confirm the caller owns the account before the firm signs.
+ */
+export function useReactivateAccount() {
+  const { getAccessToken } = usePrivy();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (accountId: string): Promise<{ digest: string }> => {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error("Your session expired. Please sign in again.");
+      }
+      const res = await fetch("/api/account/reactivate", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ accountId }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        digest?: string;
+      };
+      if (!res.ok || !body.digest) {
+        throw new Error(
+          body.error ?? "We couldn't re-enter the evaluation. Please try again.",
+        );
+      }
+      return { digest: body.digest };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["account-summary"] });
+    },
+  });
+}
+
 export interface AccountSetup {
   ready: boolean;
   authenticated: boolean;
