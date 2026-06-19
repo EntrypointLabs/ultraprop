@@ -150,6 +150,113 @@ export async function getAccountTier(
   return TIER_NAMES[variant] ?? null;
 }
 
+/** Status codes returned by `user_account::status_code`. */
+export type AccountStatusCode = 0 | 1 | 2 | 3;
+
+/**
+ * The authoritative, on-chain account state the cockpit verifies against: the
+ * REALIZED equity and the rule floors the executor's writes move, plus the
+ * lifecycle status. Unrealized PnL and open positions are never on-chain — the
+ * engine supplies those as a live overlay. All money fields are USDC base units
+ * (6 dp) as `bigint`; convert to USD with `usdcToUsd`.
+ */
+export interface AccountSummary {
+  /** realized equity in USDC base units (6 dp) */
+  equity: bigint;
+  /** funded allocation (starting equity) in USDC base units */
+  fundedSize: bigint;
+  /** equity floor that trips the static max-drawdown gate, USDC base units */
+  maxDdFloor: bigint;
+  /** daily loss (from day-start equity) that trips the daily gate, USDC base units */
+  dailyLossLimit: bigint;
+  /** absolute equity needed to pass, USDC base units */
+  profitTarget: bigint;
+  /** 0 Evaluating, 1 Passed, 2 Failed, 3 Suspended */
+  statusCode: AccountStatusCode;
+  tier: TierName | null;
+  breachCount: number;
+}
+
+/** USDC base units (6 dp) → USD float. */
+export function usdcToUsd(units: bigint): number {
+  return Number(units) / 1e6;
+}
+
+/**
+ * Reads the authoritative on-chain account state in a single devInspect dry-run:
+ * `equity`, `funded_size`, `max_dd_floor`, `daily_loss_limit`, `profit_target`
+ * (all u64), `status_code` (u8), `account_tier` (Tier variant byte), and
+ * `breach_count` (u64). Mirrors `getAccountTier`/`fetchEvalFee`'s devInspect +
+ * decode pattern; the getters are chained into one transaction so the cockpit
+ * verifies all of them off one round-trip. Returns null when the package or
+ * registry isn't configured so callers fall back to the engine overlay alone.
+ */
+export async function getAccountSummary(
+  client: SuiClient,
+  accountId: string,
+  config: PublicSuiConfig = publicSuiConfig(),
+): Promise<AccountSummary | null> {
+  if (!config.packageId || !config.accountRegistryId) return null;
+
+  const tx = new Transaction();
+  const registry = () => tx.object(config.accountRegistryId);
+  const id = () => tx.pure.id(accountId);
+  const reads: { fn: string; kind: "u64" | "u8" | "tier" }[] = [
+    { fn: "equity", kind: "u64" },
+    { fn: "funded_size", kind: "u64" },
+    { fn: "max_dd_floor", kind: "u64" },
+    { fn: "daily_loss_limit", kind: "u64" },
+    { fn: "profit_target", kind: "u64" },
+    { fn: "status_code", kind: "u8" },
+    { fn: "account_tier", kind: "tier" },
+    { fn: "breach_count", kind: "u64" },
+  ];
+  for (const { fn } of reads) {
+    tx.moveCall({
+      target: `${config.packageId}::user_account::${fn}`,
+      arguments: [registry(), id()],
+    });
+  }
+
+  const result = await client.devInspectTransactionBlock({
+    sender: ZERO_ADDRESS,
+    transactionBlock: tx,
+  });
+  if (result.error) {
+    throw new Error(`Could not read account state on-chain: ${result.error}`);
+  }
+
+  const results = result.results;
+  if (!results || results.length < reads.length) {
+    throw new Error("Account state inspection returned no value.");
+  }
+
+  const bytesAt = (i: number): number[] | Uint8Array | undefined =>
+    results[i]?.returnValues?.[0]?.[0];
+
+  const u64At = (i: number): bigint => {
+    const bytes = bytesAt(i);
+    if (!bytes) throw new Error(`Missing return for ${reads[i].fn}.`);
+    return decodeU64(bytes);
+  };
+
+  const statusByte = bytesAt(5)?.[0];
+  const statusCode = (statusByte ?? 0) as AccountStatusCode;
+  const tierByte = bytesAt(6)?.[0];
+  const tier = tierByte === undefined ? null : (TIER_NAMES[tierByte] ?? null);
+
+  return {
+    equity: u64At(0),
+    fundedSize: u64At(1),
+    maxDdFloor: u64At(2),
+    dailyLossLimit: u64At(3),
+    profitTarget: u64At(4),
+    statusCode,
+    tier,
+    breachCount: Number(u64At(7)),
+  };
+}
+
 interface AccountCreatedJson {
   account_id?: string;
   owner?: string;

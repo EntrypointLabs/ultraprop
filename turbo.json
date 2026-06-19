@@ -3,7 +3,14 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"]
+      "outputs": ["dist/**", ".next/**"],
+      "env": [
+        "PRIVY_APP_SECRET",
+        "SUI_ADMIN_SECRET_KEY",
+        "PROPFIRM_ADMIN_CAP_ID",
+        "PROPFIRM_EXECUTOR_CAP_ID",
+        "PROPFIRM_INVITE_CODES"
+      ]
     },
     "dev": {
       "dependsOn": ["^build"],

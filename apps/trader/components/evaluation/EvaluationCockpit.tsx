@@ -35,8 +35,11 @@ import {
   resolveMarketId,
 } from "@/lib/mock/markets";
 import { useMockStore } from "@/lib/mock/store";
-import type { Side, Tier } from "@/lib/mock/types";
+import type { RuleBudget, Side, Tier } from "@/lib/mock/types";
 import { usePaperEngine } from "@/lib/sim/usePaperEngine";
+import { onchainRuleBudgets, statusFromCode } from "@/lib/sui/onchainRules";
+import { usdcToUsd } from "@/lib/sui/propfirm";
+import { useOnchainAccountSummary } from "@/lib/sui/useTradingAccount";
 import {
   cn,
   formatPct,
@@ -92,6 +95,8 @@ function MarketStrip({
   onPause,
   canPause,
   range24h,
+  onchainEquityUsd,
+  liveUnrealizedUsd,
 }: {
   marketId: MarketId;
   onMarketChange: (id: MarketId) => void;
@@ -100,10 +105,23 @@ function MarketStrip({
   canPause: boolean;
   /** Trailing-24h high/low derived from the chart's candles (null until loaded). */
   range24h: { high: number | null; low: number | null };
+  /** Verifiable on-chain REALIZED equity in USD; null when no on-chain account. */
+  onchainEquityUsd: number | null;
+  /** Engine's live unrealized PnL overlay in USD (open positions only). */
+  liveUnrealizedUsd: number;
 }) {
   const tick = usePrice(marketId);
   const vault = useVault(vaultId);
   const connStatus = useConnection();
+
+  // Authoritative displayed equity = on-chain realized equity + the engine's
+  // live unrealized overlay. Falls back to the engine equity when there is no
+  // on-chain account (signed-out demo / unconfigured package).
+  const displayedEquity =
+    onchainEquityUsd != null
+      ? onchainEquityUsd + liveUnrealizedUsd
+      : vault.equity;
+  const equityIsVerified = onchainEquityUsd != null;
 
   const market = getMarket(marketId);
   const priceDecimals = decimalsFor(market);
@@ -135,7 +153,7 @@ function MarketStrip({
   const dailyRange24hHigh = range24h.high ?? tick?.high24h ?? null;
 
   const returnPct =
-    ((vault.equity - vault.startingEquity) / vault.startingEquity) * 100;
+    ((displayedEquity - vault.startingEquity) / vault.startingEquity) * 100;
   const returnTone = returnPct >= 0 ? "text-up" : "text-down";
 
   return (
@@ -187,9 +205,19 @@ function MarketStrip({
           </span>
         </div>
         <div className="flex shrink-0 flex-col">
-          <span className="text-xs text-text-faint">Equity</span>
+          <span className="flex items-center gap-1 text-xs text-text-faint">
+            Equity
+            {equityIsVerified && (
+              <span
+                title="Realized equity verified on-chain; live PnL overlaid"
+                className="rounded-sm bg-brand/15 px-1 text-[9px] font-semibold uppercase leading-tight tracking-wide text-brand"
+              >
+                on-chain
+              </span>
+            )}
+          </span>
           <span className="tabular text-xs font-semibold text-text">
-            {formatUsd(vault.equity, { decimals: 0 })}
+            {formatUsd(displayedEquity, { decimals: 0 })}
           </span>
         </div>
         <div className="flex shrink-0 flex-col">
@@ -272,9 +300,19 @@ function MarketStrip({
         <div className="ml-auto flex items-center gap-4">
           <div className="hidden items-center gap-4 sm:flex">
             <div className="flex flex-col items-end">
-              <span className="text-xs text-text-faint">Equity</span>
+              <span className="flex items-center gap-1 text-xs text-text-faint">
+                Equity
+                {equityIsVerified && (
+                  <span
+                    title="Realized equity verified on-chain; live PnL overlaid"
+                    className="rounded-sm bg-brand/15 px-1 text-[9px] font-semibold uppercase leading-tight tracking-wide text-brand"
+                  >
+                    on-chain
+                  </span>
+                )}
+              </span>
               <span className="tabular text-xs font-semibold text-text">
-                {formatUsd(vault.equity, { decimals: 0 })}
+                {formatUsd(displayedEquity, { decimals: 0 })}
               </span>
             </div>
             <div className="flex flex-col items-end">
@@ -351,6 +389,11 @@ export function EvaluationCockpit({
   const { submitOrder, closePosition, setBracket, cancelBracket, pause } =
     usePaperEngine(vaultId, initialTier);
   const vault = useVault(vaultId);
+  // The verifiable on-chain account state (realized equity + rule floors +
+  // status), polled so it tracks the executor's writes. Null until the trader
+  // has an on-chain account and the package is configured; the engine remains
+  // the live overlay either way.
+  const { summary: onchainSummary } = useOnchainAccountSummary();
   const equityCurve = useEquityCurve(vaultId);
   const positions = usePositions(vaultId);
   const trades = useTradeHistory(vaultId);
@@ -363,15 +406,30 @@ export function EvaluationCockpit({
   const isDemoVault = vaultId === DEMO_VAULT_ID;
   const showSignInWall = !session.address && !isDemoVault;
 
-  // The engine flips status on breach/pass — route to the matching terminal screen.
+  // Authoritative outcome = the ON-CHAIN status the executor set, when an
+  // on-chain account exists; the engine's `detectOutcome` is the TRIGGER that
+  // drives the executor (already wired in the bridge), but the chain is the
+  // source of truth for the terminal screen. Fall back to the engine status for
+  // the signed-out demo / unconfigured package. A local pause ("inactive") has
+  // no on-chain notion, so it's preserved while the chain still reads Evaluating.
+  const chainStatus =
+    onchainSummary != null ? statusFromCode(onchainSummary.statusCode) : null;
+  const authoritativeStatus =
+    chainStatus == null
+      ? vault.status
+      : chainStatus === "active" && vault.status === "inactive"
+        ? "inactive"
+        : chainStatus;
+
+  // Route to the matching terminal screen on a terminal authoritative status.
   useEffect(() => {
-    if (vault.status === "passed")
+    if (authoritativeStatus === "passed")
       router.replace(`/evaluation/${vaultId}/passed`);
-    else if (vault.status === "failed")
+    else if (authoritativeStatus === "failed")
       router.replace(`/evaluation/${vaultId}/failed`);
-    else if (vault.status === "inactive")
+    else if (authoritativeStatus === "inactive")
       router.replace(`/evaluation/${vaultId}/inactive`);
-  }, [vault.status, vaultId, router]);
+  }, [authoritativeStatus, vaultId, router]);
 
   const [marketId, setMarketId] = useState<MarketId>(
     presetMarketId ?? DEFAULT_MARKET_ID,
@@ -415,7 +473,34 @@ export function EvaluationCockpit({
     return { high, low };
   }, [candles]);
 
-  const { tier, startingEquity, peakEquity, rules } = vault;
+  const { tier, startingEquity, peakEquity, rules: engineRules } = vault;
+
+  // Live overlay — open positions' carrying value: unrealized PnL net of each
+  // position's still-unrecognized lifecycle cost (minus entry fee, plus signed
+  // funding), matching the engine's `computeEquity`. This is the clearly-live
+  // layer painted on top of the on-chain REALIZED equity; it is never written to
+  // chain (only realized closes move on-chain equity), and on-chain realized +
+  // this overlay equals the engine equity when the two realized figures agree.
+  const liveUnrealizedUsd = positions.reduce(
+    (sum, p) => sum + p.unrealizedPnl - p.entryFeeUsd + p.fundingPaid,
+    0,
+  );
+  const onchainEquityUsd =
+    onchainSummary != null ? usdcToUsd(onchainSummary.equity) : null;
+
+  // Drawdown / daily-loss / profit-target read off the verifiable on-chain
+  // AccountState when present; the intent-count budget stays engine-only (the
+  // chain tracks no per-eval intents). The engine's day-loss figure rides along
+  // as the daily pill's "used" since the chain doesn't expose its day baseline.
+  const rules = useMemo<RuleBudget[]>(() => {
+    if (onchainSummary == null) return engineRules;
+    const intentRule = engineRules.find((r) => r.kind === "intentCount");
+    const engineDaily = engineRules.find((r) => r.kind === "dailyLoss");
+    const onchain = onchainRuleBudgets(onchainSummary, {
+      dailyUsedUsd: engineDaily?.current ?? 0,
+    });
+    return intentRule ? [...onchain, intentRule] : onchain;
+  }, [onchainSummary, engineRules]);
 
   const ddRule = rules.find((r) => r.kind === "drawdown");
   const ddFraction = ddRule ? ddRule.used : 0;
@@ -506,8 +591,10 @@ export function EvaluationCockpit({
           onMarketChange={onMarketChange}
           vaultId={vaultId}
           onPause={pause}
-          canPause={!showSignInWall && vault.status === "active"}
+          canPause={!showSignInWall && authoritativeStatus === "active"}
           range24h={range24h}
+          onchainEquityUsd={onchainEquityUsd}
+          liveUnrealizedUsd={liveUnrealizedUsd}
         />
 
         {/* ── Main trading grid ──────────────────────────────────────────────

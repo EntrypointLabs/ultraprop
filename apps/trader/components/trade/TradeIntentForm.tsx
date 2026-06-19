@@ -34,6 +34,9 @@ import { useMockStore } from "@/lib/mock/store";
 import type { MarketId, Side, VaultState } from "@/lib/mock/types";
 import { liquidationPrice } from "@/lib/sim/engine";
 import { HL_TAKER_BPS, slippagePreview } from "@/lib/slippage-preview";
+import { isSuiConfigured } from "@/lib/sui/config";
+import { usdcToUsd } from "@/lib/sui/propfirm";
+import { useOnchainAccountSummary } from "@/lib/sui/useTradingAccount";
 import { cn, formatNum, formatUsd, formatUsdOrDash } from "@/lib/utils";
 
 type MarginMode = "isolated" | "cross";
@@ -780,6 +783,11 @@ export function TradeIntentForm({
   const { session } = useSession();
   const connection = useConnection();
   const openLogin = useMockStore((s) => s.openLogin);
+  // The verifiable on-chain account (realized equity + status). Drives the
+  // available-balance "max" and the tradeable-status gate. Null for the
+  // signed-out demo / unconfigured package, where the engine alone applies.
+  const { accountId: onchainAccountId, summary: onchainSummary } =
+    useOnchainAccountSummary();
 
   const isControlled = marketIdProp !== undefined;
   const [symbolInternal, setSymbolInternal] =
@@ -833,7 +841,25 @@ export function TradeIntentForm({
   );
   const effectiveMode: MarginMode = forcedIsolated ? "isolated" : marginMode;
 
-  const maxSize = vault.tier.shadowAllocation;
+  // Margin already locked by OPEN positions (engine-tracked). The available
+  // balance the new order draws on = the equity basis less this. The basis is
+  // the verifiable on-chain REALIZED equity when an account exists, else the
+  // engine equity (signed-out demo / unconfigured package).
+  const usedMargin = vault.positions.reduce(
+    (sum, p) => sum + (p.leverage > 0 ? p.sizeUsd / p.leverage : 0),
+    0,
+  );
+  const equityBasis =
+    onchainSummary != null ? usdcToUsd(onchainSummary.equity) : vault.equity;
+  const availableBalance = Math.max(0, equityBasis - usedMargin);
+
+  // Max NEW notional = available balance scaled by the chosen leverage, so the
+  // cap decrements as positions open ($10k → open $1k @1× → $9k available) and
+  // grows with leverage. Never exceed the tier's shadow allocation ceiling.
+  const maxSize = Math.min(
+    vault.tier.shadowAllocation,
+    availableBalance * effectiveLeverage,
+  );
   const clampSize = React.useCallback(
     (raw: string): string => {
       if (raw === "") return raw;
@@ -911,11 +937,22 @@ export function TradeIntentForm({
   const isSizeInvalid = sizeUsd <= 0;
   const isSubmitting = submitState.phase === "submitting";
 
-  const usedMargin = vault.positions.reduce(
-    (sum, p) => sum + (p.leverage > 0 ? p.sizeUsd / p.leverage : 0),
-    0,
-  );
-  const freeMargin = vault.equity - usedMargin;
+  // On-chain tradeable gate — only when the package is actually configured (so
+  // unconfigured/dev environments and the signed-out demo keep working off the
+  // engine alone). When an on-chain account exists, the chain decides whether
+  // orders may be placed: tradeable = Evaluating (0) or Passed (1); Failed (2)
+  // and Suspended (3) block placement. A signed-in wallet with no on-chain
+  // account yet must finish onboarding before trading.
+  const onchainGateActive = isSuiConfigured() && !isAuthGated && !isGuestAllowed;
+  const onchainStatus = onchainSummary?.statusCode ?? null;
+  const isOnchainBlocked =
+    onchainGateActive && (onchainStatus === 2 || onchainStatus === 3);
+  const needsOnchainAccount = onchainGateActive && onchainAccountId == null;
+
+  // Available balance (engine-tracked margin already locked is netted off the
+  // verifiable equity basis above); the new order's required margin can't exceed
+  // it. This is the same number the "max" notional derives from.
+  const freeMargin = availableBalance;
   const requiredMargin = sizeUsd / effectiveLeverage;
   const isInsufficientMargin = !isSizeInvalid && requiredMargin > freeMargin;
 
@@ -925,6 +962,13 @@ export function TradeIntentForm({
   else if (isPriceUnavailable)
     disabledReason = "Waiting for a live oracle price…";
   else if (isVaultPaused) disabledReason = `Evaluation is ${vault.status}`;
+  else if (isOnchainBlocked)
+    disabledReason =
+      onchainStatus === 2
+        ? "Account failed evaluation — trading is closed"
+        : "Account suspended on-chain — trading is closed";
+  else if (needsOnchainAccount)
+    disabledReason = "Finish on-chain account setup to trade";
   else if (isSizeInvalid) disabledReason = "Enter a position size";
   else if (isOverLeverageCap)
     disabledReason = `Leverage exceeds ${effectiveLeverageCap}× cap for ${market?.symbol ?? symbol}`;
@@ -937,6 +981,8 @@ export function TradeIntentForm({
     !isFeedStale &&
     !isPriceUnavailable &&
     !isVaultPaused &&
+    !isOnchainBlocked &&
+    !needsOnchainAccount &&
     !isSizeInvalid &&
     !isOverLeverageCap &&
     !isInsufficientMargin &&
@@ -1052,7 +1098,7 @@ export function TradeIntentForm({
           <div className="mb-1.5 flex items-center justify-between">
             <CardLabel>Collateral</CardLabel>
             <span className="tabular text-xs text-text-faint">
-              Max: {formatUsd(vault.tier.shadowAllocation, { decimals: 0 })}
+              Max: {formatUsd(maxSize, { decimals: 0 })}
             </span>
           </div>
           <div className="relative">

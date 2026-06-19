@@ -36,6 +36,7 @@ function makePosition(over: Partial<Position> = {}): Position {
     openedAt: NOW,
     marginMode: "isolated",
     leverage: 1,
+    entryFeeUsd: 0,
     lastFundedAt: NOW,
     fundingPaid: 0,
     liquidationPrice: null,

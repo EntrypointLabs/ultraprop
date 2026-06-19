@@ -75,6 +75,11 @@ export interface Position {
   marginMode: "isolated" | "cross";
   /** leverage SET at open; isolated liq depends on it, cross does not */
   leverage: number;
+  /** taker fee (USD, positive) paid to OPEN this position. Carried as an
+   * unrecognized cost while open (subtracted from equity), then folded into the
+   * close trade's realized PnL so on-chain `log_trade` sees the full lifecycle
+   * cost and equity reconciles. */
+  entryFeeUsd: number;
   /** epoch ms of the last funding settlement boundary already charged */
   lastFundedAt: number;
   /** cumulative funding USD booked (negative = paid, positive = earned) */
