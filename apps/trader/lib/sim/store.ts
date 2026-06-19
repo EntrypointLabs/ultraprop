@@ -292,6 +292,8 @@ function closeLiquidations(
       sizeUsd: pos.sizeUsd,
       oracleMid: pos.markPrice,
       fill: exitFill,
+      entryPrice: pos.entryPrice,
+      leverage: pos.leverage,
       slippageBps: 0,
       feeUsd: exitFee,
       venue: "hyperliquid",
@@ -379,6 +381,8 @@ function fireBrackets(
       sizeUsd: pos.sizeUsd,
       oracleMid: pos.markPrice,
       fill: triggerPrice,
+      entryPrice: pos.entryPrice,
+      leverage: pos.leverage,
       slippageBps: 0,
       feeUsd: exitFee,
       venue: "hyperliquid",
@@ -807,12 +811,15 @@ export const useSimStore = create<SimStore>()(
             sizeUsd: closedUsd,
             oracleMid,
             fill: exitFill,
+            entryPrice: pos.entryPrice,
+            leverage: pos.leverage,
             slippageBps: 0,
             feeUsd: exitFee,
             venue: "hyperliquid",
             realizedPnl: tradePnl,
             ts: nowMs,
             txDigest: mockDigest(),
+            closedBy: "manual",
           };
           // Full close removes the position; partial shrinks the same position's
           // sizeUsd AND its carried costs by the un-closed proportion, keeping
