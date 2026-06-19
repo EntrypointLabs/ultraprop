@@ -1,10 +1,10 @@
 import "server-only";
 
-import type { SuiClient } from "@mysten/sui/client";
+import type { SuiClientTypes } from "@mysten/sui/client";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import type { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
-import { getSuiClient } from "./client";
+import { getGraphQLClient, getGrpcClient } from "./client";
 import {
   type ServerSuiConfig,
   serverSuiConfig,
@@ -36,6 +36,27 @@ function loadAdminKeypair(secret: string): Ed25519Keypair {
   return Ed25519Keypair.fromSecretKey(raw);
 }
 
+/**
+ * Unwraps the unified `executeTransaction` result, throwing the on-chain abort
+ * message on failure. The result is a `$kind`-discriminated union: a
+ * `FailedTransaction`, or a `Transaction` that may still carry a non-success
+ * effects status — both are surfaced as the same error so callers see one shape.
+ */
+function expectExecuted<Include extends SuiClientTypes.TransactionInclude>(
+  result: SuiClientTypes.TransactionResult<Include>,
+  context: string,
+): SuiClientTypes.Transaction<Include> {
+  const tx =
+    result.$kind === "Transaction"
+      ? result.Transaction
+      : result.FailedTransaction;
+  if (result.$kind !== "Transaction" || !tx.status.success) {
+    const error = tx.status.error?.message ?? "unknown error";
+    throw new Error(`${context}: ${error}`);
+  }
+  return tx;
+}
+
 export interface OpenAccountResult {
   accountId: string;
   created: boolean;
@@ -55,17 +76,17 @@ export async function adminOpenAccount(
   tier: TierName,
 ): Promise<OpenAccountResult> {
   const config = serverSuiConfig();
-  const client = getSuiClient();
+  const reader = getGraphQLClient();
 
-  const existing = await getTradingAccountId(client, owner, config.packageId);
+  const existing = await getTradingAccountId(reader, owner, config.packageId);
   if (existing) return { accountId: existing, created: false };
 
   const keypair = loadAdminKeypair(config.adminSecretKey);
   const adminAddress = keypair.toSuiAddress();
 
-  const evalFee = await fetchEvalFee(client, adminAddress, tier, config);
+  const evalFee = await fetchEvalFee(reader, adminAddress, tier, config);
 
-  const { data: coins } = await client.getCoins({
+  const { objects: coins } = await reader.listCoins({
     owner: adminAddress,
     coinType: config.usdcType,
   });
@@ -86,32 +107,34 @@ export async function adminOpenAccount(
     owner,
     tier,
     evalFee,
-    usdcCoinIds: coins.map((c) => c.coinObjectId),
+    usdcCoinIds: coins.map((c) => c.objectId),
   });
   tx.setSender(adminAddress);
 
-  const result = await client.signAndExecuteTransaction({
+  const result = await getGrpcClient().signAndExecuteTransaction({
     signer: keypair,
     transaction: tx,
-    options: { showEvents: true, showEffects: true },
+    include: { effects: true, events: true },
   });
 
-  if (result.effects?.status.status !== "success") {
-    throw new Error(
-      `On-chain account creation failed: ${result.effects?.status.error ?? "unknown error"}`,
-    );
-  }
+  const executed = expectExecuted(result, "On-chain account creation failed");
 
   const accountId =
-    parseAccountCreatedId(result.events, owner, config.packageId) ??
-    (await getTradingAccountId(client, owner, config.packageId));
+    parseAccountCreatedId(
+      (executed.events ?? []).map((e) => ({
+        type: e.eventType,
+        parsedJson: e.json ?? undefined,
+      })),
+      owner,
+      config.packageId,
+    ) ?? (await getTradingAccountId(reader, owner, config.packageId));
   if (!accountId) {
     throw new Error(
       "Account was created on-chain but its id could not be resolved.",
     );
   }
 
-  return { accountId, created: true, digest: result.digest };
+  return { accountId, created: true, digest: executed.digest };
 }
 
 /**
@@ -137,7 +160,6 @@ function isAccountId(value: string): boolean {
  * the on-chain abort message on failure so the route can surface it.
  */
 async function executeAsExecutor(
-  client: SuiClient,
   config: ServerSuiConfig,
   build: (cfg: ServerSuiConfig) => Transaction,
 ): Promise<string> {
@@ -145,17 +167,12 @@ async function executeAsExecutor(
   const tx = build(config);
   tx.setSender(keypair.toSuiAddress());
 
-  const result = await client.signAndExecuteTransaction({
+  const result = await getGrpcClient().signAndExecuteTransaction({
     signer: keypair,
     transaction: tx,
-    options: { showEffects: true },
+    include: { effects: true },
   });
-  if (result.effects?.status.status !== "success") {
-    throw new Error(
-      `On-chain call failed: ${result.effects?.status.error ?? "unknown error"}`,
-    );
-  }
-  return result.digest;
+  return expectExecuted(result, "On-chain call failed").digest;
 }
 
 export interface ExecutorResult {
@@ -178,7 +195,7 @@ export async function logTrade(params: {
   if (!isAccountId(params.accountId)) {
     throw new Error("Invalid account id.");
   }
-  const digest = await executeAsExecutor(getSuiClient(), config, (cfg) =>
+  const digest = await executeAsExecutor(config, (cfg) =>
     buildLogTradeTransaction({ config: cfg, ...params }),
   );
   return { digest };
@@ -190,7 +207,7 @@ export async function passEvaluation(
 ): Promise<ExecutorResult> {
   const config = serverSuiConfig();
   if (!isAccountId(accountId)) throw new Error("Invalid account id.");
-  const digest = await executeAsExecutor(getSuiClient(), config, (cfg) =>
+  const digest = await executeAsExecutor(config, (cfg) =>
     buildPassEvaluationTransaction(cfg, accountId),
   );
   return { digest };
@@ -202,7 +219,7 @@ export async function failEvaluation(
 ): Promise<ExecutorResult> {
   const config = serverSuiConfig();
   if (!isAccountId(accountId)) throw new Error("Invalid account id.");
-  const digest = await executeAsExecutor(getSuiClient(), config, (cfg) =>
+  const digest = await executeAsExecutor(config, (cfg) =>
     buildFailEvaluationTransaction(cfg, accountId),
   );
   return { digest };
@@ -214,7 +231,7 @@ export async function registerBreach(
 ): Promise<ExecutorResult> {
   const config = serverSuiConfig();
   if (!isAccountId(accountId)) throw new Error("Invalid account id.");
-  const digest = await executeAsExecutor(getSuiClient(), config, (cfg) =>
+  const digest = await executeAsExecutor(config, (cfg) =>
     buildRegisterBreachTransaction(cfg, accountId),
   );
   return { digest };

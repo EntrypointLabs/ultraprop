@@ -1,4 +1,4 @@
-import type { SuiClient } from "@mysten/sui/client";
+import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import {
   type PublicKey,
   Signer,
@@ -90,7 +90,7 @@ function normalizeSuiAddress(address: string): string {
  * verification.
  */
 export async function signAndExecuteWithPrivy(params: {
-  client: SuiClient;
+  client: SuiGraphQLClient;
   tx: Transaction;
   wallet: PrivySuiWallet;
   signRawHash: RawHashSigner;
@@ -110,16 +110,17 @@ export async function signAndExecuteWithPrivy(params: {
   const txBytes = await tx.build({ client });
   const { signature } = await signer.signTransaction(txBytes);
 
-  const result = await client.executeTransactionBlock({
-    transactionBlock: txBytes,
-    signature,
-    options: { showEffects: true },
+  const result = await client.executeTransaction({
+    transaction: txBytes,
+    signatures: [signature],
+    include: { effects: true },
   });
 
-  if (result.effects?.status.status !== "success") {
-    throw new Error(
-      `Your transaction failed on-chain: ${result.effects?.status.error ?? "unknown error"}`,
-    );
+  const executed =
+    result.$kind === "Transaction" ? result.Transaction : result.FailedTransaction;
+  if (result.$kind !== "Transaction" || !executed.status.success) {
+    const error = executed.status.error?.message ?? "unknown error";
+    throw new Error(`Your transaction failed on-chain: ${error}`);
   }
-  return { digest: result.digest };
+  return { digest: executed.digest };
 }

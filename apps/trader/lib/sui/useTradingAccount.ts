@@ -3,7 +3,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { suiWalletAddress } from "@/lib/auth";
-import { getSuiClient } from "@/lib/sui/client";
+import { getGraphQLClient } from "@/lib/sui/client";
 import { isSuiConfigured, type TierName } from "@/lib/sui/config";
 import {
   type AccountSummary,
@@ -25,7 +25,7 @@ export function useTradingAccount(suiAddress: string | null) {
   return useQuery({
     queryKey: queryKey(suiAddress),
     enabled: Boolean(suiAddress) && isSuiConfigured(),
-    queryFn: () => getTradingAccountId(getSuiClient(), suiAddress as string),
+    queryFn: () => getTradingAccountId(getGraphQLClient(), suiAddress as string),
     staleTime: 30_000,
   });
 }
@@ -39,7 +39,7 @@ export function useAccountTier(accountId: string | null) {
   return useQuery<TierName | null>({
     queryKey: ["account-tier", accountId] as const,
     enabled: Boolean(accountId) && isSuiConfigured(),
-    queryFn: () => getAccountTier(getSuiClient(), accountId as string),
+    queryFn: () => getAccountTier(getGraphQLClient(), accountId as string),
     staleTime: 30_000,
   });
 }
@@ -56,7 +56,7 @@ export function useAccountSummary(accountId: string | null) {
   return useQuery<AccountSummary | null>({
     queryKey: ["account-summary", accountId] as const,
     enabled: Boolean(accountId) && isSuiConfigured(),
-    queryFn: () => getAccountSummary(getSuiClient(), accountId as string),
+    queryFn: () => getAccountSummary(getGraphQLClient(), accountId as string),
     refetchInterval: 6_000,
     staleTime: 5_000,
   });

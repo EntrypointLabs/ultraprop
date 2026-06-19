@@ -1,16 +1,56 @@
-import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
-import { publicSuiConfig } from "./config";
+import { SuiGraphQLClient } from "@mysten/sui/graphql";
+import { SuiGrpcClient } from "@mysten/sui/grpc";
+import { type PublicSuiConfig, publicSuiConfig } from "./config";
 
-let cached: SuiClient | null = null;
+type Network = PublicSuiConfig["network"];
 
 /**
- * A shared read-only Sui client pointed at the configured network. Used on both
- * the client (to read a trader's account) and the server (to read tier pricing
- * and submit onboarding transactions).
+ * Default Mysten-hosted GraphQL RPC per network — the read path for both client
+ * and server. (The older `sui-<network>.mystenlabs.com/graphql` alpha hosts are
+ * decommissioned.) An operator can point at their own indexer / a provider via
+ * `NEXT_PUBLIC_SUI_GRAPHQL_URL`.
  */
-export function getSuiClient(): SuiClient {
-  if (cached) return cached;
-  const { network, rpcUrl } = publicSuiConfig();
-  cached = new SuiClient({ url: rpcUrl ?? getFullnodeUrl(network) });
-  return cached;
+function defaultGraphqlUrl(network: Network): string {
+  return `https://graphql.${network}.sui.io/graphql`;
+}
+
+/**
+ * Default fullnode gRPC (gRPC-web) endpoint per network — the server-side
+ * execution path. Overridable via `NEXT_PUBLIC_SUI_GRPC_URL`.
+ */
+function defaultGrpcUrl(network: Network): string {
+  return `https://fullnode.${network}.sui.io:443`;
+}
+
+let cachedGraphql: SuiGraphQLClient | null = null;
+let cachedGrpc: SuiGrpcClient | null = null;
+
+/**
+ * A shared GraphQL client pointed at the configured network. Works in both the
+ * browser and node, and is the read path for everything — owned-cap lookups,
+ * tier pricing, account tier, USDC coin reads, and payment-digest verification.
+ */
+export function getGraphQLClient(): SuiGraphQLClient {
+  if (cachedGraphql) return cachedGraphql;
+  const { network, graphqlUrl } = publicSuiConfig();
+  cachedGraphql = new SuiGraphQLClient({
+    network,
+    url: graphqlUrl ?? defaultGraphqlUrl(network),
+  });
+  return cachedGraphql;
+}
+
+/**
+ * A shared gRPC client for server-side transaction execution: the admin-signed
+ * `open_account` / lifecycle calls and the user-signed Privy execute. Reads
+ * should go through the GraphQL client instead.
+ */
+export function getGrpcClient(): SuiGrpcClient {
+  if (cachedGrpc) return cachedGrpc;
+  const { network, grpcUrl } = publicSuiConfig();
+  cachedGrpc = new SuiGrpcClient({
+    network,
+    baseUrl: grpcUrl ?? defaultGrpcUrl(network),
+  });
+  return cachedGrpc;
 }

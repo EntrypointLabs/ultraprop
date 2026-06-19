@@ -22,6 +22,12 @@ export const CLOCK_OBJECT_ID = "0x6";
 export interface PublicSuiConfig {
   network: "mainnet" | "testnet" | "devnet" | "localnet";
   rpcUrl: string | null;
+  /** Override the GraphQL endpoint used for all on-chain reads. Falls back to the
+   * network's default Mysten GraphQL RPC when unset. */
+  graphqlUrl: string | null;
+  /** Override the gRPC (gRPC-web) endpoint used for server-side execution. Falls
+   * back to the network's default fullnode when unset. */
+  grpcUrl: string | null;
   packageId: string;
   accountRegistryId: string;
   accessRegistryId: string;
@@ -64,6 +70,8 @@ export function publicSuiConfig(): PublicSuiConfig {
         ? network
         : "testnet",
     rpcUrl: clean(process.env.NEXT_PUBLIC_SUI_RPC_URL) || null,
+    graphqlUrl: clean(process.env.NEXT_PUBLIC_SUI_GRAPHQL_URL) || null,
+    grpcUrl: clean(process.env.NEXT_PUBLIC_SUI_GRPC_URL) || null,
     packageId: clean(process.env.NEXT_PUBLIC_PROPFIRM_PACKAGE_ID),
     accountRegistryId: clean(process.env.NEXT_PUBLIC_PROPFIRM_ACCOUNT_REGISTRY_ID),
     accessRegistryId: clean(process.env.NEXT_PUBLIC_PROPFIRM_ACCESS_REGISTRY_ID),

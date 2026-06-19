@@ -1,4 +1,5 @@
-import type { SuiClient } from "@mysten/sui/client";
+import type { SuiClientTypes } from "@mysten/sui/client";
+import type { SuiGraphQLClient } from "@mysten/sui/graphql";
 import { Transaction } from "@mysten/sui/transactions";
 import {
   CLOCK_OBJECT_ID,
@@ -29,23 +30,40 @@ function tierTarget(packageId: string, tier: TierName): MoveTarget {
  * (the cap's own id is the registry key), so we look up owned caps by type.
  */
 export async function getTradingAccountId(
-  client: SuiClient,
+  client: SuiGraphQLClient,
   owner: string,
   packageId = publicSuiConfig().packageId,
 ): Promise<string | null> {
   if (!packageId) return null;
   const type = accountCapType(packageId);
-  const { data } = await client.getOwnedObjects({
+  const { objects } = await client.listOwnedObjects({
     owner,
-    filter: { StructType: type },
-    options: { showType: true },
+    type,
     limit: 50,
   });
-  const cap = data.find((o) => o.data?.type === type);
-  return cap?.data?.objectId ?? null;
+  const cap = objects.find((o) => o.type === type);
+  return cap?.objectId ?? null;
 }
 
-/** Decodes a little-endian u64 from BCS-encoded devInspect return bytes. */
+/**
+ * Pulls the Move return values out of a `simulateTransaction` result, throwing
+ * the abort message on a failed simulation. Replaces the old devInspect
+ * `result.error` / `result.results[].returnValues` shape: the unified API
+ * returns a `$kind`-discriminated union whose last command's `returnValues`
+ * carry the BCS bytes.
+ */
+function simulationReturnValues(
+  result: SuiClientTypes.SimulateTransactionResult<{ commandResults: true }>,
+  context: string,
+): readonly SuiClientTypes.CommandOutput[] {
+  if (result.$kind === "FailedTransaction") {
+    const error = result.FailedTransaction.status.error?.message ?? "unknown error";
+    throw new Error(`${context}: ${error}`);
+  }
+  return result.commandResults?.at(-1)?.returnValues ?? [];
+}
+
+/** Decodes a little-endian u64 from BCS-encoded Move return bytes. */
 function decodeU64(bytes: number[] | Uint8Array): bigint {
   let value = 0n;
   for (let i = 0; i < bytes.length; i++) {
@@ -61,12 +79,13 @@ function decodeU64(bytes: number[] | Uint8Array): bigint {
  * retunes pricing — a mismatch would otherwise abort the onboarding tx.
  */
 export async function fetchEvalFee(
-  client: SuiClient,
+  client: SuiGraphQLClient,
   sender: string,
   tier: TierName,
   config: PublicSuiConfig = publicSuiConfig(),
 ): Promise<bigint> {
   const tx = new Transaction();
+  tx.setSenderIfNotSet(sender);
   const tierValue = tx.moveCall({ target: tierTarget(config.packageId, tier) });
   const row = tx.moveCall({
     target: `${config.packageId}::tier_config::row`,
@@ -77,16 +96,15 @@ export async function fetchEvalFee(
     arguments: [row],
   });
 
-  const result = await client.devInspectTransactionBlock({
-    sender,
-    transactionBlock: tx,
+  const result = await client.simulateTransaction({
+    transaction: tx,
+    include: { commandResults: true },
   });
 
-  if (result.error) {
-    throw new Error(`Could not read tier pricing on-chain: ${result.error}`);
-  }
-  const returns = result.results?.at(-1)?.returnValues;
-  const bytes = returns?.[0]?.[0];
+  const bytes = simulationReturnValues(
+    result,
+    "Could not read tier pricing on-chain",
+  )[0]?.bcs;
   if (!bytes) {
     throw new Error("Tier pricing inspection returned no value.");
   }
@@ -98,32 +116,33 @@ export async function fetchEvalFee(
  * `user_account::account_tier` and decoding the returned `Tier`. `Tier` is a
  * fieldless enum, so BCS encodes it as a single variant-index byte
  * (0 Starter … 4 Whale) — the byte indexes straight into `TIER_NAMES`. Mirrors
- * `fetchEvalFee`'s devInspect+decode pattern. Returns null when the account or
+ * `fetchEvalFee`'s simulate+decode pattern. Returns null when the account or
  * package can't be read so callers can fall back gracefully.
  */
 export async function getAccountTier(
-  client: SuiClient,
+  client: SuiGraphQLClient,
   accountId: string,
   config: PublicSuiConfig = publicSuiConfig(),
 ): Promise<TierName | null> {
   if (!config.packageId || !config.accountRegistryId) return null;
 
   const tx = new Transaction();
+  // Any well-formed address works for a read-only simulation of shared state.
+  tx.setSenderIfNotSet(ZERO_ADDRESS);
   tx.moveCall({
     target: `${config.packageId}::user_account::account_tier`,
     arguments: [tx.object(config.accountRegistryId), tx.pure.id(accountId)],
   });
 
-  const result = await client.devInspectTransactionBlock({
-    // Any well-formed address works for a read-only inspection of shared state.
-    sender: ZERO_ADDRESS,
-    transactionBlock: tx,
+  const result = await client.simulateTransaction({
+    transaction: tx,
+    include: { commandResults: true },
   });
-  if (result.error) {
-    throw new Error(`Could not read account tier on-chain: ${result.error}`);
-  }
 
-  const bytes = result.results?.at(-1)?.returnValues?.[0]?.[0];
+  const bytes = simulationReturnValues(
+    result,
+    "Could not read account tier on-chain",
+  )[0]?.bcs;
   const variant = bytes?.[0];
   if (variant === undefined) {
     throw new Error("Account tier inspection returned no value.");
@@ -173,7 +192,7 @@ export function usdcToUsd(units: bigint): number {
  * registry isn't configured so callers fall back to the engine overlay alone.
  */
 export async function getAccountSummary(
-  client: SuiClient,
+  client: SuiGraphQLClient,
   accountId: string,
   config: PublicSuiConfig = publicSuiConfig(),
 ): Promise<AccountSummary | null> {
@@ -199,21 +218,23 @@ export async function getAccountSummary(
     });
   }
 
-  const result = await client.devInspectTransactionBlock({
-    sender: ZERO_ADDRESS,
-    transactionBlock: tx,
+  tx.setSender(ZERO_ADDRESS);
+  const result = await client.simulateTransaction({
+    transaction: tx,
+    include: { commandResults: true },
   });
-  if (result.error) {
-    throw new Error(`Could not read account state on-chain: ${result.error}`);
+  if (result.$kind === "FailedTransaction") {
+    const error = result.FailedTransaction.status.error?.message ?? "unknown error";
+    throw new Error(`Could not read account state on-chain: ${error}`);
   }
 
-  const results = result.results;
-  if (!results || results.length < reads.length) {
+  const results = result.commandResults ?? [];
+  if (results.length < reads.length) {
     throw new Error("Account state inspection returned no value.");
   }
 
-  const bytesAt = (i: number): number[] | Uint8Array | undefined =>
-    results[i]?.returnValues?.[0]?.[0];
+  const bytesAt = (i: number): Uint8Array | undefined =>
+    results[i]?.returnValues?.[0]?.bcs;
 
   const u64At = (i: number): bigint => {
     const bytes = bytesAt(i);
@@ -406,13 +427,13 @@ type OnboardingConfig = PublicSuiConfig;
  * Mirrors the server's coin-gathering, but for the trader's wallet.
  */
 export async function fetchUsdcCoins(
-  client: SuiClient,
+  client: SuiGraphQLClient,
   owner: string,
   usdcType: string,
 ): Promise<{ coinObjectId: string; balance: bigint }[]> {
-  const { data } = await client.getCoins({ owner, coinType: usdcType });
-  return data.map((c) => ({
-    coinObjectId: c.coinObjectId,
+  const { objects } = await client.listCoins({ owner, coinType: usdcType });
+  return objects.map((c) => ({
+    coinObjectId: c.objectId,
     balance: BigInt(c.balance),
   }));
 }
