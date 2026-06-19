@@ -5,6 +5,7 @@ import { useCallback, useEffect } from "react";
 import { DEMO_WALLET, INITIAL_PRICES, TIERS } from "@/lib/mock/fixtures";
 import { usePrices, useSession } from "@/lib/mock/hooks";
 import type { PriceTick, Tier } from "@/lib/mock/types";
+import { useOnchainBridge } from "@/lib/sui/useOnchainBridge";
 import { type OrderIntent, toVaultState, useSimStore } from "./store";
 
 /**
@@ -47,6 +48,10 @@ export function usePaperEngine(
   const { session } = useSession();
   const hydrated = useSimStore((s) => s.hydrated);
   const owner = session.address ?? DEMO_WALLET;
+
+  // Mirror realized closes and the eval outcome onto the deployed contracts. A
+  // no-op until the trader has an on-chain account and the package is configured.
+  useOnchainBridge(vaultId);
 
   const sync = useCallback(() => {
     const sim = useSimStore.getState().vaults[vaultId];
