@@ -1,0 +1,18 @@
+[package]
+name = "usdc"
+edition = "2024.beta"
+
+# Standalone leaf package: it declares its own Sui framework dep because, unlike
+# propfirm, it has no other dependency to pull the framework in transitively. The
+# rev is pinned to the same testnet Sui the propfirm package resolves to (see
+# contracts/sui/Move.lock [pinned.testnet.Sui]) so the two packages agree on a
+# single Sui version rather than conflicting.
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "718ae563a42fb4ba0d055588f81c704dcef58c25" }
+
+[addresses]
+usdc = "0x0"
+
+[dev-dependencies]
+
+[dev-addresses]

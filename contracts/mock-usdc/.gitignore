@@ -1,0 +1,7 @@
+build/*
+traces/*
+.trace
+.coverage*
+.idea
+.claude
+*.bak
