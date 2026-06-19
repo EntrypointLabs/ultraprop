@@ -6,8 +6,25 @@ import { Badge, Button, CardContent } from "@/components/ui";
 import type { Tier } from "@/lib/mock/types";
 import { cn, formatPct, formatUsd } from "@/lib/utils";
 
+/**
+ * What the card's CTA should do, derived by the grid from the trader's on-chain
+ * account:
+ *  - `start`    no account yet → open onboarding for this tier.
+ *  - `continue` this is the tier they already own → resume their evaluation.
+ *  - `payment`  no account, but this tier is unlocked by paying → onboarding.
+ *  - `locked`   unavailable, with a reason (owned elsewhere / coming soon).
+ *  - `loading`  account check still in flight.
+ */
+export type TierCta =
+  | { kind: "start" }
+  | { kind: "continue" }
+  | { kind: "payment" }
+  | { kind: "locked"; reason: string }
+  | { kind: "loading" };
+
 export interface TierCardProps {
   tier: Tier;
+  cta: TierCta;
   selected: boolean;
   onSelect: () => void;
   onStart: () => void;
@@ -19,7 +36,7 @@ const TIER_DESCRIPTIONS: Record<Tier["id"], string> = {
   starter:
     "Begin your evaluation. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation with automatic rule enforcement.",
   basic:
-    "Elevated capital, tighter rules. Prove consistency before stepping up to next level.",
+    "Elevated capital, tighter rules. Pay the evaluation fee to open a Basic account.",
   pro: "Maximum account size. Reserved for traders who have proven themselves at every level.",
 };
 
@@ -35,16 +52,17 @@ const TIER_BORDER_SELECTED: Record<Tier["id"], string> = {
   pro: "border-up/60",
 };
 
-const TIER_BADGE_LABEL: Record<Tier["id"], string> = {
-  starter: "OPEN",
-  basic: "LOCKED",
-  pro: "LOCKED",
-};
-
-const PREV_TIER_NAME: Record<string, string> = {
-  basic: "Starter",
-  pro: "Basic",
-};
+function badgeLabel(cta: TierCta): string {
+  switch (cta.kind) {
+    case "continue":
+      return "ACTIVE";
+    case "start":
+    case "payment":
+      return "OPEN";
+    default:
+      return "LOCKED";
+  }
+}
 
 interface StatRowProps {
   label: string;
@@ -72,14 +90,15 @@ function StatRow({ label, value, highlight }: StatRowProps) {
 
 export function TierCard({
   tier,
+  cta,
   selected,
   onSelect,
   onStart,
   disabled = false,
   disabledReason,
 }: TierCardProps) {
-  const isLocked = tier.locked;
-  const prevTier = tier.unlockedBy ? PREV_TIER_NAME[tier.id] : null;
+  const isLocked = cta.kind === "locked" || cta.kind === "loading";
+  const selectable = cta.kind === "start" || cta.kind === "continue" || cta.kind === "payment";
 
   return (
     <div
@@ -87,9 +106,9 @@ export function TierCard({
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`Select ${tier.name} tier`}
-      onClick={onSelect}
+      onClick={() => selectable && onSelect()}
       onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if (selectable && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
           onSelect();
         }
@@ -102,7 +121,7 @@ export function TierCard({
               TIER_BORDER_SELECTED[tier.id],
             )
           : "border-border hover:border-border hover:bg-surface-2/50",
-        isLocked && "opacity-60",
+        isLocked && "opacity-60 cursor-default",
       )}
     >
       {/* Gradient accent top */}
@@ -126,7 +145,7 @@ export function TierCard({
           <div className="flex items-center gap-2">
             <Badge variant="leverage">{tier.leverage}X</Badge>
             <Badge variant={isLocked ? "default" : "tier"}>
-              {TIER_BADGE_LABEL[tier.id]}
+              {badgeLabel(cta)}
             </Badge>
           </div>
         </div>
@@ -178,36 +197,84 @@ export function TierCard({
         </div>
 
         {/* CTA */}
-        {isLocked ? (
-          <div className="flex items-center gap-2 rounded-[var(--radius)] bg-surface-3 px-4 py-3 text-sm text-text-muted">
-            <Lock className="h-4 w-4 shrink-0 text-text-faint" aria-hidden="true" />
-            <span>
-              Pass <span className="font-medium text-text">{prevTier}</span> to
-              unlock
-            </span>
-          </div>
-        ) : (
-          <Button
-            variant="primary"
-            size="lg"
-            className="w-full"
-            disabled={disabled}
-            title={disabledReason}
-            onClick={(e) => {
-              e.stopPropagation();
-              onStart();
-            }}
-          >
-            Start {tier.name}
-          </Button>
-        )}
-
-        {disabled && !isLocked && disabledReason && (
-          <p className="mt-2 text-center text-xs text-text-muted">
-            {disabledReason}
-          </p>
-        )}
+        <TierCtaSlot
+          tier={tier}
+          cta={cta}
+          disabled={disabled}
+          disabledReason={disabledReason}
+          onStart={onStart}
+        />
       </CardContent>
     </div>
+  );
+}
+
+function LockSlot({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 rounded-[var(--radius)] bg-surface-3 px-4 py-3 text-sm text-text-muted">
+      <Lock className="h-4 w-4 shrink-0 text-text-faint" aria-hidden="true" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function TierCtaSlot({
+  tier,
+  cta,
+  disabled,
+  disabledReason,
+  onStart,
+}: {
+  tier: Tier;
+  cta: TierCta;
+  disabled: boolean;
+  disabledReason?: string;
+  onStart: () => void;
+}) {
+  if (cta.kind === "loading") {
+    return (
+      <Button variant="primary" size="lg" className="w-full" disabled>
+        Checking your account…
+      </Button>
+    );
+  }
+
+  if (cta.kind === "locked") {
+    return <LockSlot>{cta.reason}</LockSlot>;
+  }
+
+  const label =
+    cta.kind === "continue"
+      ? "Continue"
+      : cta.kind === "payment"
+        ? `Pay & start ${tier.name}`
+        : `Start ${tier.name}`;
+
+  return (
+    <>
+      <Button
+        variant="primary"
+        size="lg"
+        className="w-full"
+        disabled={disabled}
+        title={disabledReason}
+        onClick={(e) => {
+          e.stopPropagation();
+          onStart();
+        }}
+      >
+        {label}
+      </Button>
+      {cta.kind === "payment" && !disabled && (
+        <p className="mt-2 text-center text-xs text-text-muted">
+          Requires payment of the evaluation fee.
+        </p>
+      )}
+      {disabled && disabledReason && (
+        <p className="mt-2 text-center text-xs text-text-muted">
+          {disabledReason}
+        </p>
+      )}
+    </>
   );
 }
