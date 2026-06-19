@@ -192,7 +192,7 @@ export function usdcToUsd(units: bigint): number {
  * registry isn't configured so callers fall back to the engine overlay alone.
  */
 export async function getAccountSummary(
-  client: SuiClient,
+  client: SuiGraphQLClient,
   accountId: string,
   config: PublicSuiConfig = publicSuiConfig(),
 ): Promise<AccountSummary | null> {
@@ -218,21 +218,23 @@ export async function getAccountSummary(
     });
   }
 
-  const result = await client.devInspectTransactionBlock({
-    sender: ZERO_ADDRESS,
-    transactionBlock: tx,
+  tx.setSender(ZERO_ADDRESS);
+  const result = await client.simulateTransaction({
+    transaction: tx,
+    include: { commandResults: true },
   });
-  if (result.error) {
-    throw new Error(`Could not read account state on-chain: ${result.error}`);
+  if (result.$kind === "FailedTransaction") {
+    const error = result.FailedTransaction.status.error?.message ?? "unknown error";
+    throw new Error(`Could not read account state on-chain: ${error}`);
   }
 
-  const results = result.results;
-  if (!results || results.length < reads.length) {
+  const results = result.commandResults ?? [];
+  if (results.length < reads.length) {
     throw new Error("Account state inspection returned no value.");
   }
 
-  const bytesAt = (i: number): number[] | Uint8Array | undefined =>
-    results[i]?.returnValues?.[0]?.[0];
+  const bytesAt = (i: number): Uint8Array | undefined =>
+    results[i]?.returnValues?.[0]?.bcs;
 
   const u64At = (i: number): bigint => {
     const bytes = bytesAt(i);

@@ -56,7 +56,7 @@ export function useAccountSummary(accountId: string | null) {
   return useQuery<AccountSummary | null>({
     queryKey: ["account-summary", accountId] as const,
     enabled: Boolean(accountId) && isSuiConfigured(),
-    queryFn: () => getAccountSummary(getSuiClient(), accountId as string),
+    queryFn: () => getAccountSummary(getGraphQLClient(), accountId as string),
     refetchInterval: 6_000,
     staleTime: 5_000,
   });
