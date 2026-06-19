@@ -349,6 +349,11 @@ fun init(ctx: &mut TxContext) {
     transfer::share_object(registry);
 }
 
+#[test_only]
+public fun init_for_testing(ctx: &mut TxContext) {
+    init(ctx);
+}
+
 // === Admin functions ===
 
 /// Onboards a trader at a tier on the firm's published terms. Snapshots the
