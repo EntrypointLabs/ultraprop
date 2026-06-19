@@ -1,11 +1,21 @@
 import "server-only";
 
+import type { SuiClient } from "@mysten/sui/client";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
+import type { Transaction } from "@mysten/sui/transactions";
 import { fromBase64 } from "@mysten/sui/utils";
 import { getSuiClient } from "./client";
-import { serverSuiConfig, type TierName } from "./config";
 import {
+  type ServerSuiConfig,
+  serverSuiConfig,
+  type TierName,
+} from "./config";
+import {
+  buildFailEvaluationTransaction,
+  buildLogTradeTransaction,
   buildOpenAccountTransaction,
+  buildPassEvaluationTransaction,
+  buildRegisterBreachTransaction,
   fetchEvalFee,
   getTradingAccountId,
   parseAccountCreatedId,
@@ -33,15 +43,16 @@ export interface OpenAccountResult {
 }
 
 /**
- * Onboards a trader on-chain. Account creation is firm-gated (it requires the
- * `AdminCap` and an exact evaluation-fee payment), so the firm signs and
- * sponsors it here, transferring the resulting `AccountCap` to the trader's
- * `owner` address. Idempotent: if the trader already holds an account, the
- * existing id is returned without opening a second one.
+ * The firm-signed `open_account` core: the firm funds the exact tier eval fee
+ * from its own USDC, signs the AdminCap-gated call, and transfers the resulting
+ * `AccountCap` to `owner`. Shared by the legacy firm-sponsored path
+ * (`openTradingAccount`) and the new fee-first/invite onboarding
+ * (`onboardWithPayment`/`onboardWithInvite`), which gate WHO is allowed to reach
+ * it but mint the account identically.
  */
-export async function openTradingAccount(
+export async function adminOpenAccount(
   owner: string,
-  tier?: TierName,
+  tier: TierName,
 ): Promise<OpenAccountResult> {
   const config = serverSuiConfig();
   const client = getSuiClient();
@@ -51,9 +62,8 @@ export async function openTradingAccount(
 
   const keypair = loadAdminKeypair(config.adminSecretKey);
   const adminAddress = keypair.toSuiAddress();
-  const chosenTier = tier ?? config.defaultTier;
 
-  const evalFee = await fetchEvalFee(client, adminAddress, chosenTier, config);
+  const evalFee = await fetchEvalFee(client, adminAddress, tier, config);
 
   const { data: coins } = await client.getCoins({
     owner: adminAddress,
@@ -74,7 +84,7 @@ export async function openTradingAccount(
   const tx = buildOpenAccountTransaction({
     config,
     owner,
-    tier: chosenTier,
+    tier,
     evalFee,
     usdcCoinIds: coins.map((c) => c.coinObjectId),
   });
@@ -102,4 +112,110 @@ export async function openTradingAccount(
   }
 
   return { accountId, created: true, digest: result.digest };
+}
+
+/**
+ * Onboards a trader on-chain (legacy firm-sponsored path, used by the
+ * "I'll do this later" surface and `/api/account`). Defaults to the configured
+ * tier and firm-funds the fee. Idempotent.
+ */
+export async function openTradingAccount(
+  owner: string,
+  tier?: TierName,
+): Promise<OpenAccountResult> {
+  return adminOpenAccount(owner, tier ?? serverSuiConfig().defaultTier);
+}
+
+/** True for a syntactically valid Sui object id: `0x` + up to 64 hex digits. */
+function isAccountId(value: string): boolean {
+  return /^0x[0-9a-fA-F]{1,64}$/.test(value.trim());
+}
+
+/**
+ * Signs and executes an executor-gated transaction with the firm's keypair (the
+ * deployer holds both the admin and executor caps). Returns the digest, throwing
+ * the on-chain abort message on failure so the route can surface it.
+ */
+async function executeAsExecutor(
+  client: SuiClient,
+  config: ServerSuiConfig,
+  build: (cfg: ServerSuiConfig) => Transaction,
+): Promise<string> {
+  const keypair = loadAdminKeypair(config.adminSecretKey);
+  const tx = build(config);
+  tx.setSender(keypair.toSuiAddress());
+
+  const result = await client.signAndExecuteTransaction({
+    signer: keypair,
+    transaction: tx,
+    options: { showEffects: true },
+  });
+  if (result.effects?.status.status !== "success") {
+    throw new Error(
+      `On-chain call failed: ${result.effects?.status.error ?? "unknown error"}`,
+    );
+  }
+  return result.digest;
+}
+
+export interface ExecutorResult {
+  digest: string;
+}
+
+/**
+ * Records a closed trade on-chain. `pnl` is the absolute realized PnL in USDC
+ * base units (6 dp); the sign is carried by `isWin`. The chain applies it to
+ * equity and enforces the realized risk gates.
+ */
+export async function logTrade(params: {
+  accountId: string;
+  isWin: boolean;
+  pnl: bigint;
+  venue: string;
+  market: string;
+}): Promise<ExecutorResult> {
+  const config = serverSuiConfig();
+  if (!isAccountId(params.accountId)) {
+    throw new Error("Invalid account id.");
+  }
+  const digest = await executeAsExecutor(getSuiClient(), config, (cfg) =>
+    buildLogTradeTransaction({ config: cfg, ...params }),
+  );
+  return { digest };
+}
+
+/** Marks the account's evaluation passed on-chain. */
+export async function passEvaluation(
+  accountId: string,
+): Promise<ExecutorResult> {
+  const config = serverSuiConfig();
+  if (!isAccountId(accountId)) throw new Error("Invalid account id.");
+  const digest = await executeAsExecutor(getSuiClient(), config, (cfg) =>
+    buildPassEvaluationTransaction(cfg, accountId),
+  );
+  return { digest };
+}
+
+/** Marks the account's evaluation failed on-chain. */
+export async function failEvaluation(
+  accountId: string,
+): Promise<ExecutorResult> {
+  const config = serverSuiConfig();
+  if (!isAccountId(accountId)) throw new Error("Invalid account id.");
+  const digest = await executeAsExecutor(getSuiClient(), config, (cfg) =>
+    buildFailEvaluationTransaction(cfg, accountId),
+  );
+  return { digest };
+}
+
+/** Suspends the account for an off-chain (unrealized) drawdown breach. */
+export async function registerBreach(
+  accountId: string,
+): Promise<ExecutorResult> {
+  const config = serverSuiConfig();
+  if (!isAccountId(accountId)) throw new Error("Invalid account id.");
+  const digest = await executeAsExecutor(getSuiClient(), config, (cfg) =>
+    buildRegisterBreachTransaction(cfg, accountId),
+  );
+  return { digest };
 }

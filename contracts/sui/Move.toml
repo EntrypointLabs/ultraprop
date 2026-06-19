@@ -8,7 +8,8 @@ edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
 openzeppelin_access = { r.mvr = "@openzeppelin-move/access" }
 openzeppelin_math = { r.mvr = "@openzeppelin-move/integer-math", override = true }
 openzeppelin_fp_math = { r.mvr = "@openzeppelin-move/fixed-point-math" }
-usdc = { git = "https://github.com/circlefin/stablecoin-sui.git", subdir = "packages/usdc", rev = "release-2024-11-22T170906" }
+# testnet: firm-minted mock USDC. mainnet: revert to the circlefin git dep.
+usdc = { local = "../mock-usdc" }
 
 # For remote import, use the `{ git = "...", subdir = "...", rev = "..." }`.
 # Revision can be a branch, a tag, and a commit hash.

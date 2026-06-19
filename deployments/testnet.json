@@ -1,0 +1,19 @@
+{
+  "network": "testnet",
+  "deployer": "0xa13ebd39e75c9127ef547174ef1be6354d9af394575287e25b0dd82b7a6f7711",
+  "feesAddress": "0xa13ebd39e75c9127ef547174ef1be6354d9af394575287e25b0dd82b7a6f7711",
+  "evalFundsAddress": "0xa13ebd39e75c9127ef547174ef1be6354d9af394575287e25b0dd82b7a6f7711",
+  "treasury": "0x3d395ecad657e0621a539ad1d3a672de92df9387dbf86b97cf67d2f648853208",
+  "packageId": "0xf5c878892e943217b1104e584a15060212a1468b0dc41b685bd507bf85ccfbfe",
+  "adminCap": "0x39c742d786563dc008d1a7bbd1edf8986098cdea0605364cba005e6de094c145",
+  "executorCap": "0x008da02d4185af34fb76d1a9752bee88c53cdc1f504ecd4d79ed5ce621224237",
+  "accessRegistry": "0x5acdae2039eabb50f4d1b81ed5d4fc7837a4d5c7d713711a1275b43cbd631c35",
+  "accountRegistry": "0x300ed469593be651c2ec0c9155184f03f2d4aa0920b4c5382f075a267de5237b",
+  "tierConfig": "0x7cc46cf18b73f789db18d944a8e3bf36bdde6e0b4d5c7fd856e381eb14c4f577",
+  "treasuryCreatorCap": "0x7c336a7644f833dc37fc8098b3d223ad371449c23d8fb7e2b450fa70d1d14466",
+  "vaultCreatorCap": "0x2731da8da15e542bbe755801beedfeccfa553f0579486bd5c7ffe428c6d14e3a",
+  "upgradeCap": "0xb5f20caffc7b45823fd910b2dc7ac1c0cbfcc2039976be860f9f40a0b776847c",
+  "usdcType": "0xf97bea36c6fd7558f7fbfa5cd0f5bdf7e4751d33d1ac678ab8161aa32934b12b::usdc::USDC",
+  "usdcPackageId": "0xf97bea36c6fd7558f7fbfa5cd0f5bdf7e4751d33d1ac678ab8161aa32934b12b",
+  "usdcFaucet": "0xa2e780966bf19a96256a5b59c218b4e43782ff503074623f59c9c45275aee762"
+}
