@@ -426,6 +426,20 @@ export function EvaluationCockpit({
   );
   const [activeTab, setActiveTab] = useState<BottomTab>("positions");
   const [expanded, setExpanded] = useState(false);
+  const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
+
+  // Pausing settles every open position first, so confirm when there's something
+  // to close; with a flat book it just pauses straight away.
+  const requestPause = useCallback(() => {
+    if (positions.length > 0) setPauseConfirmOpen(true);
+    else pause();
+  }, [positions.length, pause]);
+
+  const confirmPause = useCallback(() => {
+    for (const position of positions) closePosition(position.id);
+    pause();
+    setPauseConfirmOpen(false);
+  }, [positions, closePosition, pause]);
 
   // A deep-link to a market outside the 3-market seed resolves only once the
   // live universe lands; apply it then — but only while the user hasn't yet
@@ -601,7 +615,7 @@ export function EvaluationCockpit({
           marketId={marketId}
           onMarketChange={onMarketChange}
           vaultId={vaultId}
-          onPause={pause}
+          onPause={requestPause}
           canPause={!showSignInWall && authoritativeStatus === "active"}
           range24h={range24h}
           onchainEquityUsd={onchainEquityUsd}
@@ -732,6 +746,38 @@ export function EvaluationCockpit({
         className="max-w-5xl"
       >
         <div className="max-h-[70vh] overflow-y-auto">{activeTabBody}</div>
+      </Modal>
+
+      <Modal
+        open={pauseConfirmOpen}
+        onClose={() => setPauseConfirmOpen(false)}
+        title="Pause evaluation?"
+        footer={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPauseConfirmOpen(false)}
+            >
+              Keep trading
+            </Button>
+            <Button variant="brand" size="sm" onClick={confirmPause}>
+              Close {positions.length}{" "}
+              {positions.length === 1 ? "trade" : "trades"} &amp; pause
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text-muted">
+          Pausing first closes every open position at the current mark and
+          realizes its PnL. You have{" "}
+          <span className="font-semibold text-text">
+            {positions.length} open{" "}
+            {positions.length === 1 ? "position" : "positions"}
+          </span>{" "}
+          — they&apos;ll all be closed before the evaluation pauses. You can
+          resume any time.
+        </p>
       </Modal>
     </div>
   );
