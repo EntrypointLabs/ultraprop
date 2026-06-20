@@ -9,7 +9,6 @@ import { openVenueFeed } from "@/lib/feed/venueFeed";
 import {
   buildProfile,
   DEMO_EQUITY_CURVE,
-  DEMO_LEADERBOARD,
   DEMO_POSITIONS,
   DEMO_SBT,
   DEMO_TRADES,
@@ -403,6 +402,11 @@ export function useSbt(address?: string): SbtState {
   return data ?? DEMO_SBT;
 }
 
+/**
+ * Real leaderboard from the ledger via `/api/leaderboard`, ranked by the chosen
+ * axis over the chosen window. With no ledger the API reports `available: false`
+ * and this returns an honest empty board — never a fixture.
+ */
 export function useLeaderboard(opts: {
   axis: LeaderboardAxis;
   window: LeaderboardWindow;
@@ -410,55 +414,24 @@ export function useLeaderboard(opts: {
   const { axis, window } = opts;
   const { data } = useQuery({
     queryKey: ["leaderboard", axis, window],
-    queryFn: () => sortLeaderboard(windowView(DEMO_LEADERBOARD, window), axis),
-    initialData: sortLeaderboard(windowView(DEMO_LEADERBOARD, window), axis),
-    staleTime: Infinity,
+    queryFn: async (): Promise<LeaderboardEntry[]> => {
+      try {
+        const res = await fetch(
+          `/api/leaderboard?axis=${axis}&window=${window}`,
+        );
+        const body = (await res.json()) as {
+          available?: boolean;
+          entries?: LeaderboardEntry[];
+        };
+        if (!body?.available) return [];
+        return body.entries ?? [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60_000,
   });
-  return data ?? DEMO_LEADERBOARD;
-}
-
-/**
- * Project the seeded all-time leaderboard onto a time window. "All-time" is the
- * full cumulative set; "This Cohort" (the current weekly window) is the subset
- * that has been active THIS week — fewer rows, and only the slice of each
- * trader's cumulative PnL/passes booked inside the window. The two views are
- * genuinely different sets and numbers, not the same rows relabeled.
- *
- * Deterministic off the seed: a trader's weekly share is a fixed fraction of
- * their cumulative figure, and the "active this week" subset is the cohort
- * minus the few members with no recent activity (the lowest cumulative passes).
- */
-function windowView(
-  entries: LeaderboardEntry[],
-  window: LeaderboardWindow,
-): LeaderboardEntry[] {
-  if (window === "all") return entries;
-  // Weekly: keep only traders active this week (drop the long-dormant tail),
-  // and scale cumulative figures down to this week's contribution.
-  const WEEKLY_FRACTION = 0.18;
-  return entries
-    .filter((e) => e.passes >= 2)
-    .map((e) => ({
-      ...e,
-      shadowPnl: Number((e.shadowPnl * WEEKLY_FRACTION).toFixed(2)),
-      passes: Math.max(1, Math.round(e.passes * WEEKLY_FRACTION)),
-    }));
-}
-
-function sortLeaderboard(
-  entries: LeaderboardEntry[],
-  axis: LeaderboardAxis,
-): LeaderboardEntry[] {
-  const cmp: Record<
-    LeaderboardAxis,
-    (a: LeaderboardEntry, b: LeaderboardEntry) => number
-  > = {
-    tier: (a, b) => b.sbtLevel - a.sbtLevel,
-    shadowPnl: (a, b) => b.shadowPnl - a.shadowPnl,
-    passes: (a, b) => b.passes - a.passes,
-    consistency: (a, b) => b.consistency - a.consistency,
-  };
-  return [...entries].sort(cmp[axis]).map((e, i) => ({ ...e, rank: i + 1 }));
+  return data ?? [];
 }
 
 export function useProfile(wallet: string): Profile {

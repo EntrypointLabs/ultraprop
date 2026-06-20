@@ -56,10 +56,6 @@ export function LeaderboardMobileCards({
             <span className="tabular text-xs font-semibold text-text">
               {entry.passes}p
             </span>
-          ) : axis === "consistency" ? (
-            <span className="tabular text-xs font-semibold text-text">
-              {entry.consistency.toFixed(1)}%
-            </span>
           ) : (
             <span className="tabular text-xs font-semibold text-violet">
               {entry.tier}
@@ -96,9 +92,7 @@ export function LeaderboardMobileCards({
               </div>
               <div className="mt-0.5 flex items-center gap-3">
                 {axisValueEl}
-                <span className="text-xs text-text-faint">
-                  {entry.passes}p · {entry.consistency.toFixed(0)}%
-                </span>
+                <span className="text-xs text-text-faint">{entry.passes}p</span>
               </div>
             </div>
           </Link>

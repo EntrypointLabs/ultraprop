@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import {
   accounts,
@@ -215,4 +215,61 @@ export async function getCohortStats(db: Database): Promise<CohortStatsRow> {
     totalFails,
     medianPasserReturnPct,
   };
+}
+
+/** One trader's standing on the leaderboard, read from the ledger. */
+export interface LeaderboardRow {
+  /** the Sui address that owns the account (the trader identity) */
+  owner: string;
+  tier: string;
+  status: string;
+  /** realized PnL (USD) summed over closed positions within the window */
+  shadowPnl: number;
+  /** evaluations passed (0 or 1 in v1 — one account per owner) */
+  passes: number;
+}
+
+/**
+ * Per-trader standings from the ledger: realized PnL summed over each account's
+ * closed positions, plus tier and pass status straight from the account row. No
+ * fixtures — every number is an aggregate of real rows. `sinceMs` (when given)
+ * windows the PnL to positions closed at or after that instant; tier and pass
+ * status are always the current snapshot. Ordering and ranking are the caller's
+ * job, so one query serves every axis.
+ */
+export async function getLeaderboard(
+  db: Database,
+  opts: { sinceMs?: number } = {},
+): Promise<LeaderboardRow[]> {
+  const closedInWindow =
+    opts.sinceMs !== undefined
+      ? and(
+          eq(positions.status, "closed"),
+          gte(positions.closedAt, new Date(opts.sinceMs)),
+        )
+      : eq(positions.status, "closed");
+
+  const rows = await db
+    .select({
+      owner: accounts.owner,
+      tier: accounts.tier,
+      status: accounts.status,
+      pnl: sql<string>`coalesce(sum(${positions.realizedPnl}) filter (where ${closedInWindow}), 0)`,
+    })
+    .from(accounts)
+    .leftJoin(positions, eq(positions.accountId, accounts.accountId))
+    .groupBy(
+      accounts.accountId,
+      accounts.owner,
+      accounts.tier,
+      accounts.status,
+    );
+
+  return rows.map((row) => ({
+    owner: row.owner,
+    tier: row.tier,
+    status: row.status,
+    shadowPnl: Number(row.pnl),
+    passes: row.status === "passed" ? 1 : 0,
+  }));
 }

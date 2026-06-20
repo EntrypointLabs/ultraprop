@@ -7,7 +7,7 @@ import { accountHandle } from "@/lib/identity";
 import type { LeaderboardAxis, LeaderboardEntry } from "@/lib/mock/types";
 import { cn, formatUsd } from "@/lib/utils";
 
-type SortCol = "rank" | "shadowPnl" | "passes" | "consistency";
+type SortCol = "rank" | "shadowPnl" | "passes";
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
@@ -62,9 +62,7 @@ function colForAxis(axis: LeaderboardAxis): SortCol {
     ? "shadowPnl"
     : axis === "passes"
       ? "passes"
-      : axis === "consistency"
-        ? "consistency"
-        : "rank";
+      : "rank";
 }
 
 export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
@@ -108,9 +106,6 @@ export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
       case "passes":
         diff = b.passes - a.passes;
         break;
-      case "consistency":
-        diff = b.consistency - a.consistency;
-        break;
     }
     return sortDir === "asc" ? diff : -diff;
   });
@@ -153,15 +148,6 @@ export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
             className={axisHighlight("passes")}
           >
             Passes
-          </Th>
-          <Th
-            numeric
-            sortable
-            sortDir={thDir("consistency")}
-            onSort={() => handleSort("consistency")}
-            className={axisHighlight("consistency")}
-          >
-            Consistency
           </Th>
         </tr>
       </Thead>
@@ -212,27 +198,10 @@ export function LeaderboardTable({ entries, axis }: LeaderboardTableProps) {
               <Td numeric>
                 <span className="tabular text-sm">{entry.passes}</span>
               </Td>
-              <Td numeric>
-                <ConsistencyBar value={entry.consistency} />
-              </Td>
             </Tr>
           );
         })}
       </Tbody>
     </Table>
-  );
-}
-
-function ConsistencyBar({ value }: { value: number }) {
-  const pct = Math.min(100, Math.max(0, value));
-  const color = pct >= 70 ? "bg-up" : pct >= 40 ? "bg-warn" : "bg-down";
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span
-        className={cn("inline-block h-1.5 rounded-full", color)}
-        style={{ width: `${Math.round(pct * 0.6)}px` }}
-      />
-      <span className="tabular text-sm">{value.toFixed(1)}</span>
-    </span>
   );
 }

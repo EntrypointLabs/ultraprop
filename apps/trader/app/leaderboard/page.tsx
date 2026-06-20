@@ -20,7 +20,6 @@ const AXIS_OPTIONS: { value: LeaderboardAxis; label: string }[] = [
   { value: "tier", label: "Highest Tier" },
   { value: "shadowPnl", label: "Simulated P&L" },
   { value: "passes", label: "Total Passes" },
-  { value: "consistency", label: "Consistency" },
 ];
 
 const WINDOW_OPTIONS: { value: LeaderboardWindow; label: string }[] = [
@@ -53,7 +52,8 @@ export default function LeaderboardPage() {
           {cohort.members} traders · {cohort.activeEvaluations} active ·{" "}
           {cohort.totalPasses} passes ·{" "}
           {formatPct(cohort.passRate * 100, { sign: false, decimals: 0 })} pass
-          rate · median {formatPct(cohort.medianPasserReturnPct, { sign: true })}
+          rate · median{" "}
+          {formatPct(cohort.medianPasserReturnPct, { sign: true })}
         </p>
       </div>
 
@@ -128,11 +128,11 @@ export default function LeaderboardPage() {
       <div className="mt-4 flex flex-wrap gap-4 text-xs text-text-faint">
         <AxisLegendItem
           dot="bg-up"
-          label="Simulated P&L — simulated cumulative return in USD over the selected window"
+          label="Simulated P&L — realized cumulative return in USD over the selected window"
         />
         <AxisLegendItem
           dot="bg-violet"
-          label="Consistency — ratio of profitable sessions vs total, weighted by return"
+          label="Passes — evaluations cleared over the selected window"
         />
         <AxisLegendItem
           dot="bg-brand"

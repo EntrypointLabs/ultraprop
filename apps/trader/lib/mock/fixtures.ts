@@ -1,7 +1,6 @@
 import type {
   CohortStats,
   EquityPoint,
-  LeaderboardEntry,
   MarketId,
   Position,
   PriceTick,
@@ -337,45 +336,6 @@ export const DEMO_SBT: SbtState = {
     "0x7c2e9a4f1b6d8053ae12c4b7d9f0a2c3e5d7b8f1a3c5e7d9b1f3a5c7e9d1b3a5",
   cohort: "v1 Genesis",
 };
-
-const LEADERBOARD_NAMES = [
-  "satoshi.sui",
-  "vega",
-  "0xMomentum",
-  "quietalpha",
-  "delta_one",
-  "ronin",
-  "tabula",
-  "nordic",
-  "carrytrade",
-  "mecha",
-  "lowbeta",
-  "orbit",
-];
-
-export const DEMO_LEADERBOARD: LeaderboardEntry[] = Array.from(
-  { length: 12 },
-  (_, i) => {
-    const r = rng(900 + i);
-    const sbtLevel = (
-      i < 2 ? 3 : i < 6 ? 2 : 1
-    ) as LeaderboardEntry["sbtLevel"];
-    return {
-      rank: i + 1,
-      wallet:
-        `0x${(0xa0 + i).toString(16).padStart(2, "0")}${"f3c7d9b1a5e2".repeat(5)}`.slice(
-          0,
-          66,
-        ),
-      displayName: LEADERBOARD_NAMES[i] ?? null,
-      tier: sbtLevel === 3 ? "Pro" : sbtLevel === 2 ? "Basic" : "Starter",
-      sbtLevel,
-      shadowPnl: Number((18_000 * (1 - i / 14) * (0.9 + r() * 0.2)).toFixed(2)),
-      passes: Math.max(1, 6 - Math.floor(i / 2)),
-      consistency: Number((96 - i * 3.4 + r() * 4).toFixed(1)),
-    };
-  },
-);
 
 export const DEMO_PROFILE_EVALS: VaultSummary[] = [
   {
