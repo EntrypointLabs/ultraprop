@@ -1,8 +1,9 @@
 import { serve } from "@hono/node-server";
 import { createDb } from "@shared/db";
 import { Hono } from "hono";
-import { StubOnChainWriter } from "./onchain.js";
+import { type OnChainWriter, StubOnChainWriter } from "./onchain.js";
 import { SettlementEngine } from "./settlement.js";
+import { loadExecutorSuiConfig, SuiOnChainWriter } from "./sui-writer.js";
 
 /**
  * The always-on executor process. It is intentionally NOT the public feed
@@ -28,7 +29,13 @@ function requireEnv(name: string): string {
 
 async function main(): Promise<void> {
   const { db, close } = createDb(requireEnv("DATABASE_URL"));
-  const writer = new StubOnChainWriter();
+  const suiConfig = loadExecutorSuiConfig();
+  const writer: OnChainWriter = suiConfig
+    ? new SuiOnChainWriter(suiConfig)
+    : new StubOnChainWriter();
+  console.log(
+    `[executor] on-chain writer: ${suiConfig ? "live (firm executor key)" : "STUB (no writes)"}`,
+  );
   const settlement = new SettlementEngine(db, writer);
   await settlement.start();
 
