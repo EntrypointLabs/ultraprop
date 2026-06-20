@@ -35,6 +35,17 @@ primary_region = "iad"
 kill_signal = "SIGINT"
 kill_timeout = "15s"
 
+# The settler is a worker, but Fly only keeps a machine running 24/7 when a service
+# pins it. This exposes ONLY the `GET /health` endpoint (no secret-bearing routes),
+# and `min_machines_running = 1` + `auto_stop_machines = false` keep the single
+# settler always on. Keep `fly scale count 1` — never more than one (owned cap).
+[http_service]
+  internal_port = 8788
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
