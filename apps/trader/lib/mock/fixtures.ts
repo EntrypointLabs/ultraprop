@@ -244,9 +244,10 @@ export const DEMO_TRADES: TradeRecord[] = [
     slippageBps: 0.0,
     feeUsd: 1.89,
     venue: "hyperliquid",
-    realizedPnl: 0,
+    realizedPnl: 24.6,
     ts: SEED_NOW - 2 * HOUR,
-    txDigest: "9Xh2bQ7Lm4Tz1Rk8Pv3Nc6Wd0Fj5Hs2Ay9Bx4Cq7Er",
+    txDigest: "9Xh2bQ7Lm4Tz1Rk8Pv3Nc6Wd4Fj5Hs2Ay9Bx4Cq7Er",
+    closedBy: "manual",
   },
   {
     id: "trd_2",
@@ -260,7 +261,8 @@ export const DEMO_TRADES: TradeRecord[] = [
     venue: "hyperliquid",
     realizedPnl: 13.42,
     ts: SEED_NOW - 90 * MINUTE,
-    txDigest: "3Kf7nR2Wp9Lv5Tz1Bx8Cq4Hs0Aj6Em2Yd9Fk3Nc7Pr",
+    txDigest: "3Kf7nR2Wp9Lv5Tz1Bx8Cq4Hs4Aj6Em2Yd9Fk3Nc7Pr",
+    closedBy: "tp",
   },
   {
     id: "trd_3",
@@ -272,9 +274,10 @@ export const DEMO_TRADES: TradeRecord[] = [
     slippageBps: 0.0,
     feeUsd: 0.68,
     venue: "hyperliquid",
-    realizedPnl: 0,
+    realizedPnl: -8.3,
     ts: SEED_NOW - 40 * MINUTE,
-    txDigest: "5Pq3wT8Nm1Kz6Rv2Bx9Cs4Hd0Aj7Ef3Yk9Lc5Nr2Wp",
+    txDigest: "5Pq3wT8Nm1Kz6Rv2Bx9Cs4Hd4Aj7Ef3Yk9Lc5Nr2Wp",
+    closedBy: "sl",
   },
 ];
 
