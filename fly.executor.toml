@@ -1,0 +1,51 @@
+# The always-on settler. A worker (no public service): it watches the ledger,
+# settles TP/SL/liquidation/funding, and signs on-chain with the firm key. It
+# holds the secrets, so it lives separate from the public gateway.
+#
+# This config lives at the REPO ROOT so the Docker build context IS the monorepo
+# root (the Dockerfile's `COPY . .` needs the whole workspace).
+#
+# IMPORTANT: run EXACTLY ONE machine. The on-chain ExecutorCap is an owned object,
+# so concurrent settlers would contend on object versions. Keep `fly scale count 1`.
+#
+# Deploy from the REPO ROOT:
+#   fly apps create ultraprop-executor
+#   fly secrets set --app ultraprop-executor \
+#     DATABASE_URL='postgres://…DIRECT (unpooled) Neon host…' \
+#     SUI_ADMIN_SECRET_KEY='suiprivkey1…' \
+#     PROPFIRM_PACKAGE_ID='0x…' PROPFIRM_ACCOUNT_REGISTRY_ID='0x…' \
+#     PROPFIRM_ACCESS_REGISTRY_ID='0x…' PROPFIRM_EXECUTOR_CAP_ID='0x…' \
+#     PROPFIRM_ADMIN_CAP_ID='0x…'
+#   fly deploy --config fly.executor.toml
+#   fly scale count 1 --app ultraprop-executor
+
+app = "ultraprop-executor"
+primary_region = "iad"
+
+[build]
+  dockerfile = "services/executor/Dockerfile"
+
+# Non-secret config only. Everything sensitive is set via `fly secrets set`.
+[env]
+  NODE_ENV = "production"
+  SUI_NETWORK = "testnet"
+  PORT = "8788"
+
+# Give the loop time to drain + close the DB on deploy/restart (it handles SIGINT/SIGTERM).
+kill_signal = "SIGINT"
+kill_timeout = "15s"
+
+# The settler is a worker, but Fly only keeps a machine running 24/7 when a service
+# pins it. This exposes ONLY the `GET /health` endpoint (no secret-bearing routes),
+# and `min_machines_running = 1` + `auto_stop_machines = false` keep the single
+# settler always on. Keep `fly scale count 1` — never more than one (owned cap).
+[http_service]
+  internal_port = 8788
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

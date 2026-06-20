@@ -1,0 +1,16 @@
+# Keep the Fly build context lean. dist is rebuilt in-image; node_modules is
+# reinstalled; rust/Move build outputs and secrets never belong in the image.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/.next
+**/.turbo
+**/coverage
+**/target
+.git
+.github
+.claude
+**/*.log
+**/.env
+**/.env.*
+**/.DS_Store

@@ -1,0 +1,35 @@
+# Public venue-feed gateway. Holds NO secrets — it only proxies Hyperliquid's
+# public API (catalog, SSE marks feed, candles). One always-on machine keeps the
+# shared HL WebSocket warm so every cockpit gets a single, stable feed.
+#
+# This config lives at the REPO ROOT so the Docker build context IS the monorepo
+# root (the Dockerfile's `COPY . .` needs the whole workspace). Deploy from root:
+#   fly apps create ultraprop-gateway
+#   fly deploy --config fly.gateway.toml
+# Then set GATEWAY_URL=https://ultraprop-gateway.fly.dev on the Vercel trader app.
+
+app = "ultraprop-gateway"
+primary_region = "iad" # pick the region closest to your users / Vercel
+
+[build]
+  dockerfile = "services/api-gateway/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8787"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  # Keep the feed warm: never scale to zero, run exactly one shared-socket machine.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
