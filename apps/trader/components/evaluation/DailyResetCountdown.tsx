@@ -34,7 +34,7 @@ export function DailyResetCountdown({
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 text-xs text-text-muted",
+        "flex flex-col items-end text-xs text-text-muted",
         className,
       )}
     >
