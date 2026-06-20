@@ -7,14 +7,14 @@ import {
 
 /**
  * The gateway-side live feed. One venue subscription (the adapter owns the WS)
- * fills a latest-per-market `MarkTick` map; a single ~1s interval fans the whole
+ * fills a latest-per-market `MarkTick` map; a single interval fans the whole
  * snapshot out to every connected SSE client. The adapter is the ONLY venue
- * caller, and batching here is the second throttle gate — every FE `usePrice`
- * consumer re-renders per write, so the wire stays at ~1Hz no matter how fast HL
- * pushes.
+ * caller, and batching here is the second throttle gate. Kept at ~4Hz so live
+ * PnL tracks fast moves closely; the adapter already coalesces HL's faster
+ * pushes, so this bounds the wire without sitting on a price for a full second.
  */
 
-const EMIT_INTERVAL_MS = 1_000;
+const EMIT_INTERVAL_MS = 250;
 
 type BatchListener = (ticks: MarkTick[]) => void;
 
