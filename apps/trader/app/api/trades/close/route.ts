@@ -114,13 +114,24 @@ export async function POST(req: Request) {
 
   // Dedup BEFORE doing any work: a duplicate is a no-op success so the bridge
   // marks it sent and stops retrying. Durable + cross-instance when the ledger DB
-  // is present; otherwise the per-instance Set (pre-ledger behavior).
-  const db = getDb();
+  // is reachable; otherwise the per-instance Set. If the DB is configured but
+  // unreachable — `DATABASE_URL` set before the migration ran, or a transient
+  // Neon outage — we degrade to the in-process path rather than fail the close.
+  let db = getDb();
   const dedupKey = `${body.accountId}:${tradeId}`;
   if (db) {
-    const claim = await claimIdempotency(db, dedupKey, "trade-close");
-    if (!claim.claimed) return NextResponse.json({ deduped: true });
-  } else if (loggedCloses.has(dedupKey)) {
+    try {
+      const claim = await claimIdempotency(db, dedupKey, "trade-close");
+      if (!claim.claimed) return NextResponse.json({ deduped: true });
+    } catch (error) {
+      console.error(
+        "[trades/close] ledger dedup unavailable; using in-process fallback",
+        error,
+      );
+      db = null;
+    }
+  }
+  if (!db && loggedCloses.has(dedupKey)) {
     return NextResponse.json({ deduped: true });
   }
 
@@ -161,10 +172,18 @@ export async function POST(req: Request) {
   // match the executor's settlement. Falls back to the client's entry (price leg
   // only) when the ledger has no row: no DB, or a close that raced its own intake.
   const positionId = (body.positionId ?? "").trim();
-  const ledgerRow =
-    db && positionId
-      ? await findOpenPositionByClientId(db, body.accountId, positionId)
-      : null;
+  let ledgerRow: Awaited<ReturnType<typeof findOpenPositionByClientId>> = null;
+  if (db && positionId) {
+    try {
+      ledgerRow = await findOpenPositionByClientId(db, body.accountId, positionId);
+    } catch (error) {
+      console.error(
+        "[trades/close] ledger lookup failed; settling against the client entry",
+        error,
+      );
+      db = null;
+    }
+  }
 
   const entryPrice = ledgerRow ? Number(ledgerRow.entryPrice) : body.entryPrice;
   const sizeUsd = ledgerRow ? Number(ledgerRow.sizeUsd) : body.sizeUsd;
@@ -194,17 +213,27 @@ export async function POST(req: Request) {
       venue,
       market,
     });
-    if (db && ledgerRow) {
-      await closeOpenPosition(db, {
-        id: ledgerRow.id,
-        exitPrice: String(body.exitPrice),
-        realizedPnl: String(netPnl),
-        closeReason: "manual",
-        onChainDigest: result.digest,
-      });
+    // The on-chain write committed — record the ledger bookkeeping best-effort so
+    // a DB hiccup here can't turn a successful close into a client-visible error
+    // (a replay is already guarded by the claimed idempotency key).
+    if (db) {
+      try {
+        if (ledgerRow) {
+          await closeOpenPosition(db, {
+            id: ledgerRow.id,
+            exitPrice: String(body.exitPrice),
+            realizedPnl: String(netPnl),
+            closeReason: "manual",
+            onChainDigest: result.digest,
+          });
+        }
+        await completeIdempotency(db, dedupKey, result);
+      } catch (error) {
+        console.error("[trades/close] post-write ledger bookkeeping failed", error);
+      }
+    } else {
+      loggedCloses.add(dedupKey);
     }
-    if (db) await completeIdempotency(db, dedupKey, result);
-    else loggedCloses.add(dedupKey);
     return NextResponse.json(result);
   } catch (error) {
     return serverError(error, "We couldn't record the trade on-chain.");

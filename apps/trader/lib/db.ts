@@ -15,7 +15,10 @@ let cached: Database | null | undefined;
 export function getDb(): Database | null {
   if (cached !== undefined) return cached;
   const url = process.env.DATABASE_URL?.trim();
-  cached = url ? createDb(url).db : null;
+  // Serverless on Vercel: keep per-instance connections low and disable prepared
+  // statements so a Neon pgbouncer (`-pooler`) connection string works. A direct
+  // connection tolerates these settings too, so this is the safe default here.
+  cached = url ? createDb(url, { max: 3, prepare: false }).db : null;
   if (!cached) {
     console.warn(
       "[db] DATABASE_URL unset; ledger features (position intake, durable dedup) are disabled.",
