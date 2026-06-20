@@ -2,6 +2,9 @@
 # settles TP/SL/liquidation/funding, and signs on-chain with the firm key. It
 # holds the secrets, so it lives separate from the public gateway.
 #
+# This config lives at the REPO ROOT so the Docker build context IS the monorepo
+# root (the Dockerfile's `COPY . .` needs the whole workspace).
+#
 # IMPORTANT: run EXACTLY ONE machine. The on-chain ExecutorCap is an owned object,
 # so concurrent settlers would contend on object versions. Keep `fly scale count 1`.
 #
@@ -13,7 +16,7 @@
 #     PROPFIRM_PACKAGE_ID='0x…' PROPFIRM_ACCOUNT_REGISTRY_ID='0x…' \
 #     PROPFIRM_ACCESS_REGISTRY_ID='0x…' PROPFIRM_EXECUTOR_CAP_ID='0x…' \
 #     PROPFIRM_ADMIN_CAP_ID='0x…'
-#   fly deploy --config services/executor/fly.toml .   # run from the repo root; no --dockerfile
+#   fly deploy --config fly.executor.toml
 #   fly scale count 1 --app ultraprop-executor
 
 app = "ultraprop-executor"
