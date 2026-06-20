@@ -57,21 +57,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Pin the exact testnet Sui the contracts resolve against. The mock-usdc
-      # Move.toml pins Sui rev 718ae563...; if `sui move test` fails on a
-      # framework mismatch, set SUI_VERSION to the matching released tag (e.g.
-      # testnet-vX.Y.Z) rather than `latest`.
-      - name: Install Sui CLI
+      # The bare `testnet` tag has no downloadable release asset (Sui tags real
+      # releases `testnet-vX.Y.Z`), so resolve the LATEST testnet release and grab
+      # its ubuntu archive via the API. If `sui move test` ever fails on a
+      # framework mismatch, pin a specific `testnet-vX.Y.Z` tag here instead.
+      - name: Install Sui CLI (latest testnet release)
         env:
-          SUI_VERSION: testnet
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          url="https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          url=$(gh api 'repos/MystenLabs/sui/releases?per_page=100' \
+            --jq 'map(select(.tag_name | startswith("testnet-")))[0].assets[]
+                  | select(.name | test("ubuntu-x86_64.tgz$")) | .browser_download_url' \
+            | head -1)
+          if [ -z "$url" ]; then echo "no testnet ubuntu asset found"; exit 1; fi
           echo "Downloading $url"
           curl -fsSL "$url" -o sui.tgz
           mkdir -p "$HOME/.sui/bin"
           tar -xzf sui.tgz -C "$HOME/.sui/bin"
-          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
+          sui_bin="$(find "$HOME/.sui/bin" -name sui -type f | head -1)"
+          chmod +x "$sui_bin"
+          echo "$(dirname "$sui_bin")" >> "$GITHUB_PATH"
 
       - name: Sui version
         run: sui --version
