@@ -80,7 +80,6 @@ type SubmitState =
 
 const TP_PRESETS = [25, 50, 75, 100, 500, 900] as const;
 const SL_PRESETS = [5, 10, 25, 50, 75] as const;
-const LEVERAGE_PRESETS = [1, 10, 25, 50, 75, 100] as const;
 
 /* -------------------------------------------------------------------------- */
 /* Uncontrolled symbol tab (secondary — only rendered without a marketId prop) */
@@ -235,10 +234,20 @@ function LeverageSelector({
   forcedIsolated: boolean;
 }) {
   const clamp = (n: number) => Math.max(1, Math.min(cap, Math.round(n)));
+  // Quick-pick anchors spread across the usable range — 1×, a quarter, half,
+  // three-quarters, and the cap — so a low-cap tier still gets useful mid-points
+  // instead of just 1× and the max (cap 10 → 1 / 3 / 5 / 8 / 10).
   const visiblePresets = React.useMemo(() => {
-    const pts: number[] = LEVERAGE_PRESETS.filter((v) => v <= cap);
-    if (!pts.includes(cap)) pts.push(cap);
-    return [...new Set(pts)].sort((a, b) => a - b);
+    const pts = [
+      1,
+      Math.round(cap / 4),
+      Math.round(cap / 2),
+      Math.round((cap * 3) / 4),
+      cap,
+    ];
+    return [...new Set(pts)]
+      .filter((v) => v >= 1 && v <= cap)
+      .sort((a, b) => a - b);
   }, [cap]);
 
   return (
