@@ -1,0 +1,102 @@
+---
+title: Glossary
+description: Plain-language definitions of the terms used across Ultraprop — evaluation, tiers, drawdown, the credential, the vault, and more.
+---
+
+# Glossary
+
+The exact words Ultraprop uses, and what each one means. Where a term has a tempting
+synonym that means something subtly different, that's noted too.
+
+### Evaluation
+
+The proving phase — a rule-bound test you trade through to earn a funded account. Not a
+"challenge" or a "demo." See [The rules](/evaluations/rules).
+
+### Evaluation fee
+
+The tier-priced fee paid to start an evaluation. Not a subscription and not a deposit —
+it's a one-time entry fee per attempt. See [Fees & payment](/evaluations/payment).
+
+### Tier
+
+Your evaluation's parameter set — account size, profit target, drawdown, daily loss
+limit, leverage cap. Starter, Basic, and Pro today; Elite and Whale in the funded
+phase. See [Tiers & accounts](/evaluations/tiers).
+
+### Account size (notional)
+
+The capital figure your account carries. It's *notional* — a standing the firm tracks
+for you, never money you custody. In the closed beta no real capital backs it; in the
+funded phase, real vault capital does, while your balance stays notional.
+
+### Profit target
+
+The gain you must reach to pass your tier (8% or 10%).
+
+### Maximum drawdown
+
+The most your account can fall from its starting balance before it's failed — a hard
+rule that ends the evaluation when crossed.
+
+### Daily loss limit
+
+The most you can lose in a single UTC day (5%), reset at 00:00 UTC — a hard rule.
+
+### Trade budget
+
+The cap on the number of trades per evaluation (200). A limit, not a failure condition.
+
+### Breach
+
+Crossing a hard rule (drawdown or daily loss). A breach **freezes** the account
+immediately and ends the evaluation. See [Passing & failing](/evaluations/outcomes).
+
+### House tilt
+
+The fixed +2 basis points applied against the trader on every fill — always disclosed,
+identical for everyone, deliberately conservative. See
+[The fill & slippage model](/transparency/fill-model).
+
+### Bracket (TP / SL)
+
+An optional take-profit and/or stop-loss attached to a position that closes it
+automatically at your trigger. One-cancels-the-other. See
+[Placing trades](/evaluations/trading).
+
+### Genesis credential
+
+Your single, non-transferable, on-chain record of what you've proven. It levels up in
+place and accumulates history across attempts. Not a token, not an allocation. See
+[The Genesis credential](/record/credential).
+
+### Funded account
+
+A post-pass account backed by the firm's real capital, with a profit split and payouts.
+The funded phase is **v2** and not yet live. See [The funded phase](/funded/overview).
+
+### Profit split
+
+How profit on a funded account is divided between you and the firm (75/25 up to 90/10
+by tier). See [Profit splits & scaling](/funded/splits).
+
+### Payout
+
+An on-chain profit distribution to your account that off-ramps to fiat automatically.
+"Withdrawal" is fine as casual shorthand. Funded phase only. See [Payouts](/funded/payouts).
+
+### Vault
+
+The firm's real capital pool — funded by failed-evaluation fees, the firm's share of
+profit splits, and yield on idle stablecoins. It's on-chain and auditable. Distinct
+from the **treasury**, which collects evaluation fees.
+
+### Oracle
+
+An independent on-chain price source (Pyth) used to sanity-check market prices and to
+gate trading when prices go stale. See [Prices & oracles](/transparency/prices).
+
+### Inactive
+
+An evaluation that auto-terminates after 7 days with no activity — recorded distinctly
+from a pass or a fail.

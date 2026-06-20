@@ -1,0 +1,77 @@
+---
+title: The rules
+description: The four rules that govern an Ultraprop evaluation — profit target, max drawdown, daily loss limit, and trade budget — and exactly how each is measured.
+---
+
+# The rules
+
+An evaluation is governed by four rules. Two of them are **hard rules** that end the
+evaluation the instant they're broken; the other two are the **pass condition** and a
+**budget**. All four are visible and live in your cockpit from the first trade, and
+all four are [enforced by the contract](/transparency/enforcement) — there is no
+human in the loop and no appeal.
+
+## Profit target — the pass condition
+
+The gain you must reach for your equity, measured from your starting balance, to pass
+the tier. **8%** for Starter and Basic, **10%** for Pro. Reaching it with every other
+rule intact passes the evaluation. There is nothing to claim mid-trade — the moment
+your equity crosses the target with no rule breached, you've passed. See
+[Passing & failing](/evaluations/outcomes).
+
+## Maximum drawdown — a hard rule
+
+The most your account can fall before it's failed, measured against your **starting
+balance**. Cross the drawdown floor and the evaluation ends immediately.
+
+- Starter floor: starting balance × (1 − 10%) = **$9,000** on a $10,000 account.
+- Basic / Pro floor: starting balance × (1 − 8%).
+
+Your equity — realized P&L, unrealized P&L on open positions, minus fees and funding
+— is marked continuously. **Fees alone can move you toward the floor**, so a heavily
+traded account is drawing down even between wins. The cockpit shows a live drawdown
+gauge and exactly how much headroom remains.
+
+## Daily loss limit — a hard rule
+
+The most you can lose in a single day, set at **5%** of your account across all
+tiers. Cross it and the evaluation ends, just like a drawdown breach.
+
+- The day is measured in **UTC**, and resets at **00:00 UTC** for everyone — there is
+  no per-trader timezone.
+- The cockpit shows a live countdown: _"Daily reset in HH:MM:SS."_
+- The limit resets fresh each day; it does not roll over.
+
+## Trade budget — a cap, not a failure
+
+Each evaluation carries a budget of **200 trades**. This isn't a failure condition —
+it caps how many positions you can open over the life of the evaluation, which keeps
+the evaluation a test of judgment rather than of latency or grind. The cockpit shows
+trades used against the budget.
+
+There is also a short **rate limit** between trade submissions (on the order of a
+couple of seconds). It exists to keep the evaluation honest about the kind of trading
+it measures — discretionary and swing trading, not high-frequency or
+latency-arbitrage strategies.
+
+## At a glance
+
+| Rule | Type | Starter | Basic | Pro |
+| --- | --- | --- | --- | --- |
+| Profit target | Pass condition | 8% | 8% | 10% |
+| Maximum drawdown | Hard — ends eval | 10% | 8% | 8% |
+| Daily loss limit | Hard — ends eval | 5% | 5% | 5% |
+| Trade budget | Cap | 200 | 200 | 200 |
+
+## Inactivity
+
+There is no "abandon" button. If you want to stop, you simply stop trading. After
+**7 days of inactivity**, the evaluation auto-terminates with an `Inactive` outcome —
+distinct from a pass or a fail, and recorded as such. See
+[Passing & failing](/evaluations/outcomes).
+
+:::tip
+Every limit is measured from on-chain account state, so the numbers in your cockpit
+are the same numbers the contract checks. Nothing is estimated client-side. See
+[Verifiability](/transparency/verifiability).
+:::

@@ -17,6 +17,7 @@ onlyBuiltDependencies:
 allowBuilds:
   '@reown/appkit': set this to true or false
   bufferutil: set this to true or false
+  es5-ext: set this to true or false
   esbuild: true
   keccak: set this to true or false
   sharp: false

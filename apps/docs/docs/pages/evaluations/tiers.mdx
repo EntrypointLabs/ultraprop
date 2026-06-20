@@ -1,0 +1,78 @@
+---
+title: Tiers & accounts
+description: The three Ultraprop evaluation tiers — Starter, Basic, and Pro — their account sizes, targets, and risk limits.
+---
+
+# Tiers & accounts
+
+A **tier** sets four things about your evaluation: how large your account is, how
+much profit you need to pass, how much room you have to lose, and how much leverage
+you can use. You choose your tier before you start, and the full ruleset is shown
+before you commit — nothing is hidden behind a click.
+
+## The live tiers (closed beta)
+
+| Tier | Account size | Profit target | Max drawdown | Daily loss limit | Trade budget | Max leverage |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Starter** | $10,000 | 8% | 10% | 5% | 200 | 10× |
+| **Basic** | $25,000 | 8% | 8% | 5% | 200 | 8× |
+| **Pro** | $50,000 | 10% | 8% | 5% | 200 | 8× |
+
+- **Account size** is *notional* — a number the firm carries for you. In the closed
+  beta no real capital backs it; in the funded phase, real vault capital does, while
+  your balance stays notional. See [the funded phase](/funded/overview).
+- **Profit target** is the gain that passes the tier.
+- **Max drawdown** and **daily loss limit** are the two hard rules that can fail you.
+- **Max leverage** is a per-tier cap; an individual market may cap you lower. See
+  [Markets & instruments](/evaluations/markets).
+
+Read [The rules](/evaluations/rules) for exactly how each limit is measured.
+
+## The tier ladder
+
+Tiers unlock in order. You start at **Starter**; passing it unlocks **Basic**, and
+passing Basic unlocks **Pro**. Higher tiers carry a larger account and a stronger
+[credential level](/record/credential), and rank higher on the
+[leaderboard](/record/leaderboard).
+
+```
+Starter  →  Basic  →  Pro
+ $10k        $25k      $50k
+```
+
+You hold one active evaluation account at a time. Passing a tier records the pass on
+your credential and opens the next tier's evaluation.
+
+## The full ladder (v2)
+
+:::info
+The funded phase adds two higher tiers — **Elite** and **Whale** — and attaches a
+**profit split** to every tier. These are part of v2 and not yet live. The complete
+ladder with splits is documented under
+[Profit splits & scaling](/funded/splits).
+:::
+
+| Tier | Eval fee | Account size | Profit target | Max drawdown | Profit split (you / firm) |
+| --- | --- | --- | --- | --- | --- |
+| Starter | $100 | $10,000 | 8% | 10% | 75 / 25 |
+| Basic | $250 | $25,000 | 8% | 10% | 80 / 20 |
+| Pro | $500 | $50,000 | 8% | 10% | 80 / 20 |
+| Elite | $1,000 | $100,000 | 10% | 8% | 85 / 15 |
+| Whale | $2,500 | $250,000 | 10% | 8% | 90 / 10 |
+
+Where the live-beta numbers above differ from this v2 table (for example Basic's
+drawdown), the **live tier table is what your current evaluation uses.** The v2 table
+is the forward design and will be confirmed when the funded phase ships.
+
+## Choosing a tier
+
+- Starting out, or want the most room to make mistakes? **Starter** has the widest
+  drawdown band.
+- Confident and want a larger account? **Basic** or **Pro** raise the account size
+  but tighten the drawdown to 8%.
+- Every tier shares the same 5% daily loss limit and 200-trade budget, so the trade
+  cadence is the same across all three.
+
+If a funded account is later terminated, you re-enter at any tier you choose by
+purchasing a new evaluation — same tier, lower, or higher. See
+[Passing & failing](/evaluations/outcomes).

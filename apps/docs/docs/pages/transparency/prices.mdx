@@ -1,0 +1,53 @@
+---
+title: Prices & oracles
+description: Where Ultraprop's market prices come from, how staleness is handled, and why trading pauses instead of filling against a bad number.
+---
+
+# Prices & oracles
+
+Your fill is only as honest as the price it's built from. Ultraprop sources prices from
+real mainnet markets, sanity-checks them against an independent oracle, and **pauses
+trading rather than filling against a stale or suspect number.**
+
+## Where prices come from
+
+- **Market prices** are live mainnet data — mark and index prices from the perpetuals
+  venues (Hyperliquid, and in the funded phase Bluefin), plus pool prices from spot
+  venues. The catalog, marks, and funding rates are streamed from these sources, not
+  generated locally.
+- **The Pyth oracle** provides an independent reference used to sanity-check prices.
+  Pyth is a widely used on-chain price oracle; here it's a cross-check on the venue
+  data, not the sole source.
+
+The platform talks to these feeds through its own infrastructure — your browser never
+contacts a venue directly, and you never configure an RPC, a key, or a network.
+
+## Staleness — why trading can pause
+
+Prices can briefly stop updating — a feed hiccups, a venue degrades. Ultraprop's rule
+is simple: **if the price is too old, don't trade against it.**
+
+- If the oracle price's age exceeds the staleness threshold (about **10 seconds** on
+  Sui, which accounts for the extra latency of posting prices on-chain), a trade
+  **reverts** instead of filling.
+- When the feed is interrupted, the cockpit shows a **trading-paused** notice rather
+  than letting you fill at a price no one can stand behind.
+
+This is the same instinct as the rest of the platform: it would be easy to fill you at
+a stale price and move on, but a stale fill is a dishonest fill. Pausing is the honest
+choice, even though it's less convenient.
+
+## Why this protects you
+
+Stale-price fills are how traders get quietly wrecked on lesser platforms — liquidated
+on a price that never really traded, or filled far from the market during a feed gap.
+By refusing to fill against a stale number, Ultraprop keeps the evaluation a measure of
+your trading rather than of infrastructure noise. If a feed problem ever did cause a
+breach during the [funded phase](/funded/overview), how that's handled is a documented
+open question, not a silent loss.
+
+:::info
+Daily limits reset at **00:00 UTC**, measured against these same price-derived equity
+numbers. There is no per-trader timezone — the clock is the same for everyone. See
+[The rules](/evaluations/rules).
+:::
