@@ -21,8 +21,10 @@ import type {
 const INFO_URL = "https://api.hyperliquid.xyz/info";
 const WS_URL = "wss://api.hyperliquid.xyz/ws";
 
-/** Batched marks are flushed to the consumer at most this often. */
-const MARK_FLUSH_MS = 1_000;
+/** Batched marks are flushed to the consumer at most this often. Kept tight (~4Hz)
+ * so a fast adverse move reaches the trader's live PnL in ~250ms, not ~1s — a
+ * leveraged position can drain meaningfully inside a one-second blind window. */
+const MARK_FLUSH_MS = 250;
 /** Reconnect backoff after the socket drops. */
 const WS_RECONNECT_MS = 2_000;
 /** REST fallback poll cadence when the WS subscription budget is exceeded. */

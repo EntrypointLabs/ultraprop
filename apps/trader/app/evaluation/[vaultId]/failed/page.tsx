@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import { use } from "react";
 import { Redirect } from "@/components/Redirect";
@@ -20,12 +21,36 @@ import {
   useSession,
   useVault,
 } from "@/lib/mock/hooks";
+import { useSimStore } from "@/lib/sim/store";
+import {
+  useOnchainAccountSummary,
+  useReactivateAccount,
+} from "@/lib/sui/useTradingAccount";
 
 function FailedContent({ vaultId }: { vaultId: string }) {
+  const router = useRouter();
   const vault = useVault(vaultId);
   const cohort = useCohortStats();
   const equityCurve = useEquityCurve(vaultId);
   const { session } = useSession();
+  const { accountId } = useOnchainAccountSummary();
+  const reactivate = useReactivateAccount();
+  const resetEvaluation = useSimStore((s) => s.resetEvaluation);
+
+  // Firm-sponsored re-entry on the same tier: reactivate on-chain, reset the sim
+  // vault for a fresh cycle (equity/positions back to the funded baseline), then
+  // return to the cockpit. The cockpit routes terminal states itself, so a
+  // reactivated vault lands live and a still-terminal one bounces back.
+  async function handleReenter() {
+    if (!accountId || reactivate.isPending) return;
+    try {
+      await reactivate.mutateAsync(accountId);
+      resetEvaluation(vaultId);
+      router.replace(`/evaluation/${vaultId}`);
+    } catch {
+      // Surfaced inline via `reactivate.error`; the vault stays terminal.
+    }
+  }
 
   // The failed screen reflects the REAL terminated vault. A vault reached here
   // only via the cockpit flipping status to "failed"; a direct nav (or a vault
@@ -119,11 +144,17 @@ function FailedContent({ vaultId }: { vaultId: string }) {
           What would you like to do?
         </p>
         <div className="flex flex-col sm:flex-row items-stretch gap-3">
-          <Link href="/start" className="flex-1">
-            <Button variant="primary" size="lg" className="w-full">
-              Retry {vault.tier.name} evaluation
-            </Button>
-          </Link>
+          <Button
+            variant="primary"
+            size="lg"
+            className="flex-1"
+            onClick={handleReenter}
+            disabled={!accountId || reactivate.isPending}
+          >
+            {reactivate.isPending
+              ? "Re-entering…"
+              : `Try again — ${vault.tier.name}`}
+          </Button>
 
           {lowerTier && (
             <Link href="/start" className="flex-1">
@@ -133,6 +164,14 @@ function FailedContent({ vaultId }: { vaultId: string }) {
             </Link>
           )}
         </div>
+
+        {reactivate.isError && (
+          <p className="text-sm text-down" role="alert">
+            {reactivate.error instanceof Error
+              ? reactivate.error.message
+              : "We couldn't re-enter the evaluation. Please try again."}
+          </p>
+        )}
 
         <div className="flex items-center gap-3 pt-1">
           <Link href="/leaderboard">

@@ -853,13 +853,12 @@ export function TradeIntentForm({
     onchainSummary != null ? usdcToUsd(onchainSummary.equity) : vault.equity;
   const availableBalance = Math.max(0, equityBasis - usedMargin);
 
-  // Max NEW notional = available balance scaled by the chosen leverage, so the
-  // cap decrements as positions open ($10k → open $1k @1× → $9k available) and
-  // grows with leverage. Never exceed the tier's shadow allocation ceiling.
-  const maxSize = Math.min(
-    vault.tier.shadowAllocation,
-    availableBalance * effectiveLeverage,
-  );
+  // The size input is COLLATERAL (margin). Its cap is the free balance — you
+  // can't post more margin than you hold. The notional it controls is collateral
+  // × leverage, so exposure (and how hard the position swings equity) grows with
+  // leverage, while the margin you post does not. The cap decrements as open
+  // positions lock margin ($10k → open $1k margin → $9k free).
+  const maxSize = availableBalance;
   const clampSize = React.useCallback(
     (raw: string): string => {
       if (raw === "") return raw;
@@ -872,10 +871,12 @@ export function TradeIntentForm({
     [maxSize],
   );
 
-  const sizeUsd = parseFloat(rawSize) || 0;
-  const impliedLeverage =
-    vault.tier.shadowAllocation > 0 ? sizeUsd / vault.tier.shadowAllocation : 0;
-  const isOverLeverageCap = impliedLeverage > effectiveLeverageCap;
+  // Collateral the trader posts; the position's notional/exposure is that
+  // collateral amplified by leverage. Everything downstream (fill, fees,
+  // liquidation, realized PnL, the on-chain record) is computed on this notional,
+  // so a 10× position swings 10× harder on equity than a 1× one of equal margin.
+  const collateral = parseFloat(rawSize) || 0;
+  const sizeUsd = collateral * effectiveLeverage;
 
   const preview = React.useMemo(() => {
     if (sizeUsd <= 0 || marketMid == null || marketMid <= 0) return null;
@@ -916,8 +917,6 @@ export function TradeIntentForm({
     vault.equity,
   ]);
 
-  // Display-only collateral and size-in-asset-units derived from the notional
-  const collateral = effectiveLeverage > 0 ? sizeUsd / effectiveLeverage : 0;
   const sizeAsset =
     markPx != null && markPx > 0 ? sizeUsd / markPx : null;
 
@@ -953,7 +952,7 @@ export function TradeIntentForm({
   // verifiable equity basis above); the new order's required margin can't exceed
   // it. This is the same number the "max" notional derives from.
   const freeMargin = availableBalance;
-  const requiredMargin = sizeUsd / effectiveLeverage;
+  const requiredMargin = collateral;
   const isInsufficientMargin = !isSizeInvalid && requiredMargin > freeMargin;
 
   let disabledReason: string | null = null;
@@ -970,8 +969,6 @@ export function TradeIntentForm({
   else if (needsOnchainAccount)
     disabledReason = "Finish on-chain account setup to trade";
   else if (isSizeInvalid) disabledReason = "Enter a position size";
-  else if (isOverLeverageCap)
-    disabledReason = `Leverage exceeds ${effectiveLeverageCap}× cap for ${market?.symbol ?? symbol}`;
   else if (isInsufficientMargin)
     disabledReason = `Insufficient margin — needs ${formatUsd(requiredMargin, { decimals: 0 })}, ${formatUsd(Math.max(0, freeMargin), { decimals: 0 })} free`;
   else if (isRateLimited) disabledReason = null;
@@ -984,7 +981,6 @@ export function TradeIntentForm({
     !isOnchainBlocked &&
     !needsOnchainAccount &&
     !isSizeInvalid &&
-    !isOverLeverageCap &&
     !isInsufficientMargin &&
     !isRateLimited &&
     !isSubmitting;
@@ -994,7 +990,7 @@ export function TradeIntentForm({
   /* ------------------------------------------------------------------ */
 
   const handleSubmit = React.useCallback(() => {
-    if (!canSubmit || !preview || isOverLeverageCap) return;
+    if (!canSubmit || !preview) return;
     const capturedSymbol = symbol;
     const capturedSide = side;
     const capturedFill = preview.fill;
@@ -1035,7 +1031,6 @@ export function TradeIntentForm({
   }, [
     canSubmit,
     preview,
-    isOverLeverageCap,
     symbol,
     side,
     sizeUsd,
@@ -1119,13 +1114,13 @@ export function TradeIntentForm({
               aria-label="Position size in USD"
             />
           </div>
-          {/* Derived display: collateral and estimated asset size */}
+          {/* Derived display: leveraged exposure and estimated asset size */}
           {sizeUsd > 0 && (
             <div className="mt-1 flex items-center justify-between px-0.5">
               <div className="flex items-center gap-1 text-xs text-text-faint">
-                <span>Collateral</span>
+                <span>Exposure</span>
                 <span className="tabular text-text-muted">
-                  {formatUsd(collateral, { decimals: 2 })}
+                  {formatUsd(sizeUsd, { decimals: 2 })} · {effectiveLeverage}×
                 </span>
               </div>
               {sizeAsset != null && (

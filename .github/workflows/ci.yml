@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ts:
+    name: TypeScript (trader)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @app/trader typecheck
+
+      - name: Test
+        run: pnpm --filter @app/trader test
+
+  move:
+    name: Move tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pin the exact testnet Sui the contracts resolve against. The mock-usdc
+      # Move.toml pins Sui rev 718ae563...; if `sui move test` fails on a
+      # framework mismatch, set SUI_VERSION to the matching released tag (e.g.
+      # testnet-vX.Y.Z) rather than `latest`.
+      - name: Install Sui CLI
+        env:
+          SUI_VERSION: testnet
+        run: |
+          set -euo pipefail
+          url="https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          echo "Downloading $url"
+          curl -fsSL "$url" -o sui.tgz
+          mkdir -p "$HOME/.sui/bin"
+          tar -xzf sui.tgz -C "$HOME/.sui/bin"
+          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
+
+      - name: Sui version
+        run: sui --version
+
+      - name: Move tests (propfirm)
+        working-directory: contracts/sui
+        run: sui move test
+
+      - name: Move tests (mock-usdc)
+        working-directory: contracts/mock-usdc
+        run: sui move test

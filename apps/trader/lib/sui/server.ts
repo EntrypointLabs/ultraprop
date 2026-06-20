@@ -15,6 +15,7 @@ import {
   buildLogTradeTransaction,
   buildOpenAccountTransaction,
   buildPassEvaluationTransaction,
+  buildReactivateTransaction,
   buildRegisterBreachTransaction,
   fetchEvalFee,
   getTradingAccountId,
@@ -233,6 +234,23 @@ export async function registerBreach(
   if (!isAccountId(accountId)) throw new Error("Invalid account id.");
   const digest = await executeAsExecutor(config, (cfg) =>
     buildRegisterBreachTransaction(cfg, accountId),
+  );
+  return { digest };
+}
+
+/**
+ * Firm-sponsored re-entry: signs the AdminCap-gated `reactivate`, putting a
+ * Failed/Suspended account back into evaluation on its existing tier (reputation
+ * and history preserved). The firm key holds the admin cap, so this mirrors the
+ * executor signing path — sign with the firm key, execute, return the digest.
+ */
+export async function reactivate(params: {
+  accountId: string;
+}): Promise<ExecutorResult> {
+  const config = serverSuiConfig();
+  if (!isAccountId(params.accountId)) throw new Error("Invalid account id.");
+  const digest = await executeAsExecutor(config, (cfg) =>
+    buildReactivateTransaction(cfg, params.accountId),
   );
   return { digest };
 }

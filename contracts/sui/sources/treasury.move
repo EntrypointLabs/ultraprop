@@ -248,6 +248,11 @@ fun init(ctx: &mut TxContext) {
     transfer::transfer(TreasuryCreatorCap { id: object::new(ctx) }, ctx.sender());
 }
 
+#[test_only]
+public fun init_for_testing(ctx: &mut TxContext) {
+    init(ctx);
+}
+
 // === Admin functions ===
 
 /// Creates and shares the treasury, consuming the one-time `TreasuryCreatorCap`

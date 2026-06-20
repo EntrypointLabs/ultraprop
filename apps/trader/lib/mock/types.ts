@@ -112,6 +112,11 @@ export interface TradeRecord {
   venue: string;
   /** realized PnL in USD (0 for entries that remain open) */
   realizedPnl: number;
+  /** position entry price; set on close trades so the on-chain bridge can
+   * recompute price PnL server-side. Undefined on the opening entry trade. */
+  entryPrice?: number;
+  /** leverage the closed position carried; set on close trades for the bridge. */
+  leverage?: number;
   ts: number;
   /** Sui object/tx digest for "View on Sui Explorer" */
   txDigest: string;

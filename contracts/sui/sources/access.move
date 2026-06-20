@@ -119,6 +119,11 @@ fun init(ctx: &mut TxContext) {
     transfer::share_object(registry);
 }
 
+#[test_only]
+public fun init_for_testing(ctx: &mut TxContext) {
+    init(ctx);
+}
+
 // === Cap management ===
 
 /// Mints an additional AdminCap and transfers it immediately to the recipient.

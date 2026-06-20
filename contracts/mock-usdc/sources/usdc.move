@@ -47,6 +47,11 @@ fun init(witness: USDC, ctx: &mut TxContext) {
     transfer::share_object(Faucet { id: object::new(ctx), treasury_cap });
 }
 
+#[test_only]
+public fun init_for_testing(ctx: &mut TxContext) {
+    init(USDC {}, ctx);
+}
+
 // === Faucet ===
 
 /// Mints `amount` base units (6 dp) of mock USDC to the caller. Open by design —

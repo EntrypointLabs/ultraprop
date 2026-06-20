@@ -23,11 +23,6 @@ export function isRealizedClose(trade: TradeRecord): boolean {
   );
 }
 
-/** USDC base units (6 dp) for a USD amount, as a non-negative integer string. */
-export function toUsdcBaseUnits(usd: number): string {
-  return Math.round(Math.abs(usd) * 1e6).toString();
-}
-
 type TokenGetter = () => Promise<string | null>;
 
 async function post(
@@ -59,9 +54,12 @@ async function withToken(
 }
 
 /**
- * Record a closed trade on-chain. `realizedPnl` is in USD; the sign decides
- * `isWin` and the magnitude is converted to USDC base units. Returns whether the
- * call committed, so the caller only marks the trade sent on success.
+ * Record a closed trade on-chain. Sends only VERIFIABLE inputs — the realized
+ * PnL is NOT sent; the server recomputes it from these fields after validating
+ * `exitPrice` against the real venue mark, so the client can never claim an
+ * arbitrary PnL. `tradeId` is the close trade's id, used by the server to dedup.
+ * Returns whether the call committed, so the caller only marks the trade sent on
+ * success.
  */
 export function postClose(
   getToken: TokenGetter,
@@ -71,10 +69,14 @@ export function postClose(
   return withToken(getToken, (token) =>
     post("/api/trades/close", token, {
       accountId,
-      isWin: trade.realizedPnl >= 0,
-      pnl: toUsdcBaseUnits(trade.realizedPnl),
+      tradeId: trade.id,
       venue: trade.venue,
       market: coinOf(trade.symbol),
+      side: trade.side,
+      sizeUsd: trade.sizeUsd,
+      entryPrice: trade.entryPrice,
+      exitPrice: trade.fill,
+      leverage: trade.leverage,
     }),
   );
 }
