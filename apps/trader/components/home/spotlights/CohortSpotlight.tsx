@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { Badge, Button } from "@/components/ui";
 import { useCohortStats } from "@/lib/mock/hooks";
+import { useTradeHref } from "@/lib/trade-link";
 import { formatPct } from "@/lib/utils";
 
 const HOW_IT_WORKS = [
@@ -31,6 +32,7 @@ const HOW_IT_WORKS = [
 
 export function CohortSpotlight() {
   const stats = useCohortStats();
+  const tradeHref = useTradeHref();
 
   return (
     <div className="flex h-full flex-col gap-5">
@@ -45,14 +47,17 @@ export function CohortSpotlight() {
           A closed-beta prop evaluation on-chain
         </h2>
         <p className="mt-1 text-sm text-text-muted">
-          {stats.members} invited traders. Every pass and fail is verifiable. No promises, no tokens.
+          {stats.members} invited traders. Every pass and fail is verifiable. No
+          promises, no tokens.
         </p>
       </div>
 
       {/* Cohort stats strip */}
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-[var(--radius)] bg-surface-2 px-3 py-3">
-          <div className="tabular text-lg font-bold text-text">{stats.members}</div>
+          <div className="tabular text-lg font-bold text-text">
+            {stats.members}
+          </div>
           <div className="mt-0.5 text-xs text-text-muted">Members</div>
         </div>
         <div className="rounded-[var(--radius)] bg-surface-2 px-3 py-3">
@@ -62,7 +67,9 @@ export function CohortSpotlight() {
           <div className="mt-0.5 text-xs text-text-muted">Pass rate</div>
         </div>
         <div className="rounded-[var(--radius)] bg-surface-2 px-3 py-3">
-          <div className="tabular text-lg font-bold text-text">{stats.totalPasses}</div>
+          <div className="tabular text-lg font-bold text-text">
+            {stats.totalPasses}
+          </div>
           <div className="mt-0.5 text-xs text-text-muted">Total passes</div>
         </div>
       </div>
@@ -79,7 +86,9 @@ export function CohortSpotlight() {
                 {step.step}
               </div>
               <div>
-                <div className="text-sm font-medium text-text">{step.title}</div>
+                <div className="text-sm font-medium text-text">
+                  {step.title}
+                </div>
                 <div className="mt-0.5 text-xs leading-relaxed text-text-muted">
                   {step.body}
                 </div>
@@ -90,7 +99,7 @@ export function CohortSpotlight() {
       </div>
 
       <div className="mt-auto flex items-center gap-2">
-        <Link href="/start" className="flex-1">
+        <Link href={tradeHref()} className="flex-1">
           <Button variant="primary" size="md" className="w-full gap-1.5">
             Get started
             <ArrowRight className="h-4 w-4" />
