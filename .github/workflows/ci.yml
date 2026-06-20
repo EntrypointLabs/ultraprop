@@ -7,7 +7,7 @@ on:
 
 jobs:
   ts:
-    name: TypeScript (trader)
+    name: TypeScript & tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,11 +23,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The app and services resolve the shared packages by their built `dist`
+      # (types + js), so compile those before anything that imports them.
+      - name: Build shared packages
+        run: >-
+          pnpm
+          --filter @shared/sim-core
+          --filter @shared/sui-propfirm
+          --filter @shared/db
+          --filter @shared/venues
+          build
+
       - name: Typecheck
-        run: pnpm --filter @app/trader typecheck
+        run: >-
+          pnpm
+          --filter @app/trader
+          --filter @service/executor
+          --filter @service/api-gateway
+          --filter @shared/db
+          typecheck
 
       - name: Test
-        run: pnpm --filter @app/trader test
+        run: >-
+          pnpm
+          --filter @app/trader
+          --filter @shared/db
+          --filter @service/executor
+          test
 
   move:
     name: Move tests
