@@ -21,7 +21,12 @@ export function LoginModal() {
   const open = useMockStore((s) => s.loginOpen);
   const close = useMockStore((s) => s.closeLogin);
   const { initOAuth, state } = useLoginWithOAuth({
-    onComplete: () => {
+    onComplete: ({ wasAlreadyAuthenticated }) => {
+      // Privy runs onComplete immediately for an already-signed-in user on every
+      // page load. This modal is mounted app-wide, so without this guard a plain
+      // refresh would fire it and bounce the trader to /onboarding. Only a fresh
+      // sign-in (not a rehydration) should route into onboarding.
+      if (wasAlreadyAuthenticated) return;
       close();
       router.push("/onboarding");
     },
