@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
   // Workspace packages consumed by the app; transpile them so Next bundles them
   // cleanly across the monorepo. sim-core is the shared paper-engine math.
-  transpilePackages: ["@shared/venues", "@shared/sim-core"],
+  transpilePackages: ["@shared/venues", "@shared/sim-core", "@shared/sui-propfirm"],
   // Same-origin proxy to the venue gateway. The browser only ever calls
   // same-origin `/api/*`; the venue layer (keys, rate-limits, CORS) stays
   // server-side. `/api/feed` is SSE — Next's rewrite proxy streams the response
