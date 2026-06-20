@@ -1,10 +1,12 @@
 packages:
   - "apps/*"
   - "services/api-gateway"
+  - "services/executor"
   - "packages/shared/events"
   - "packages/shared/venues"
   - "packages/shared/contracts-abi"
   - "packages/shared/sim-core"
+  - "packages/db"
 # sharp (Next.js image optimization) ships prebuilt @img/* binaries and does not
 # need its own install script. pnpm 11 otherwise fails the whole install when that
 # build is ignored (ERR_PNPM_IGNORED_BUILDS); keep it a warning, not a failure.
