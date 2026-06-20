@@ -13,7 +13,7 @@
 #     PROPFIRM_PACKAGE_ID='0x…' PROPFIRM_ACCOUNT_REGISTRY_ID='0x…' \
 #     PROPFIRM_ACCESS_REGISTRY_ID='0x…' PROPFIRM_EXECUTOR_CAP_ID='0x…' \
 #     PROPFIRM_ADMIN_CAP_ID='0x…'
-#   fly deploy --config services/executor/fly.toml --dockerfile services/executor/Dockerfile .
+#   fly deploy --config services/executor/fly.toml .   # run from the repo root; no --dockerfile
 #   fly scale count 1 --app ultraprop-executor
 
 app = "ultraprop-executor"

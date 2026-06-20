@@ -4,7 +4,7 @@
 #
 # Deploy from the REPO ROOT:
 #   fly apps create ultraprop-gateway
-#   fly deploy --config services/api-gateway/fly.toml --dockerfile services/api-gateway/Dockerfile .
+#   fly deploy --config services/api-gateway/fly.toml .   # run from the repo root; no --dockerfile
 # Then set GATEWAY_URL=https://ultraprop-gateway.fly.dev on the Vercel trader app.
 
 app = "ultraprop-gateway"

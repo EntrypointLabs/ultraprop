@@ -22,9 +22,13 @@ All commands below run from the **repo root** (the Docker build context is the w
 
 ```sh
 fly apps create ultraprop-gateway
-fly deploy --config services/api-gateway/fly.toml \
-  --dockerfile services/api-gateway/Dockerfile .
+fly deploy --config services/api-gateway/fly.toml .
 ```
+
+> The `.` keeps the build context at the repo root (so the Dockerfile's `COPY . .`
+> sees the whole monorepo). Do NOT pass `--dockerfile` — flyctl resolves that flag
+> relative to the config dir and doubles the path; the `[build]` block in the
+> `fly.toml` already locates the Dockerfile relative to the repo root.
 
 Gives you `https://ultraprop-gateway.fly.dev`. Verify:
 
@@ -47,8 +51,7 @@ fly secrets set --app ultraprop-executor \
   PROPFIRM_EXECUTOR_CAP_ID='0x…' \
   PROPFIRM_ADMIN_CAP_ID='0x…'
 
-fly deploy --config services/executor/fly.toml \
-  --dockerfile services/executor/Dockerfile .
+fly deploy --config services/executor/fly.toml .
 
 # EXACTLY ONE settler — the ExecutorCap is an owned object (serial writes).
 fly scale count 1 --app ultraprop-executor
