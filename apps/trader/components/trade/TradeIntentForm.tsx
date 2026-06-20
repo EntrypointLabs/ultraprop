@@ -31,7 +31,7 @@ import {
 import { DEFAULT_MARKET_ID, MARKET_IDS } from "@/lib/mock/markets";
 import { useMockStore } from "@/lib/mock/store";
 import type { MarketId, Side, VaultState } from "@/lib/mock/types";
-import { liquidationPrice } from "@/lib/sim/engine";
+import { drawdownCappedLiquidation, liquidationPrice } from "@/lib/sim/engine";
 import { HL_TAKER_BPS, slippagePreview } from "@/lib/slippage-preview";
 import { isSuiConfigured } from "@/lib/sui/config";
 import { usdcToUsd } from "@/lib/sui/propfirm";
@@ -939,7 +939,7 @@ export function TradeIntentForm({
     const maxLev = market.maxLeverage;
     const maint = sizeUsd * (1 / (2 * maxLev));
     const isolatedMargin = sizeUsd / effectiveLeverage;
-    return liquidationPrice({
+    const venueLiquidation = liquidationPrice({
       entryPrice: preview.fill,
       sizeUsd,
       side,
@@ -949,6 +949,23 @@ export function TradeIntentForm({
       accountValue: vault.equity,
       maintMarginRequired: maint,
     });
+    // Cap the venue liquidation by the firm's remaining drawdown room: the eval
+    // fails (and the position settles) the moment loss hits the max-drawdown or
+    // daily-loss floor, so the effective stop is never beyond it.
+    const ddRule = vault.rules.find((r) => r.kind === "drawdown");
+    const dailyRule = vault.rules.find((r) => r.kind === "dailyLoss");
+    return drawdownCappedLiquidation({
+      venueLiquidation,
+      entryPrice: preview.fill,
+      sizeUsd,
+      side,
+      drawdownBudgetUsd: ddRule
+        ? Math.max(0, ddRule.limit - ddRule.current)
+        : null,
+      dailyLossBudgetUsd: dailyRule
+        ? Math.max(0, dailyRule.limit - dailyRule.current)
+        : null,
+    });
   }, [
     preview,
     sizeUsd,
@@ -957,6 +974,7 @@ export function TradeIntentForm({
     effectiveMode,
     effectiveLeverage,
     vault.equity,
+    vault.rules,
   ]);
 
   const sizeAsset = markPx != null && markPx > 0 ? sizeUsd / markPx : null;
