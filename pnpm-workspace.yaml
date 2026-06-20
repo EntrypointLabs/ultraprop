@@ -6,6 +6,7 @@ packages:
   - "packages/shared/venues"
   - "packages/shared/contracts-abi"
   - "packages/shared/sim-core"
+  - "packages/shared/sui-propfirm"
   - "packages/db"
 # sharp (Next.js image optimization) ships prebuilt @img/* binaries and does not
 # need its own install script. pnpm 11 otherwise fails the whole install when that

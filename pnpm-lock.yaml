@@ -37,6 +37,9 @@ importers:
       '@shared/sim-core':
         specifier: workspace:*
         version: link:../../packages/shared/sim-core
+      '@shared/sui-propfirm':
+        specifier: workspace:*
+        version: link:../../packages/shared/sui-propfirm
       '@shared/venues':
         specifier: workspace:*
         version: link:../../packages/shared/venues
@@ -161,6 +164,12 @@ importers:
 
   packages/shared/sim-core: {}
 
+  packages/shared/sui-propfirm:
+    dependencies:
+      '@mysten/sui':
+        specifier: ^2.19.0
+        version: 2.19.0(typescript@5.9.3)
+
   packages/shared/venues:
     dependencies:
       ws:
@@ -201,6 +210,9 @@ importers:
       '@shared/sim-core':
         specifier: workspace:*
         version: link:../../packages/shared/sim-core
+      '@shared/sui-propfirm':
+        specifier: workspace:*
+        version: link:../../packages/shared/sui-propfirm
       '@shared/venues':
         specifier: workspace:*
         version: link:../../packages/shared/venues
