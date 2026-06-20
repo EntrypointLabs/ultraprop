@@ -48,3 +48,19 @@ export function suiAddressUrl(
   if (!isSuiId(address)) return null;
   return `https://suiscan.xyz${suiscanNetworkPath()}/account/${address}`;
 }
+
+/**
+ * True for a plausible Sui transaction digest — a base58 string (no 0/O/I/l), as
+ * emitted by the executor and the sim's `mockDigest`. Distinct from `isSuiId`,
+ * which only accepts 0x-hex object ids/addresses.
+ */
+export function isSuiDigest(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(value.trim());
+}
+
+/** A live suiscan.xyz URL for a transaction, or `null` when the digest isn't real. */
+export function suiTxUrl(digest: string | null | undefined): string | null {
+  if (!isSuiDigest(digest)) return null;
+  return `https://suiscan.xyz${suiscanNetworkPath()}/tx/${digest}`;
+}

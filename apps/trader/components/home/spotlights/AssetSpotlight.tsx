@@ -8,6 +8,7 @@ import { SEED_NOW } from "@/lib/mock/fixtures";
 import { usePrice } from "@/lib/mock/hooks";
 import { getMarket } from "@/lib/mock/markets";
 import type { MarketId } from "@/lib/mock/types";
+import { useTradeHref } from "@/lib/trade-link";
 import { cn, formatPctOrDash, formatUsdOrDash } from "@/lib/utils";
 
 interface AssetSpotlightProps {
@@ -24,6 +25,7 @@ const ASSET_DESC: Record<string, string> = {
 export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
   const tick = usePrice(symbol);
   const market = getMarket(symbol);
+  const tradeHref = useTradeHref();
   const meta = {
     name: market?.name ?? symbol,
     leverage: market?.maxLeverage ?? 10,
@@ -117,17 +119,17 @@ export function AssetSpotlight({ symbol }: AssetSpotlightProps) {
       )}
 
       <div className="mt-auto flex items-center gap-2">
-        <Link href={`/start?symbol=${symbol}&side=long`} className="flex-1">
+        <Link href={tradeHref({ symbol, side: "long" })} className="flex-1">
           <Button variant="long" size="md" className="w-full gap-1.5">
             Long {symbol}
           </Button>
         </Link>
-        <Link href={`/start?symbol=${symbol}&side=short`} className="flex-1">
+        <Link href={tradeHref({ symbol, side: "short" })} className="flex-1">
           <Button variant="short" size="md" className="w-full gap-1.5">
             Short {symbol}
           </Button>
         </Link>
-        <Link href="/start">
+        <Link href={tradeHref()}>
           <Button variant="ghost" size="icon" aria-label="Start evaluation">
             <ArrowRight className="h-4 w-4" />
           </Button>

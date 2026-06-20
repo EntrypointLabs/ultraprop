@@ -1,9 +1,11 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   AssetIcon,
   Button,
+  Modal,
   Table,
   Tbody,
   Td,
@@ -12,7 +14,10 @@ import {
   Tooltip,
   Tr,
 } from "@/components/ui";
+import { coinOf } from "@/lib/mock/markets";
+import { useMockStore } from "@/lib/mock/store";
 import type { TradeRecord } from "@/lib/mock/types";
+import { suiTxUrl } from "@/lib/sui/explorer";
 import { formatUsd } from "@/lib/utils";
 
 type SortKey =
@@ -102,6 +107,40 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
   const [sortKey, setSortKey] = useState<SortKey>("ts");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [sideFilter, setSideFilter] = useState<"all" | "long" | "short">("all");
+
+  // "View on explorer" prompt — opt-out persists, so a trader who has dismissed
+  // it jumps straight to the explorer on the next click.
+  const explorerPromptDismissed = useMockStore(
+    (s) => s.explorerPromptDismissed,
+  );
+  const dismissExplorerPrompt = useMockStore((s) => s.dismissExplorerPrompt);
+  const [pendingDigest, setPendingDigest] = useState<string | null>(null);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
+
+  function openExplorer(digest: string | null) {
+    const url = suiTxUrl(digest);
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function onRowClick(trade: TradeRecord) {
+    if (!suiTxUrl(trade.txDigest)) return;
+    if (explorerPromptDismissed) {
+      openExplorer(trade.txDigest);
+      return;
+    }
+    setPendingDigest(trade.txDigest);
+  }
+
+  function closePrompt() {
+    setPendingDigest(null);
+    setDontAskAgain(false);
+  }
+
+  function confirmOpenExplorer() {
+    if (dontAskAgain) dismissExplorerPrompt();
+    openExplorer(pendingDigest);
+    closePrompt();
+  }
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -201,7 +240,9 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Size
               </Th>
-              <Th numeric className="hidden sm:table-cell">Mkt Price</Th>
+              <Th numeric className="hidden sm:table-cell">
+                Mkt Price
+              </Th>
               <Th
                 numeric
                 sortable
@@ -219,7 +260,9 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Impact
               </Th>
-              <Th numeric className="hidden md:table-cell">Fee</Th>
+              <Th numeric className="hidden md:table-cell">
+                Fee
+              </Th>
               <Th
                 numeric
                 sortable
@@ -242,18 +285,47 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                     : "text-text-muted";
               const date = new Date(trade.ts);
               const timeStr = `${date.getUTCHours().toString().padStart(2, "0")}:${date.getUTCMinutes().toString().padStart(2, "0")} UTC`;
+              // A settled trade (closed / liquidated / TP / SL) has an on-chain
+              // tx — clicking its row opens the transaction on the explorer.
+              const clickable =
+                (trade.closedBy != null || trade.realizedPnl !== 0) &&
+                Boolean(suiTxUrl(trade.txDigest));
 
               return (
-                <Tr key={trade.id}>
+                <Tr
+                  key={trade.id}
+                  className={clickable ? "group cursor-pointer" : undefined}
+                  role={clickable ? "button" : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  title={
+                    clickable ? "View transaction on Sui explorer" : undefined
+                  }
+                  onClick={clickable ? () => onRowClick(trade) : undefined}
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onRowClick(trade);
+                          }
+                        }
+                      : undefined
+                  }
+                >
                   <Td className="hidden sm:table-cell">
                     <span className="tabular text-xs text-text-muted">
                       {timeStr}
                     </span>
                   </Td>
                   <Td>
-                    <div className="flex items-center gap-1.5">
-                      <AssetIcon symbol={trade.symbol} size={16} />
-                      <span className="font-medium">{trade.symbol}</span>
+                    <div className="flex items-center gap-2">
+                      <AssetIcon symbol={trade.symbol} size={20} venue />
+                      <span className="font-medium">
+                        {coinOf(trade.symbol)}
+                      </span>
+                      {clickable && (
+                        <ExternalLink className="h-3 w-3 shrink-0 text-text-faint opacity-0 transition-opacity group-hover:opacity-100" />
+                      )}
                     </div>
                   </Td>
                   <Td>
@@ -310,6 +382,36 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
           </Tbody>
         </Table>
       )}
+
+      <Modal
+        open={pendingDigest != null}
+        onClose={closePrompt}
+        title="View on the Sui explorer"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={closePrompt}>
+              Cancel
+            </Button>
+            <Button variant="brand" size="sm" onClick={confirmOpenExplorer}>
+              Open explorer ↗
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text-muted">
+          This trade is settled on-chain. We&apos;ll open its transaction on the
+          Sui block explorer (Suiscan) in a new tab.
+        </p>
+        <label className="mt-4 flex w-fit cursor-pointer items-center gap-2 text-sm text-text-muted">
+          <input
+            type="checkbox"
+            checked={dontAskAgain}
+            onChange={(e) => setDontAskAgain(e.target.checked)}
+            className="h-4 w-4 rounded-sm accent-brand"
+          />
+          Never show this prompt again
+        </label>
+      </Modal>
     </div>
   );
 }

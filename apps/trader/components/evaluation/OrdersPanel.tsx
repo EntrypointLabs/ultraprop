@@ -4,7 +4,7 @@ import { Clock, X } from "lucide-react";
 import { useMemo } from "react";
 import { AssetIcon, Countdown } from "@/components/ui";
 import { usePrices } from "@/lib/mock/hooks";
-import { decimalsFor, getMarket } from "@/lib/mock/markets";
+import { coinOf, decimalsFor, getMarket } from "@/lib/mock/markets";
 import type { Position } from "@/lib/mock/types";
 import { cn } from "@/lib/utils";
 import type { BracketPatch } from "./PositionsTable";
@@ -188,9 +188,9 @@ export function OrdersPanel({
             className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-surface-2 p-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="flex items-center gap-2">
-              <AssetIcon symbol={row.symbol} size={16} />
+              <AssetIcon symbol={row.symbol} size={20} venue />
               <span className="text-xs font-medium text-text">
-                {row.symbol}
+                {coinOf(row.symbol)}
               </span>
               <SideBadge side={row.side} />
               <LegBadge leg={row.leg} />

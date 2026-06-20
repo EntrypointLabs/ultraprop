@@ -20,12 +20,15 @@ import {
 import { useMarketCatalog, usePrices } from "@/lib/mock/hooks";
 import { coinOf, getMarket, type Market } from "@/lib/mock/markets";
 import type { MarketId, PriceTick } from "@/lib/mock/types";
+import { useTradeHref } from "@/lib/trade-link";
 import { cn, formatPctOrDash, formatUsdOrDash } from "@/lib/utils";
 
 interface MarketRowProps {
   tick: PriceTick;
   favorited: boolean;
   onToggleFav: () => void;
+  /** Resolves the row's Long/Short destination from the trader's account state. */
+  tradeHref: ReturnType<typeof useTradeHref>;
 }
 
 function usePrevPrice(price: number | null) {
@@ -47,7 +50,12 @@ function usePrevPrice(price: number | null) {
   return flashClass;
 }
 
-function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
+function MarketRow({
+  tick,
+  favorited,
+  onToggleFav,
+  tradeHref,
+}: MarketRowProps) {
   const market = getMarket(tick.symbol);
   const ticker = coinOf(tick.symbol);
   const name = market?.name ?? ticker;
@@ -56,8 +64,8 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
   const isUp = (tick.change24h ?? 0) >= 0;
   const flashClass = usePrevPrice(tick.markPx);
 
-  const longHref = `/start?symbol=${tick.symbol}&side=long`;
-  const shortHref = `/start?symbol=${tick.symbol}&side=short`;
+  const longHref = tradeHref({ symbol: tick.symbol, side: "long" });
+  const shortHref = tradeHref({ symbol: tick.symbol, side: "short" });
 
   return (
     <Tr>
@@ -171,7 +179,12 @@ function MarketRow({ tick, favorited, onToggleFav }: MarketRowProps) {
 }
 
 /** Mobile stacked card fallback for small screens */
-function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
+function MobileAssetCard({
+  tick,
+  favorited,
+  onToggleFav,
+  tradeHref,
+}: MarketRowProps) {
   const market = getMarket(tick.symbol);
   const ticker = coinOf(tick.symbol);
   const name = market?.name ?? ticker;
@@ -246,7 +259,7 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
             />
             <div className="flex items-center gap-1.5">
               <Badge variant="leverage">{leverage}X</Badge>
-              <Link href={`/start?symbol=${tick.symbol}&side=long`}>
+              <Link href={tradeHref({ symbol: tick.symbol, side: "long" })}>
                 <Button
                   variant="long"
                   size="sm"
@@ -255,7 +268,7 @@ function MobileAssetCard({ tick, favorited, onToggleFav }: MarketRowProps) {
                   Long
                 </Button>
               </Link>
-              <Link href={`/start?symbol=${tick.symbol}&side=short`}>
+              <Link href={tradeHref({ symbol: tick.symbol, side: "short" })}>
                 <Button
                   variant="short"
                   size="sm"
@@ -312,6 +325,7 @@ export function MarketsTable({
   // why `/markets` shows the whole universe even before the feed warms up.
   const catalog = useMarketCatalog();
   const prices = usePrices();
+  const tradeHref = useTradeHref();
 
   const rows: PriceTick[] = React.useMemo(() => {
     const byId = new Map(prices.map((p) => [p.symbol, p]));
@@ -363,6 +377,7 @@ export function MarketsTable({
                   tick={tick}
                   favorited={favorites.has(tick.symbol)}
                   onToggleFav={() => onToggleFav(tick.symbol)}
+                  tradeHref={tradeHref}
                 />
               ))
             )}
@@ -383,6 +398,7 @@ export function MarketsTable({
               tick={tick}
               favorited={favorites.has(tick.symbol)}
               onToggleFav={() => onToggleFav(tick.symbol)}
+              tradeHref={tradeHref}
             />
           ))
         )}

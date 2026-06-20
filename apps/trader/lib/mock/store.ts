@@ -22,6 +22,10 @@ interface MockStore {
   dismissOnboarding: () => void;
   resetOnboarding: () => void;
 
+  /** When true, clicking a settled trade opens the explorer without prompting. */
+  explorerPromptDismissed: boolean;
+  dismissExplorerPrompt: () => void;
+
   /** When true, the stale-feed banner shows site-wide and trading is paused. */
   divergenceHalt: boolean;
   setDivergenceHalt: (v: boolean) => void;
@@ -54,6 +58,9 @@ export const useMockStore = create<MockStore>()(
       dismissOnboarding: () => set({ onboardingDismissed: true }),
       resetOnboarding: () => set({ onboardingDismissed: false }),
 
+      explorerPromptDismissed: false,
+      dismissExplorerPrompt: () => set({ explorerPromptDismissed: true }),
+
       divergenceHalt: false,
       setDivergenceHalt: (v) => set({ divergenceHalt: v }),
       toggleDivergenceHalt: () =>
@@ -67,7 +74,10 @@ export const useMockStore = create<MockStore>()(
     }),
     {
       name: "trader-mock-store",
-      partialize: (s) => ({ onboardingDismissed: s.onboardingDismissed }),
+      partialize: (s) => ({
+        onboardingDismissed: s.onboardingDismissed,
+        explorerPromptDismissed: s.explorerPromptDismissed,
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setHydrated();
       },

@@ -13,7 +13,7 @@ import {
   Thead,
   Tr,
 } from "@/components/ui";
-import { decimalsFor, getMarket } from "@/lib/mock/markets";
+import { coinOf, decimalsFor, getMarket } from "@/lib/mock/markets";
 import type { Position } from "@/lib/mock/types";
 import { cn, formatPct, formatUsd } from "@/lib/utils";
 
@@ -259,12 +259,20 @@ export function PositionsTable({
         <Tr>
           <Th>Market</Th>
           <Th className="hidden sm:table-cell">Side</Th>
-          <Th numeric className="hidden sm:table-cell">Size</Th>
-          <Th numeric className="hidden md:table-cell">Entry</Th>
-          <Th numeric className="hidden md:table-cell">Mark</Th>
+          <Th numeric className="hidden sm:table-cell">
+            Size
+          </Th>
+          <Th numeric className="hidden md:table-cell">
+            Entry
+          </Th>
+          <Th numeric className="hidden md:table-cell">
+            Mark
+          </Th>
           {/* PnL always visible — most actionable column */}
           <Th numeric>PnL</Th>
-          <Th numeric className="hidden sm:table-cell">PnL %</Th>
+          <Th numeric className="hidden sm:table-cell">
+            PnL %
+          </Th>
           <Th className="hidden lg:table-cell">TP / SL</Th>
           <Th />
         </Tr>
@@ -289,10 +297,12 @@ export function PositionsTable({
           return (
             <Tr key={pos.id}>
               <Td>
-                <div className="flex items-center gap-1.5">
-                  <AssetIcon symbol={pos.symbol} size={16} />
+                <div className="flex items-center gap-2">
+                  <AssetIcon symbol={pos.symbol} size={20} venue />
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium">{pos.symbol}</span>
+                    <span className="text-xs font-medium">
+                      {coinOf(pos.symbol)}
+                    </span>
                     {/* Side badge inline on xs — shown when Side column is hidden */}
                     <span className="sm:hidden">
                       <SideBadge side={pos.side} />
@@ -323,7 +333,11 @@ export function PositionsTable({
                 </span>
               </Td>
               <Td numeric>
-                <span className={["tabular font-semibold text-xs", pnlTone].join(" ")}>
+                <span
+                  className={["tabular font-semibold text-xs", pnlTone].join(
+                    " ",
+                  )}
+                >
                   {formatUsd(netPnl, { sign: true })}
                 </span>
               </Td>
