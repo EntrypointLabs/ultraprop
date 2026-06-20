@@ -7,6 +7,7 @@ import {
 } from "@shared/sui-propfirm";
 import { getGraphQLClient, getGrpcClient } from "./client";
 import { serverSuiConfig, type TierName } from "./config";
+import { mirrorAccount } from "./ledger";
 import {
   buildOpenAccountTransaction,
   fetchEvalFee,
@@ -49,7 +50,10 @@ export async function adminOpenAccount(
   const reader = getGraphQLClient();
 
   const existing = await getTradingAccountId(reader, owner, config.packageId);
-  if (existing) return { accountId: existing, created: false };
+  if (existing) {
+    await mirrorAccount(existing, owner, tier);
+    return { accountId: existing, created: false };
+  }
 
   const keypair = loadAdminKeypair(config.adminSecretKey);
   const adminAddress = keypair.toSuiAddress();
@@ -104,6 +108,7 @@ export async function adminOpenAccount(
     );
   }
 
+  await mirrorAccount(accountId, owner, tier);
   return { accountId, created: true, digest: executed.digest };
 }
 

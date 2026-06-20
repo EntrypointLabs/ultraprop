@@ -117,6 +117,9 @@ export interface TradeRecord {
   entryPrice?: number;
   /** leverage the closed position carried; set on close trades for the bridge. */
   leverage?: number;
+  /** the source position's id; set on close trades so the on-chain bridge can
+   * correlate this close to the server-ledger row opened for that position. */
+  positionId?: string;
   ts: number;
   /** Sui object/tx digest for "View on Sui Explorer" */
   txDigest: string;

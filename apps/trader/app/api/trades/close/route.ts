@@ -1,3 +1,10 @@
+import {
+  claimIdempotency,
+  closeOpenPosition,
+  completeIdempotency,
+  findOpenPositionByClientId,
+} from "@shared/db";
+import { applyFees } from "@shared/sim-core";
 import { fetchAssetCtxs } from "@shared/venues";
 import { NextResponse } from "next/server";
 import {
@@ -6,6 +13,7 @@ import {
   requireTrader,
   serverError,
 } from "@/app/api/_lib/auth";
+import { getDb } from "@/lib/db";
 import { logTrade } from "@/lib/sui/server";
 
 export const runtime = "nodejs";
@@ -26,11 +34,15 @@ interface CloseBody {
   side: "long" | "short";
   /** closed notional in USD */
   sizeUsd: number;
-  /** position entry price (client-asserted — see RESIDUAL below) */
+  /** position entry price; used only as a fallback when the ledger has no row */
   entryPrice: number;
   /** claimed exit price; validated against the real mark */
   exitPrice: number;
   leverage: number;
+  /** the ledger position id (the open's clientTradeId). When present and the
+   * ledger holds the row, the server uses ITS entry price and folds in fees,
+   * closing the client-asserted-entry gap. */
+  positionId?: string;
 }
 
 /** Max deviation of the claimed exit from the real venue mark before rejection. */
@@ -101,9 +113,14 @@ export async function POST(req: Request) {
   }
 
   // Dedup BEFORE doing any work: a duplicate is a no-op success so the bridge
-  // marks it sent and stops retrying. See `loggedCloses` for the limitation.
+  // marks it sent and stops retrying. Durable + cross-instance when the ledger DB
+  // is present; otherwise the per-instance Set (pre-ledger behavior).
+  const db = getDb();
   const dedupKey = `${body.accountId}:${tradeId}`;
-  if (loggedCloses.has(dedupKey)) {
+  if (db) {
+    const claim = await claimIdempotency(db, dedupKey, "trade-close");
+    if (!claim.claimed) return NextResponse.json({ deduped: true });
+  } else if (loggedCloses.has(dedupKey)) {
     return NextResponse.json({ deduped: true });
   }
 
@@ -139,15 +156,35 @@ export async function POST(req: Request) {
     );
   }
 
-  // Recompute the realized PRICE PnL server-side from validated inputs. This is
-  // the price leg only; fees and funding are NOT recomputed here (RESIDUAL).
+  // Prefer the SERVER-OWNED entry from the ledger — it closes the client-asserted
+  // entry gap, and folding in the round-trip taker fees makes the on-chain value
+  // match the executor's settlement. Falls back to the client's entry (price leg
+  // only) when the ledger has no row: no DB, or a close that raced its own intake.
+  const positionId = (body.positionId ?? "").trim();
+  const ledgerRow =
+    db && positionId
+      ? await findOpenPositionByClientId(db, body.accountId, positionId)
+      : null;
+
+  const entryPrice = ledgerRow ? Number(ledgerRow.entryPrice) : body.entryPrice;
+  const sizeUsd = ledgerRow ? Number(ledgerRow.sizeUsd) : body.sizeUsd;
+
   const directional = body.side === "long" ? 1 : -1;
   const pricePnl =
-    (body.sizeUsd * (body.exitPrice - body.entryPrice)) /
-    body.entryPrice *
-    directional;
-  const isWin = pricePnl >= 0;
-  const pnl = BigInt(Math.round(Math.abs(pricePnl) * 1e6));
+    ((sizeUsd * (body.exitPrice - entryPrice)) / entryPrice) * directional;
+
+  let netPnl = pricePnl;
+  if (ledgerRow) {
+    const exitNotional = (sizeUsd / entryPrice) * body.exitPrice;
+    const exitFee = applyFees(exitNotional, "taker");
+    netPnl =
+      pricePnl -
+      exitFee -
+      Number(ledgerRow.entryFeeUsd) +
+      Number(ledgerRow.fundingPaid);
+  }
+  const isWin = netPnl >= 0;
+  const pnl = BigInt(Math.round(Math.abs(netPnl) * 1e6));
 
   try {
     const result = await logTrade({
@@ -157,7 +194,17 @@ export async function POST(req: Request) {
       venue,
       market,
     });
-    loggedCloses.add(dedupKey);
+    if (db && ledgerRow) {
+      await closeOpenPosition(db, {
+        id: ledgerRow.id,
+        exitPrice: String(body.exitPrice),
+        realizedPnl: String(netPnl),
+        closeReason: "manual",
+        onChainDigest: result.digest,
+      });
+    }
+    if (db) await completeIdempotency(db, dedupKey, result);
+    else loggedCloses.add(dedupKey);
     return NextResponse.json(result);
   } catch (error) {
     return serverError(error, "We couldn't record the trade on-chain.");
@@ -165,13 +212,9 @@ export async function POST(req: Request) {
 }
 
 /*
- * RESIDUAL TRUST GAP (closes fully only with a server-side position store / sim,
- * i.e. Phase B):
- *  - `entryPrice` is still CLIENT-ASSERTED. With no server position ledger the
- *    server has nothing to check the entry against, so the exit is validated
- *    against the real mark but the entry (and thus the PnL magnitude) can still
- *    be skewed by a fabricated entry.
- *  - Fees and funding are NOT recomputed here; only the price leg is. The
- *    engine's close folds taker fees + funding into its realized PnL, so the
- *    on-chain value here can diverge from the off-chain equity by those costs.
+ * RESIDUAL (only when the ledger has NO row for the close — no DB, or a close that
+ * raced its own intake): `entryPrice` is client-asserted and fees/funding aren't
+ * folded in, so the on-chain value can be skewed by a fabricated entry. When the
+ * ledger row IS present, both are closed: the entry is the server's own fill and
+ * the round-trip taker fees are recomputed.
  */
