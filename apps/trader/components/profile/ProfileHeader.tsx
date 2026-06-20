@@ -89,15 +89,17 @@ export function ProfileHeader({ profile, wallet }: ProfileHeaderProps) {
             </button>
             <SuiExplorerLink address={wallet} />
           </div>
-          {/* Joined date */}
-          <div className="text-xs text-text-faint mt-1 tabular">
-            Joined{" "}
-            {new Date(profile.joinedAt).toLocaleDateString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </div>
+          {/* Joined date — only when we actually know it (no on-chain source yet). */}
+          {profile.joinedAt > 0 && (
+            <div className="text-xs text-text-faint mt-1 tabular">
+              Joined{" "}
+              {new Date(profile.joinedAt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </div>
+          )}
         </div>
       </div>
 

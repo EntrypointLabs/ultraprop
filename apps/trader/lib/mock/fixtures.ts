@@ -405,9 +405,33 @@ export const DEMO_PROFILE_EVALS: VaultSummary[] = [
 ];
 
 export function buildProfile(wallet: string): Profile {
+  // Only the curated demo wallet carries showcase numbers. A real wallet starts
+  // empty here — its true figures come from the on-chain overlay, and anything
+  // with no on-chain source stays blank rather than invented.
+  if (wallet !== DEMO_WALLET) {
+    return {
+      wallet,
+      displayName: null,
+      joinedAt: 0,
+      sbt: {
+        owner: wallet,
+        level: 0,
+        passedTiers: [],
+        lastLevelUpAt: null,
+        objectId: null,
+        cohort: "v1 Genesis",
+      },
+      highestTier: "—",
+      evaluations: [],
+      shadowPnl: 0,
+      passes: 0,
+      fails: 0,
+      consistency: 0,
+    };
+  }
   return {
     wallet,
-    displayName: wallet === DEMO_WALLET ? "satoshi.sui" : null,
+    displayName: "satoshi.sui",
     joinedAt: SEED_NOW - 45 * DAY,
     sbt: { ...DEMO_SBT, owner: wallet },
     highestTier: "Basic",

@@ -13,7 +13,7 @@ export function StatGrid({ profile }: StatGridProps) {
       : 0;
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <StatTile
         label="Simulated P&L"
         value={
@@ -38,16 +38,6 @@ export function StatGrid({ profile }: StatGridProps) {
           </span>
         }
         delta={`${profile.passes + profile.fails} total evals`}
-        deltaTone="muted"
-      />
-      <StatTile
-        label="Consistency"
-        value={
-          <span className={profile.consistency >= 70 ? "text-up" : "text-warn"}>
-            {profile.consistency.toFixed(1)}
-          </span>
-        }
-        delta="Score / 100"
         deltaTone="muted"
       />
     </div>

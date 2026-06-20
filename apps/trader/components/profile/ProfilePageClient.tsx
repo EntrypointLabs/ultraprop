@@ -25,18 +25,15 @@ import { TradingAccountSection } from "@/components/profile/TradingAccountSectio
 import { Tabs } from "@/components/ui/Tabs";
 import { suiWalletAddress } from "@/lib/auth";
 import { accountHandle } from "@/lib/identity";
-import { useProfile, useSbt } from "@/lib/mock/hooks";
+import { useProfile } from "@/lib/mock/hooks";
 import { useMockStore } from "@/lib/mock/store";
-import type { Profile } from "@/lib/mock/types";
+import type { Profile, SbtLevel, SbtState } from "@/lib/mock/types";
 import { statusFromCode } from "@/lib/sui/onchainRules";
 import { usdcToUsd } from "@/lib/sui/propfirm";
 import {
   useAccountSetup,
   useOnchainAccountSummaryFor,
 } from "@/lib/sui/useTradingAccount";
-
-/** Total trades across all evaluations — rough proxy using eval count * a per-eval fixture. */
-const TRADES_PER_EVAL = 12;
 
 interface ProfilePageClientProps {
   wallet: string;
@@ -58,28 +55,47 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
     ?.address;
 
   const baseProfile = useProfile(wallet);
-  const sbt = useSbt(wallet);
 
-  // Overlay the wallet's verifiable on-chain account (realized equity, status,
-  // tier) on top of the seeded profile. Fields with no on-chain source — the
-  // join date, consistency score, SBT level — keep their seeded values.
+  // Overlay the wallet's verifiable on-chain account on top of the seeded
+  // profile: realized P&L (equity − funded), pass/fail and tier from the live
+  // status, and a credential derived from an actual on-chain pass (the account
+  // object is its verifiable reference). Fields with no on-chain source — the
+  // join date, eval history dates, consistency — are left empty, never invented.
   const onchain = useOnchainAccountSummaryFor(wallet);
   const profile = React.useMemo<Profile>(() => {
     const summary = onchain.summary;
     if (!summary) return baseProfile;
     const status = statusFromCode(summary.statusCode);
+    const fundedUsd = usdcToUsd(summary.fundedSize);
+    const realizedPnl = usdcToUsd(summary.equity) - fundedUsd;
+    const tierLabel = summary.tier
+      ? summary.tier.charAt(0).toUpperCase() + summary.tier.slice(1)
+      : baseProfile.highestTier;
+    const passed = status === "passed";
+    const level: SbtLevel = !passed
+      ? 0
+      : summary.tier === "starter"
+        ? 1
+        : summary.tier === "basic"
+          ? 2
+          : 3;
+    const sbt: SbtState = {
+      owner: wallet,
+      level,
+      passedTiers: passed ? [tierLabel] : [],
+      lastLevelUpAt: null,
+      objectId: passed ? onchain.accountId : null,
+      cohort: "v1 Genesis",
+    };
     return {
       ...baseProfile,
-      shadowPnl: usdcToUsd(summary.equity) - usdcToUsd(summary.fundedSize),
-      passes: status === "passed" ? 1 : 0,
+      shadowPnl: realizedPnl,
+      passes: passed ? 1 : 0,
       fails: status === "failed" ? 1 : 0,
-      highestTier: summary.tier
-        ? summary.tier.charAt(0).toUpperCase() + summary.tier.slice(1)
-        : baseProfile.highestTier,
+      highestTier: tierLabel,
+      sbt,
     };
-  }, [baseProfile, onchain.summary]);
-
-  const totalTrades = profile.evaluations.length * TRADES_PER_EVAL;
+  }, [baseProfile, onchain.summary, onchain.accountId, wallet]);
 
   const tabs: ProfileTab[] = [
     { value: "overview", label: "Overview", icon: TrendingUp },
@@ -147,10 +163,9 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
               <StatGrid profile={profile} />
             </ProfileSection>
             <SbtCard
-              sbt={sbt}
+              sbt={profile.sbt}
               shadowPnl={profile.shadowPnl}
               passes={profile.passes}
-              totalTrades={totalTrades}
             />
           </div>
         );
