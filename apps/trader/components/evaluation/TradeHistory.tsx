@@ -12,6 +12,7 @@ import {
   Tooltip,
   Tr,
 } from "@/components/ui";
+import { coinOf } from "@/lib/mock/markets";
 import type { TradeRecord } from "@/lib/mock/types";
 import { formatUsd } from "@/lib/utils";
 
@@ -201,7 +202,9 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Size
               </Th>
-              <Th numeric className="hidden sm:table-cell">Mkt Price</Th>
+              <Th numeric className="hidden sm:table-cell">
+                Mkt Price
+              </Th>
               <Th
                 numeric
                 sortable
@@ -219,7 +222,9 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
               >
                 Impact
               </Th>
-              <Th numeric className="hidden md:table-cell">Fee</Th>
+              <Th numeric className="hidden md:table-cell">
+                Fee
+              </Th>
               <Th
                 numeric
                 sortable
@@ -251,9 +256,11 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
                     </span>
                   </Td>
                   <Td>
-                    <div className="flex items-center gap-1.5">
-                      <AssetIcon symbol={trade.symbol} size={16} />
-                      <span className="font-medium">{trade.symbol}</span>
+                    <div className="flex items-center gap-2">
+                      <AssetIcon symbol={trade.symbol} size={20} venue />
+                      <span className="font-medium">
+                        {coinOf(trade.symbol)}
+                      </span>
                     </div>
                   </Td>
                   <Td>
