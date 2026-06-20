@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc -b --force",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "lint": "biome check src",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -18,6 +19,8 @@
     "postgres": "^3.4.5"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.30.1"
+    "@electric-sql/pglite": "^0.2.17",
+    "drizzle-kit": "^0.30.1",
+    "vitest": "^2.1.8"
   }
 }
