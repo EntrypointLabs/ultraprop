@@ -271,7 +271,19 @@ export function PositionsTable({
       </Thead>
       <Tbody>
         {positions.map((pos) => {
-          const pnlTone = pos.unrealizedPnl >= 0 ? "text-up" : "text-down";
+          // What the position actually contributes to equity right now: price
+          // PnL net of the taker fee already paid at open and any accrued
+          // funding. So a freshly opened position reads negative by the entry
+          // fee — same as a real venue — and the row never disagrees with the
+          // cockpit equity. ROE % is that net against the posted collateral
+          // (notional ÷ leverage), so a 10× position shows ~10× the move.
+          const collateral =
+            pos.leverage > 0 ? pos.sizeUsd / pos.leverage : pos.sizeUsd;
+          const netPnl = Number(
+            (pos.unrealizedPnl - pos.entryFeeUsd + pos.fundingPaid).toFixed(2),
+          );
+          const roePct = collateral > 0 ? (netPnl / collateral) * 100 : 0;
+          const pnlTone = netPnl >= 0 ? "text-up" : "text-down";
           const isDecimalPrice = pos.entryPrice < 1000;
           const priceDecimals = isDecimalPrice ? 4 : 1;
           return (
@@ -312,12 +324,12 @@ export function PositionsTable({
               </Td>
               <Td numeric>
                 <span className={["tabular font-semibold text-xs", pnlTone].join(" ")}>
-                  {formatUsd(pos.unrealizedPnl, { sign: true })}
+                  {formatUsd(netPnl, { sign: true })}
                 </span>
               </Td>
               <Td numeric className="hidden sm:table-cell">
                 <span className={["tabular font-semibold", pnlTone].join(" ")}>
-                  {formatPct(pos.unrealizedPnlPct)}
+                  {formatPct(roePct)}
                 </span>
               </Td>
               <Td className="hidden lg:table-cell">
