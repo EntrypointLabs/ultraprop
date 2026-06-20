@@ -10,6 +10,7 @@ import {
   postBreach,
   postClose,
   postFail,
+  postOpen,
   postPass,
 } from "@/lib/sui/bridge";
 import { isSuiConfigured } from "@/lib/sui/config";
@@ -50,6 +51,10 @@ export function useOnchainBridge(vaultId: string): void {
     if (!accountId || !isSuiConfigured()) return;
 
     const ledger = loadLedger(accountId);
+    // Positions already sent to the ledger-intake route this session. In-memory
+    // (not persisted): the intake route is server-idempotent, so a reload simply
+    // re-attempts and the server returns the existing row.
+    const intaked = new Set<string>();
     let pumping = false;
 
     // Serialize sends so a burst of ticks can't fire the same trade twice before
@@ -59,7 +64,10 @@ export function useOnchainBridge(vaultId: string): void {
       pumping = true;
       try {
         let vault = useSimStore.getState().vaults[vaultId];
-        while (vault && (await reconcile(vault, accountId, ledger, getToken.current))) {
+        while (
+          vault &&
+          (await reconcile(vault, accountId, ledger, intaked, getToken.current))
+        ) {
           vault = useSimStore.getState().vaults[vaultId];
         }
       } finally {
@@ -143,8 +151,19 @@ async function reconcile(
   vault: SimVault,
   accountId: string,
   ledger: BridgeLedger,
+  intaked: Set<string>,
   getToken: TokenGetter,
 ): Promise<boolean> {
+  // 0) Record any open position in the server ledger before its close can need
+  //    it, so the close settles against a trusted entry. Best-effort and
+  //    server-idempotent; attempted once per session per position.
+  for (const position of vault.positions) {
+    if (intaked.has(position.id)) continue;
+    intaked.add(position.id);
+    await postOpen(getToken, accountId, position);
+    return true;
+  }
+
   // 1) Realized closes, oldest first (store prepends, so iterate in reverse).
   for (let i = vault.trades.length - 1; i >= 0; i--) {
     const trade = vault.trades[i];

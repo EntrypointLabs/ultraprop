@@ -1,10 +1,14 @@
-import type { MarketId } from "@/lib/mock/markets";
+/**
+ * The trading-domain types the pure engine operates on, shared verbatim between
+ * the trader app (the live overlay) and the executor service (the authoritative
+ * settler) so both compute identical PnL. Venue-qualified market identity is an
+ * opaque `string` here; the catalog (depth, leverage, decimals) is passed in as
+ * data, never imported — that is what keeps this package free of app coupling.
+ */
 
-export type { MarketId } from "@/lib/mock/markets";
+export type MarketId = string;
 
 export type Side = "long" | "short";
-
-export type ConnectionStatus = "live" | "reconnecting" | "stale";
 
 export type VaultStatus = "active" | "passed" | "failed" | "inactive";
 
@@ -117,9 +121,6 @@ export interface TradeRecord {
   entryPrice?: number;
   /** leverage the closed position carried; set on close trades for the bridge. */
   leverage?: number;
-  /** the source position's id; set on close trades so the on-chain bridge can
-   * correlate this close to the server-ledger row opened for that position. */
-  positionId?: string;
   ts: number;
   /** Sui object/tx digest for "View on Sui Explorer" */
   txDigest: string;
@@ -152,124 +153,6 @@ export interface RuleBudget {
   /** human-readable rule text shown in the rule modal */
   description: string;
   unit: "usd" | "count" | "pct";
-}
-
-export type SbtLevel = 0 | 1 | 2 | 3;
-
-export interface SbtState {
-  /** owner wallet address */
-  owner: string;
-  /** 0 = not yet minted, 1 = Starter passed, 2 = Basic, 3 = Pro */
-  level: SbtLevel;
-  /** tier names passed, in order */
-  passedTiers: string[];
-  /** epoch ms of last level-up, null if never minted */
-  lastLevelUpAt: number | null;
-  /** Sui object id of the SBT, null if not minted */
-  objectId: string | null;
-  /** cohort label, e.g. "v1 Genesis" */
-  cohort: string;
-}
-
-export type LeaderboardAxis = "tier" | "shadowPnl" | "passes" | "consistency";
-
-export type LeaderboardWindow = "all" | "weekly" | "daily";
-
-export interface LeaderboardEntry {
-  rank: number;
-  wallet: string;
-  displayName: string | null;
-  /** highest tier name achieved */
-  tier: string;
-  sbtLevel: SbtLevel;
-  /** shadow PnL in USD over the window */
-  shadowPnl: number;
-  /** number of evaluations passed */
-  passes: number;
-  /** consistency score 0..100 */
-  consistency: number;
-}
-
-export interface Profile {
-  wallet: string;
-  displayName: string | null;
-  /** epoch ms the wallet joined the cohort */
-  joinedAt: number;
-  sbt: SbtState;
-  /** highest tier name achieved */
-  highestTier: string;
-  evaluations: VaultSummary[];
-  /** lifetime shadow PnL in USD */
-  shadowPnl: number;
-  passes: number;
-  fails: number;
-  consistency: number;
-}
-
-export interface VaultSummary {
-  vaultId: string;
-  tier: string;
-  status: VaultStatus;
-  startedAt: number;
-  endedAt: number | null;
-  /** final/return PnL as percent */
-  returnPct: number;
-}
-
-export interface CohortStats {
-  cohort: string;
-  /** total wallets in the cohort */
-  members: number;
-  /** wallets currently in an active evaluation */
-  activeEvaluations: number;
-  /** total evaluations passed across the cohort */
-  totalPasses: number;
-  /** pass rate 0..1 */
-  passRate: number;
-  /** epoch ms when the current weekly window resets */
-  weekResetsAt: number;
-  /** median tier-passer return percent at this point in the eval */
-  medianPasserReturnPct: number;
-}
-
-export interface VaultState {
-  vaultId: string;
-  tier: Tier;
-  status: VaultStatus;
-  owner: string;
-  /** starting equity in USD */
-  startingEquity: number;
-  /** current equity in USD */
-  equity: number;
-  /** peak equity reached, for trailing-drawdown floor */
-  peakEquity: number;
-  /** open positions */
-  positions: Position[];
-  /** rule budgets */
-  rules: RuleBudget[];
-  /** epoch ms of the next daily reset (00:00 UTC) */
-  dailyResetAt: number;
-  /** epoch ms when an idle vault auto-terminates (7-day) */
-  inactiveAt: number;
-  startedAt: number;
-  /** for terminal states: the trade that triggered fail, if any */
-  triggerTrade: TradeRecord | null;
-  /** for failed vaults: which rule was violated */
-  violatedRule: RuleKind | null;
-  /** count of intents submitted */
-  intentCount: number;
-}
-
-export interface Session {
-  /** null when signed out */
-  address: string | null;
-  /** mock chain label */
-  chain: "sui";
-  /** USD balance chip value */
-  balanceUsd: number;
-  /** true when the wallet is on the closed-beta allowlist */
-  allowlisted: boolean;
-  status: "connected" | "disconnected";
 }
 
 export interface SlippagePreview {

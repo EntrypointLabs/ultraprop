@@ -7,7 +7,7 @@ on:
 
 jobs:
   ts:
-    name: TypeScript (trader)
+    name: TypeScript & tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,11 +23,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The app and services resolve the shared packages by their built `dist`
+      # (types + js), so compile those before anything that imports them.
+      - name: Build shared packages
+        run: >-
+          pnpm
+          --filter @shared/sim-core
+          --filter @shared/sui-propfirm
+          --filter @shared/db
+          --filter @shared/venues
+          build
+
       - name: Typecheck
-        run: pnpm --filter @app/trader typecheck
+        run: >-
+          pnpm
+          --filter @app/trader
+          --filter @service/executor
+          --filter @service/api-gateway
+          --filter @shared/db
+          typecheck
 
       - name: Test
-        run: pnpm --filter @app/trader test
+        run: >-
+          pnpm
+          --filter @app/trader
+          --filter @shared/db
+          --filter @service/executor
+          test
 
   move:
     name: Move tests
@@ -35,21 +57,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Pin the exact testnet Sui the contracts resolve against. The mock-usdc
-      # Move.toml pins Sui rev 718ae563...; if `sui move test` fails on a
-      # framework mismatch, set SUI_VERSION to the matching released tag (e.g.
-      # testnet-vX.Y.Z) rather than `latest`.
-      - name: Install Sui CLI
+      # The bare `testnet` tag has no downloadable release asset (Sui tags real
+      # releases `testnet-vX.Y.Z`), so resolve the LATEST testnet release and grab
+      # its ubuntu archive via the API. If `sui move test` ever fails on a
+      # framework mismatch, pin a specific `testnet-vX.Y.Z` tag here instead.
+      - name: Install Sui CLI (latest testnet release)
         env:
-          SUI_VERSION: testnet
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          url="https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          url=$(gh api 'repos/MystenLabs/sui/releases?per_page=100' \
+            --jq 'map(select(.tag_name | startswith("testnet-")))[0].assets[]
+                  | select(.name | test("ubuntu-x86_64.tgz$")) | .browser_download_url' \
+            | head -1)
+          if [ -z "$url" ]; then echo "no testnet ubuntu asset found"; exit 1; fi
           echo "Downloading $url"
           curl -fsSL "$url" -o sui.tgz
           mkdir -p "$HOME/.sui/bin"
           tar -xzf sui.tgz -C "$HOME/.sui/bin"
-          echo "$HOME/.sui/bin" >> "$GITHUB_PATH"
+          sui_bin="$(find "$HOME/.sui/bin" -name sui -type f | head -1)"
+          chmod +x "$sui_bin"
+          echo "$(dirname "$sui_bin")" >> "$GITHUB_PATH"
 
       - name: Sui version
         run: sui --version

@@ -1,5 +1,5 @@
 import { coinOf } from "@/lib/mock/markets";
-import type { TradeRecord } from "@/lib/mock/types";
+import type { Position, TradeRecord } from "@/lib/mock/types";
 
 /**
  * The off-chain → on-chain bridge's client transport. The paper engine drives
@@ -70,6 +70,9 @@ export function postClose(
     post("/api/trades/close", token, {
       accountId,
       tradeId: trade.id,
+      // The open position's id, so the server can settle against the ledger's
+      // trusted entry price instead of the client-sent one.
+      positionId: trade.positionId,
       venue: trade.venue,
       market: coinOf(trade.symbol),
       side: trade.side,
@@ -79,6 +82,43 @@ export function postClose(
       leverage: trade.leverage,
     }),
   );
+}
+
+/**
+ * Records a freshly opened position in the server ledger so the matching close
+ * is settled against a server-computed entry. Best-effort and server-idempotent
+ * (keyed on the position id): returns the ledger position id, or null when the
+ * ledger is disabled or the call fails. The bridge attempts it once per session
+ * per position.
+ */
+export async function postOpen(
+  getToken: TokenGetter,
+  accountId: string,
+  position: Position,
+): Promise<string | null> {
+  const token = await getToken();
+  if (!token) return null;
+  const res = await fetch("/api/positions/open", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      accountId,
+      clientTradeId: position.id,
+      market: coinOf(position.symbol),
+      side: position.side,
+      sizeUsd: position.sizeUsd,
+      leverage: position.leverage,
+      marginMode: position.marginMode,
+      takeProfit: position.takeProfit ?? null,
+      stopLoss: position.stopLoss ?? null,
+    }),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json().catch(() => ({}))) as { positionId?: string };
+  return typeof data.positionId === "string" ? data.positionId : null;
 }
 
 export function postPass(
