@@ -2,6 +2,7 @@
 # reinstalled; rust/Move build outputs and secrets never belong in the image.
 **/node_modules
 **/dist
+**/*.tsbuildinfo
 **/.next
 **/.turbo
 **/coverage
