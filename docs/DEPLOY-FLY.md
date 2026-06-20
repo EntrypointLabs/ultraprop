@@ -85,3 +85,5 @@ Redeploy the app. The app's `DATABASE_URL` stays the **pooled** (`-pooler`) Neon
 - **Direct vs pooled Postgres.** Executor → direct host; app → pooled (`-pooler`) host. Migrations also use the direct host.
 - **Cost.** Two `shared-cpu-1x` 512 MB machines ≈ a few dollars/month. Drop to 256 MB if memory headroom allows.
 - **Updating.** Re-run the same `fly deploy …` after pushing changes. Fly rebuilds the image from the monorepo.
+- **`MODULE_NOT_FOUND` / `dist/index.js` missing at boot.** Fly's remote-builder caches layers and can replay a stale `turbo build` step. The Dockerfiles now assert the output exists at build time, but if you hit it, force a clean build: `fly deploy --config fly.executor.toml --no-cache`.
+- **Gateway machine count.** `fly deploy` may create 2 machines; the feed only needs one shared-socket machine — `fly scale count 1 --app ultraprop-gateway`.
