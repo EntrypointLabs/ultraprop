@@ -25,7 +25,8 @@ export function useTradingAccount(suiAddress: string | null) {
   return useQuery({
     queryKey: queryKey(suiAddress),
     enabled: Boolean(suiAddress) && isSuiConfigured(),
-    queryFn: () => getTradingAccountId(getGraphQLClient(), suiAddress as string),
+    queryFn: () =>
+      getTradingAccountId(getGraphQLClient(), suiAddress as string),
     staleTime: 30_000,
   });
 }
@@ -121,8 +122,18 @@ export function useCreateAccount() {
  */
 export function useOnchainAccountSummary() {
   const { user } = usePrivy();
-  const suiAddress = suiWalletAddress(user);
-  const { data: accountId } = useTradingAccount(suiAddress);
+  return useOnchainAccountSummaryFor(suiWalletAddress(user));
+}
+
+/**
+ * Same as {@link useOnchainAccountSummary} but for an ARBITRARY wallet address
+ * (the public chain is readable by anyone), so a profile page can show the
+ * verifiable status / equity / tier / floors of the wallet it's viewing — not
+ * just the signed-in user. Returns nulls until that wallet's account is known
+ * and the package is configured.
+ */
+export function useOnchainAccountSummaryFor(address: string | null) {
+  const { data: accountId } = useTradingAccount(address);
   const summary = useAccountSummary(accountId ?? null);
   return {
     accountId: accountId ?? null,
@@ -160,7 +171,8 @@ export function useReactivateAccount() {
       };
       if (!res.ok || !body.digest) {
         throw new Error(
-          body.error ?? "We couldn't re-enter the evaluation. Please try again.",
+          body.error ??
+            "We couldn't re-enter the evaluation. Please try again.",
         );
       }
       return { digest: body.digest };

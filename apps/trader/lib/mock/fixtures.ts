@@ -1,7 +1,6 @@
 import type {
   CohortStats,
   EquityPoint,
-  LeaderboardEntry,
   MarketId,
   Position,
   PriceTick,
@@ -338,45 +337,6 @@ export const DEMO_SBT: SbtState = {
   cohort: "v1 Genesis",
 };
 
-const LEADERBOARD_NAMES = [
-  "satoshi.sui",
-  "vega",
-  "0xMomentum",
-  "quietalpha",
-  "delta_one",
-  "ronin",
-  "tabula",
-  "nordic",
-  "carrytrade",
-  "mecha",
-  "lowbeta",
-  "orbit",
-];
-
-export const DEMO_LEADERBOARD: LeaderboardEntry[] = Array.from(
-  { length: 12 },
-  (_, i) => {
-    const r = rng(900 + i);
-    const sbtLevel = (
-      i < 2 ? 3 : i < 6 ? 2 : 1
-    ) as LeaderboardEntry["sbtLevel"];
-    return {
-      rank: i + 1,
-      wallet:
-        `0x${(0xa0 + i).toString(16).padStart(2, "0")}${"f3c7d9b1a5e2".repeat(5)}`.slice(
-          0,
-          66,
-        ),
-      displayName: LEADERBOARD_NAMES[i] ?? null,
-      tier: sbtLevel === 3 ? "Pro" : sbtLevel === 2 ? "Basic" : "Starter",
-      sbtLevel,
-      shadowPnl: Number((18_000 * (1 - i / 14) * (0.9 + r() * 0.2)).toFixed(2)),
-      passes: Math.max(1, 6 - Math.floor(i / 2)),
-      consistency: Number((96 - i * 3.4 + r() * 4).toFixed(1)),
-    };
-  },
-);
-
 export const DEMO_PROFILE_EVALS: VaultSummary[] = [
   {
     vaultId: "vault_starter_001",
@@ -405,9 +365,33 @@ export const DEMO_PROFILE_EVALS: VaultSummary[] = [
 ];
 
 export function buildProfile(wallet: string): Profile {
+  // Only the curated demo wallet carries showcase numbers. A real wallet starts
+  // empty here — its true figures come from the on-chain overlay, and anything
+  // with no on-chain source stays blank rather than invented.
+  if (wallet !== DEMO_WALLET) {
+    return {
+      wallet,
+      displayName: null,
+      joinedAt: 0,
+      sbt: {
+        owner: wallet,
+        level: 0,
+        passedTiers: [],
+        lastLevelUpAt: null,
+        objectId: null,
+        cohort: "v1 Genesis",
+      },
+      highestTier: "—",
+      evaluations: [],
+      shadowPnl: 0,
+      passes: 0,
+      fails: 0,
+      consistency: 0,
+    };
+  }
   return {
     wallet,
-    displayName: wallet === DEMO_WALLET ? "satoshi.sui" : null,
+    displayName: "satoshi.sui",
     joinedAt: SEED_NOW - 45 * DAY,
     sbt: { ...DEMO_SBT, owner: wallet },
     highestTier: "Basic",

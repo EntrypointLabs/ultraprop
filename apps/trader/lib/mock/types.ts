@@ -171,23 +171,22 @@ export interface SbtState {
   cohort: string;
 }
 
-export type LeaderboardAxis = "tier" | "shadowPnl" | "passes" | "consistency";
+export type LeaderboardAxis = "tier" | "shadowPnl" | "passes";
 
 export type LeaderboardWindow = "all" | "weekly" | "daily";
 
 export interface LeaderboardEntry {
   rank: number;
   wallet: string;
+  /** no on-chain display names yet — always null, rendered as the wallet handle */
   displayName: string | null;
   /** highest tier name achieved */
   tier: string;
   sbtLevel: SbtLevel;
-  /** shadow PnL in USD over the window */
+  /** realized simulated PnL in USD over the window */
   shadowPnl: number;
   /** number of evaluations passed */
   passes: number;
-  /** consistency score 0..100 */
-  consistency: number;
 }
 
 export interface Profile {

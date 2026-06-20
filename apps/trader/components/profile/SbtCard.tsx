@@ -16,7 +16,6 @@ interface SbtCardProps {
   sbt: SbtState;
   shadowPnl: number;
   passes: number;
-  totalTrades: number;
 }
 
 const LEVEL_META: Record<
@@ -150,7 +149,7 @@ const TIER_ROW = [
   { id: "pro" as const, label: "Pro" },
 ];
 
-export function SbtCard({ sbt, shadowPnl, passes, totalTrades }: SbtCardProps) {
+export function SbtCard({ sbt, shadowPnl, passes }: SbtCardProps) {
   const meta = LEVEL_META[sbt.level];
   const lastActive = sbt.lastLevelUpAt
     ? new Date(sbt.lastLevelUpAt).toLocaleDateString("en-US", {
@@ -215,14 +214,6 @@ export function SbtCard({ sbt, shadowPnl, passes, totalTrades }: SbtCardProps) {
                 className={`tabular text-sm font-semibold mt-0.5 ${shadowPnl >= 0 ? "text-up" : "text-down"}`}
               >
                 {formatUsd(shadowPnl, { sign: true })}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs uppercase tracking-wide text-text-muted">
-                Total Trades
-              </div>
-              <div className="tabular text-sm font-semibold text-text mt-0.5">
-                {totalTrades}
               </div>
             </div>
             <div>

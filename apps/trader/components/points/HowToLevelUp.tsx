@@ -12,7 +12,7 @@ const STEPS = [
   },
   {
     title: "Climb the cohort leaderboard",
-    body: "Ranked by highest tier, simulated P&L, passes, and consistency. Your standing is visible to the whole cohort.",
+    body: "Ranked by highest tier, simulated P&L, and passes. Your standing is visible to the whole cohort.",
   },
   {
     title: "Build a verifiable track record",

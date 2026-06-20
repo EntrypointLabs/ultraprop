@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import {
   accounts,
@@ -149,4 +149,127 @@ export async function completeIdempotency(
     .update(idempotencyKeys)
     .set({ result })
     .where(eq(idempotencyKeys.key, key));
+}
+
+/** Aggregate cohort figures, read straight from the account/position ledger. */
+export interface CohortStatsRow {
+  members: number;
+  activeEvaluations: number;
+  totalPasses: number;
+  totalFails: number;
+  /** median realized-return % across passed accounts (0 when there are none) */
+  medianPasserReturnPct: number;
+}
+
+/**
+ * Real cohort stats from the ledger: account counts by lifecycle status, and the
+ * median realized return of passed accounts (summed closed-position PnL over
+ * their starting equity). No fixtures — every figure is a row count.
+ */
+export async function getCohortStats(db: Database): Promise<CohortStatsRow> {
+  const statusRows = await db
+    .select({ status: accounts.status, n: sql<number>`count(*)::int` })
+    .from(accounts)
+    .groupBy(accounts.status);
+
+  let members = 0;
+  let activeEvaluations = 0;
+  let totalPasses = 0;
+  let totalFails = 0;
+  for (const row of statusRows) {
+    members += row.n;
+    if (row.status === "evaluating") activeEvaluations += row.n;
+    else if (row.status === "passed") totalPasses += row.n;
+    else if (row.status === "failed" || row.status === "suspended")
+      totalFails += row.n;
+  }
+
+  const passers = await db
+    .select({
+      startingEquity: accounts.startingEquity,
+      pnl: sql<string>`coalesce(sum(${positions.realizedPnl}) filter (where ${positions.status} = 'closed'), 0)`,
+    })
+    .from(accounts)
+    .leftJoin(positions, eq(positions.accountId, accounts.accountId))
+    .where(eq(accounts.status, "passed"))
+    .groupBy(accounts.accountId, accounts.startingEquity);
+
+  const returns = passers
+    .map((p) => {
+      const equity = Number(p.startingEquity);
+      return equity > 0 ? (Number(p.pnl) / equity) * 100 : 0;
+    })
+    .sort((a, b) => a - b);
+  const mid = Math.floor(returns.length / 2);
+  const medianPasserReturnPct =
+    returns.length === 0
+      ? 0
+      : returns.length % 2 === 1
+        ? returns[mid]
+        : (returns[mid - 1] + returns[mid]) / 2;
+
+  return {
+    members,
+    activeEvaluations,
+    totalPasses,
+    totalFails,
+    medianPasserReturnPct,
+  };
+}
+
+/** One trader's standing on the leaderboard, read from the ledger. */
+export interface LeaderboardRow {
+  /** the Sui address that owns the account (the trader identity) */
+  owner: string;
+  tier: string;
+  status: string;
+  /** realized PnL (USD) summed over closed positions within the window */
+  shadowPnl: number;
+  /** evaluations passed (0 or 1 in v1 — one account per owner) */
+  passes: number;
+}
+
+/**
+ * Per-trader standings from the ledger: realized PnL summed over each account's
+ * closed positions, plus tier and pass status straight from the account row. No
+ * fixtures — every number is an aggregate of real rows. `sinceMs` (when given)
+ * windows the PnL to positions closed at or after that instant; tier and pass
+ * status are always the current snapshot. Ordering and ranking are the caller's
+ * job, so one query serves every axis.
+ */
+export async function getLeaderboard(
+  db: Database,
+  opts: { sinceMs?: number } = {},
+): Promise<LeaderboardRow[]> {
+  const closedInWindow =
+    opts.sinceMs !== undefined
+      ? and(
+          eq(positions.status, "closed"),
+          gte(positions.closedAt, new Date(opts.sinceMs)),
+        )
+      : eq(positions.status, "closed");
+
+  const rows = await db
+    .select({
+      owner: accounts.owner,
+      tier: accounts.tier,
+      status: accounts.status,
+      pnl: sql<string>`coalesce(sum(${positions.realizedPnl}) filter (where ${closedInWindow}), 0)`,
+    })
+    .from(accounts)
+    .leftJoin(positions, eq(positions.accountId, accounts.accountId))
+    .groupBy(
+      accounts.accountId,
+      accounts.owner,
+      accounts.tier,
+      accounts.status,
+    );
+
+  return rows.map((row) => ({
+    owner: row.owner,
+    tier: row.tier,
+    status: row.status,
+    shadowPnl: Number(row.pnl),
+    passes: row.status === "passed" ? 1 : 0,
+  }));
 }

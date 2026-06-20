@@ -17,18 +17,19 @@ export function TopTraderSpotlight() {
 
   const profileWallet = leader?.wallet ?? DEMO_WALLET;
 
-  const chartSeries = equityCurve.length > 0
-    ? [
-        {
-          data: equityCurve.map((p) => ({ t: p.ts, v: p.equity })),
-          type: "area" as const,
-          color: "#e5484d",
-          topColor: "rgba(229,72,77,0.28)",
-          bottomColor: "rgba(229,72,77,0.02)",
-          lineWidth: 2 as 1 | 2 | 3,
-        },
-      ]
-    : [];
+  const chartSeries =
+    equityCurve.length > 0
+      ? [
+          {
+            data: equityCurve.map((p) => ({ t: p.ts, v: p.equity })),
+            type: "area" as const,
+            color: "#e5484d",
+            topColor: "rgba(229,72,77,0.28)",
+            bottomColor: "rgba(229,72,77,0.02)",
+            lineWidth: 2 as 1 | 2 | 3,
+          },
+        ]
+      : [];
 
   const startEquity = equityCurve[0]?.equity ?? 10_000;
   const lastEquity = equityCurve[equityCurve.length - 1]?.equity ?? startEquity;
@@ -112,10 +113,10 @@ export function TopTraderSpotlight() {
         </div>
         <div className="rounded-[var(--radius)] bg-surface-2 px-3 py-2.5">
           <div className="text-xs uppercase tracking-wide text-text-muted">
-            Consistency
+            Tier
           </div>
           <div className="tabular mt-1 text-sm font-semibold text-text">
-            {(leader?.consistency ?? 0).toFixed(1)}
+            {leader?.tier ?? "—"}
           </div>
         </div>
       </div>

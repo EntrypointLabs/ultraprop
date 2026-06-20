@@ -41,8 +41,6 @@ function axisPrimaryValue(
       return formatUsd(entry.shadowPnl, { sign: true });
     case "passes":
       return `${entry.passes} passes`;
-    case "consistency":
-      return `${entry.consistency.toFixed(1)}`;
     case "tier":
       return entry.tier;
   }
@@ -54,8 +52,6 @@ function axisSecondaryLabel(axis: LeaderboardAxis): string {
       return "Simulated P&L";
     case "passes":
       return "Passes";
-    case "consistency":
-      return "Consistency";
     case "tier":
       return "Tier";
   }

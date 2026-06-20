@@ -8,9 +8,7 @@ import { suiWalletAddress } from "@/lib/auth";
 import { openVenueFeed } from "@/lib/feed/venueFeed";
 import {
   buildProfile,
-  DEMO_COHORT,
   DEMO_EQUITY_CURVE,
-  DEMO_LEADERBOARD,
   DEMO_POSITIONS,
   DEMO_SBT,
   DEMO_TRADES,
@@ -404,6 +402,11 @@ export function useSbt(address?: string): SbtState {
   return data ?? DEMO_SBT;
 }
 
+/**
+ * Real leaderboard from the ledger via `/api/leaderboard`, ranked by the chosen
+ * axis over the chosen window. With no ledger the API reports `available: false`
+ * and this returns an honest empty board — never a fixture.
+ */
 export function useLeaderboard(opts: {
   axis: LeaderboardAxis;
   window: LeaderboardWindow;
@@ -411,55 +414,24 @@ export function useLeaderboard(opts: {
   const { axis, window } = opts;
   const { data } = useQuery({
     queryKey: ["leaderboard", axis, window],
-    queryFn: () => sortLeaderboard(windowView(DEMO_LEADERBOARD, window), axis),
-    initialData: sortLeaderboard(windowView(DEMO_LEADERBOARD, window), axis),
-    staleTime: Infinity,
+    queryFn: async (): Promise<LeaderboardEntry[]> => {
+      try {
+        const res = await fetch(
+          `/api/leaderboard?axis=${axis}&window=${window}`,
+        );
+        const body = (await res.json()) as {
+          available?: boolean;
+          entries?: LeaderboardEntry[];
+        };
+        if (!body?.available) return [];
+        return body.entries ?? [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60_000,
   });
-  return data ?? DEMO_LEADERBOARD;
-}
-
-/**
- * Project the seeded all-time leaderboard onto a time window. "All-time" is the
- * full cumulative set; "This Cohort" (the current weekly window) is the subset
- * that has been active THIS week — fewer rows, and only the slice of each
- * trader's cumulative PnL/passes booked inside the window. The two views are
- * genuinely different sets and numbers, not the same rows relabeled.
- *
- * Deterministic off the seed: a trader's weekly share is a fixed fraction of
- * their cumulative figure, and the "active this week" subset is the cohort
- * minus the few members with no recent activity (the lowest cumulative passes).
- */
-function windowView(
-  entries: LeaderboardEntry[],
-  window: LeaderboardWindow,
-): LeaderboardEntry[] {
-  if (window === "all") return entries;
-  // Weekly: keep only traders active this week (drop the long-dormant tail),
-  // and scale cumulative figures down to this week's contribution.
-  const WEEKLY_FRACTION = 0.18;
-  return entries
-    .filter((e) => e.passes >= 2)
-    .map((e) => ({
-      ...e,
-      shadowPnl: Number((e.shadowPnl * WEEKLY_FRACTION).toFixed(2)),
-      passes: Math.max(1, Math.round(e.passes * WEEKLY_FRACTION)),
-    }));
-}
-
-function sortLeaderboard(
-  entries: LeaderboardEntry[],
-  axis: LeaderboardAxis,
-): LeaderboardEntry[] {
-  const cmp: Record<
-    LeaderboardAxis,
-    (a: LeaderboardEntry, b: LeaderboardEntry) => number
-  > = {
-    tier: (a, b) => b.sbtLevel - a.sbtLevel,
-    shadowPnl: (a, b) => b.shadowPnl - a.shadowPnl,
-    passes: (a, b) => b.passes - a.passes,
-    consistency: (a, b) => b.consistency - a.consistency,
-  };
-  return [...entries].sort(cmp[axis]).map((e, i) => ({ ...e, rank: i + 1 }));
+  return data ?? [];
 }
 
 export function useProfile(wallet: string): Profile {
@@ -476,14 +448,59 @@ export function useCohort(): CohortStats {
   return useCohortStats();
 }
 
+/** Next weekly window reset — Monday 00:00 UTC; a fixed schedule, not data. */
+function nextWeeklyResetMs(): number {
+  const now = new Date();
+  const daysUntilMon = (8 - now.getUTCDay()) % 7 || 7;
+  return Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + daysUntilMon,
+  );
+}
+
+function emptyCohort(): CohortStats {
+  return {
+    cohort: "v1 Genesis",
+    members: 0,
+    activeEvaluations: 0,
+    totalPasses: 0,
+    passRate: 0,
+    weekResetsAt: nextWeeklyResetMs(),
+    medianPasserReturnPct: 0,
+  };
+}
+
+/**
+ * Real cohort stats from the ledger via `/api/cohort/stats`. With no ledger the
+ * API reports `available: false` and this returns honest zeros — never a fixture.
+ */
 export function useCohortStats(): CohortStats {
   const { data } = useQuery({
-    queryKey: ["cohort"],
-    queryFn: () => DEMO_COHORT,
-    initialData: DEMO_COHORT,
-    staleTime: Infinity,
+    queryKey: ["cohort-stats"],
+    queryFn: async (): Promise<CohortStats> => {
+      const base = emptyCohort();
+      try {
+        const res = await fetch("/api/cohort/stats");
+        const body = (await res.json()) as Partial<CohortStats> & {
+          available?: boolean;
+        };
+        if (!body?.available) return base;
+        return {
+          ...base,
+          members: body.members ?? 0,
+          activeEvaluations: body.activeEvaluations ?? 0,
+          totalPasses: body.totalPasses ?? 0,
+          passRate: body.passRate ?? 0,
+          medianPasserReturnPct: body.medianPasserReturnPct ?? 0,
+        };
+      } catch {
+        return base;
+      }
+    },
+    staleTime: 60_000,
   });
-  return data ?? DEMO_COHORT;
+  return data ?? emptyCohort();
 }
 
 /* ------------------------------------------------------------------ */
