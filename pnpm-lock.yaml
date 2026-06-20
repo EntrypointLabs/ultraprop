@@ -34,6 +34,9 @@ importers:
       '@privy-io/react-auth':
         specifier: ^3.29.2
         version: 3.29.2(@solana-program/system@0.10.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)))(@solana-program/token@0.9.0(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)))(@solana/kit@5.5.1(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10))(@solana/sysvars@5.5.1(typescript@5.9.3))(@tanstack/query-core@5.101.0)(@tanstack/react-query@5.101.0(react@19.2.7))(@types/react@19.2.17)(bufferutil@4.1.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.7))(utf-8-validate@5.0.10)(zod@3.25.76)
+      '@shared/sim-core':
+        specifier: workspace:*
+        version: link:../../packages/shared/sim-core
       '@shared/venues':
         specifier: workspace:*
         version: link:../../packages/shared/venues
@@ -142,6 +145,8 @@ importers:
   packages/shared/contracts-abi: {}
 
   packages/shared/events: {}
+
+  packages/shared/sim-core: {}
 
   packages/shared/venues:
     dependencies:

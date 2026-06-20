@@ -18,6 +18,7 @@
     "@mysten/sui": "^2.19.0",
     "@privy-io/node": "^0.21.0",
     "@privy-io/react-auth": "^3.29.2",
+    "@shared/sim-core": "workspace:*",
     "@shared/venues": "workspace:*",
     "@tanstack/react-query": "^5.101.0",
     "canvas-confetti": "^1.9.4",

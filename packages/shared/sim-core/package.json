@@ -1,0 +1,14 @@
+{
+  "name": "@shared/sim-core",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "tsc -b --watch --preserveWatchOutput",
+    "build": "tsc -b --force",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src"
+  }
+}

@@ -5,9 +5,9 @@ const nextConfig: NextConfig = {
   // Monorepo root for build-trace file collection (silences the multi-lockfile
   // warning from a stray lockfile in the home directory).
   outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
-  // The venue adapter is a workspace package consumed by the gateway; transpile
-  // it so Next bundles it cleanly across the monorepo.
-  transpilePackages: ["@shared/venues"],
+  // Workspace packages consumed by the app; transpile them so Next bundles them
+  // cleanly across the monorepo. sim-core is the shared paper-engine math.
+  transpilePackages: ["@shared/venues", "@shared/sim-core"],
   // Same-origin proxy to the venue gateway. The browser only ever calls
   // same-origin `/api/*`; the venue layer (keys, rate-limits, CORS) stays
   // server-side. `/api/feed` is SSE — Next's rewrite proxy streams the response
