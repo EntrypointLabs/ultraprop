@@ -4,7 +4,7 @@ import { CohortStatsStrip } from "@/components/cohort/CohortStatsStrip";
 import { ActiveEvalCard } from "@/components/markets/ActiveEvalCard";
 import { userVaultId } from "@/lib/auth";
 import { DEMO_VAULT_ID } from "@/lib/mock/fixtures";
-import { useSession, useVault } from "@/lib/mock/hooks";
+import { useSession } from "@/lib/mock/hooks";
 import { useSimStore } from "@/lib/sim/store";
 import { HeroCarousel } from "./HeroCarousel";
 import { HeroRail } from "./HeroRail";
@@ -13,20 +13,18 @@ import { HomeSectionHeader } from "./HomeSectionHeader";
 
 export function HomeScreen() {
   const { session } = useSession();
-  const demoVault = useVault(DEMO_VAULT_ID);
-  // A returning signed-in user gets back to their cockpit via the Resume card,
-  // keyed to THEIR per-user vault (not the demo vault). Read that vault's real
-  // status from the persisted sim store. Signed-out visitors keep the demo
-  // path: the card shows whenever the seeded demo vault is active.
+  const signedIn = session.status === "connected" && Boolean(session.address);
+  // A returning signed-in user resumes via the Resume card, keyed to THEIR
+  // per-user vault and read from the persisted sim store. The card is shown only
+  // while a signed-in trader's own evaluation is still active — a signed-out
+  // visitor never sees it (the demo vault is always "active").
   const userVault = useSimStore((s) =>
     session.address ? s.vaults[userVaultId(session.address)] : undefined,
   );
-  const signedIn = session.status === "connected" && Boolean(session.address);
+  const showActive = signedIn && userVault?.status === "active";
   const activeVaultId = signedIn
     ? userVaultId(session.address as string)
     : DEMO_VAULT_ID;
-  const activeStatus = signedIn ? userVault?.status : demoVault.status;
-  const showActive = activeStatus === "active";
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-8 px-4 py-8 sm:px-6">

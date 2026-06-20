@@ -23,7 +23,7 @@ export function StaleFeedBanner() {
         {reconnecting && (
           <div
             role="status"
-            className="sticky top-14 z-30 flex items-center justify-center gap-2 border-b border-warn/30 bg-warn/10 px-4 py-1.5 text-xs text-warn/90"
+            className="fixed inset-x-0 top-[58px] z-30 flex items-center justify-center gap-2 border-b border-warn/30 bg-warn/10 px-4 py-1.5 text-xs text-warn/90 backdrop-blur-sm"
           >
             <Loader2
               className="h-3.5 w-3.5 shrink-0 animate-spin"
@@ -50,7 +50,7 @@ export function StaleFeedBanner() {
   return (
     <div
       role="alert"
-      className="sticky top-14 z-30 flex items-center justify-center gap-2 border-b border-warn/40 bg-warn/15 px-4 py-2 text-sm text-warn"
+      className="fixed inset-x-0 top-[58px] z-30 flex items-center justify-center gap-2 border-b border-warn/40 bg-warn/15 px-4 py-2 text-sm text-warn backdrop-blur-sm"
     >
       <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
       <span>{STALE_COPY}</span>

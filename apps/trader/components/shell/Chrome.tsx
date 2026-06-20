@@ -8,8 +8,18 @@ import { OnboardingModal } from "@/components/shell/OnboardingModal";
 import { PixelTopBorder } from "@/components/shell/PixelTopBorder";
 import { StaleFeedBanner } from "@/components/shell/StaleFeedBanner";
 import { TopNav } from "@/components/shell/TopNav";
+import { cn } from "@/lib/utils";
 
 const AUTH_PREFIXES = ["/signup", "/login", "/onboarding"];
+
+/**
+ * The live cockpit (`/evaluation/<vaultId>`, not its terminal sub-screens) runs
+ * as a full-viewport trading shell: no footer, no welcome modal, and the page
+ * itself never scrolls — its two columns scroll on their own.
+ */
+function isCockpitPath(pathname: string): boolean {
+  return /^\/evaluation\/[^/]+$/.test(pathname);
+}
 
 /**
  * Renders the app chrome (nav, footer, global modals) on normal routes and
@@ -23,16 +33,29 @@ export function Chrome({ children }: { children: React.ReactNode }) {
 
   if (isAuth) return <>{children}</>;
 
+  const isCockpit = isCockpitPath(pathname);
+
   return (
     <>
       <PixelTopBorder />
       <TopNav />
       <StaleFeedBanner />
-      <main id="main-content" className="flex-1">
+      <main
+        id="main-content"
+        className={cn(
+          "flex-1",
+          // Desktop cockpit: a definite height (viewport minus the 8px pixel
+          // border + 50px sticky nav) makes this a height-bounded flex column,
+          // so the trading grid fills the screen and its columns own their own
+          // scroll while the page itself never scrolls.
+          isCockpit &&
+            "lg:flex lg:h-[calc(100dvh-58px)] lg:flex-none lg:flex-col lg:overflow-hidden",
+        )}
+      >
         {children}
       </main>
-      <Footer />
-      <OnboardingModal />
+      {!isCockpit && <Footer />}
+      {!isCockpit && <OnboardingModal />}
       <LoginModal />
     </>
   );

@@ -3,7 +3,7 @@
 import {
   Activity,
   AlertTriangle,
-  ArrowLeftRight,
+  ArrowUpDown,
   CheckCircle2,
   ChevronDown,
   Clock,
@@ -14,7 +14,6 @@ import {
 import * as React from "react";
 import {
   AssetIcon,
-  Badge,
   Button,
   CardLabel,
   Input,
@@ -81,7 +80,7 @@ type SubmitState =
 
 const TP_PRESETS = [25, 50, 75, 100, 500, 900] as const;
 const SL_PRESETS = [5, 10, 25, 50, 75] as const;
-const SIZE_PRESETS = [250, 500, 1000, 2500] as const;
+const LEVERAGE_PRESETS = [1, 10, 25, 50, 75, 100] as const;
 
 /* -------------------------------------------------------------------------- */
 /* Uncontrolled symbol tab (secondary — only rendered without a marketId prop) */
@@ -145,6 +144,11 @@ function SideToggle({
   const tick = usePrice(symbol);
   const markPx = tick?.markPx ?? null;
 
+  const priceLabel =
+    markPx != null
+      ? formatUsd(markPx, { decimals: markPx > 100 ? 1 : 4 })
+      : null;
+
   return (
     <div className="grid grid-cols-2 gap-1.5">
       <button
@@ -152,19 +156,28 @@ function SideToggle({
         aria-pressed={value === "long"}
         onClick={() => onValueChange("long")}
         className={cn(
-          "flex flex-col items-center gap-0.5 rounded-[var(--radius-sm)] border py-2.5 text-sm font-semibold transition-colors",
+          "flex flex-col items-start gap-0.5 rounded-[var(--radius-sm)] border px-3 py-2.5 transition-colors",
           value === "long"
-            ? "border-up bg-up/15 text-on-up"
-            : "border-border bg-transparent text-text-muted hover:border-up/40 hover:text-up",
+            ? "border-up bg-up/15"
+            : "border-border bg-transparent hover:border-up/40",
         )}
       >
-        <div className="flex items-center gap-1.5">
-          <TrendingUp className="h-4 w-4" />
+        <span
+          className={cn(
+            "text-sm font-semibold",
+            value === "long" ? "text-up" : "text-text-muted",
+          )}
+        >
           Long
-        </div>
-        {markPx != null && (
-          <span className="tabular text-xs font-normal opacity-70">
-            {formatUsd(markPx, { decimals: markPx > 100 ? 2 : 4 })}
+        </span>
+        {priceLabel != null && (
+          <span
+            className={cn(
+              "tabular text-base font-semibold leading-none",
+              value === "long" ? "text-up" : "text-text-faint",
+            )}
+          >
+            {priceLabel}
           </span>
         )}
       </button>
@@ -173,19 +186,28 @@ function SideToggle({
         aria-pressed={value === "short"}
         onClick={() => onValueChange("short")}
         className={cn(
-          "flex flex-col items-center gap-0.5 rounded-[var(--radius-sm)] border py-2.5 text-sm font-semibold transition-colors",
+          "flex flex-col items-start gap-0.5 rounded-[var(--radius-sm)] border px-3 py-2.5 transition-colors",
           value === "short"
-            ? "border-down bg-down/15 text-on-down"
-            : "border-border bg-transparent text-text-muted hover:border-down/40 hover:text-down",
+            ? "border-down bg-down/15"
+            : "border-border bg-transparent hover:border-down/40",
         )}
       >
-        <div className="flex items-center gap-1.5">
-          <TrendingDown className="h-4 w-4" />
+        <span
+          className={cn(
+            "text-sm font-semibold",
+            value === "short" ? "text-down" : "text-text-muted",
+          )}
+        >
           Short
-        </div>
-        {markPx != null && (
-          <span className="tabular text-xs font-normal opacity-70">
-            {formatUsd(markPx, { decimals: markPx > 100 ? 2 : 4 })}
+        </span>
+        {priceLabel != null && (
+          <span
+            className={cn(
+              "tabular text-base font-semibold leading-none",
+              value === "short" ? "text-down" : "text-text-faint",
+            )}
+          >
+            {priceLabel}
           </span>
         )}
       </button>
@@ -214,9 +236,9 @@ function LeverageSelector({
 }) {
   const clamp = (n: number) => Math.max(1, Math.min(cap, Math.round(n)));
   const visiblePresets = React.useMemo(() => {
-    const roundHalf = (v: number) => Math.round(v * 2) / 2;
-    const pts = [1, roundHalf(cap / 4), roundHalf(cap / 2), cap];
-    return [...new Set(pts)].filter((v) => v >= 1 && v <= cap);
+    const pts: number[] = LEVERAGE_PRESETS.filter((v) => v <= cap);
+    if (!pts.includes(cap)) pts.push(cap);
+    return [...new Set(pts)].sort((a, b) => a - b);
   }, [cap]);
 
   return (
@@ -224,7 +246,7 @@ function LeverageSelector({
       {/* Row: label + value + margin mode inline */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <CardLabel>Leverage</CardLabel>
+          <span className="text-xs text-text-faint">Leverage</span>
           {/* Compact margin mode — two tiny pills inline with the label */}
           <div className="flex items-center rounded-[var(--radius-sm)] border border-border bg-surface p-0.5">
             {(["cross", "isolated"] as MarginMode[]).map((mode) => {
@@ -251,7 +273,7 @@ function LeverageSelector({
             })}
           </div>
         </div>
-        <span className="tabular text-sm font-bold text-text">{value}×</span>
+        <span className="tabular text-base font-bold text-text">{value}×</span>
       </div>
 
       {/* Slider */}
@@ -274,9 +296,9 @@ function LeverageSelector({
             type="button"
             onClick={() => onValueChange(preset)}
             className={cn(
-              "flex-1 rounded-sm border py-1 text-xs font-medium transition-colors",
+              "flex-1 rounded-[var(--radius-sm)] border py-1.5 text-xs font-medium transition-colors",
               value === preset
-                ? "border-brand/50 bg-brand/15 text-brand"
+                ? "border-border-soft bg-surface-3 text-text"
                 : "border-border bg-transparent text-text-faint hover:border-border-soft hover:text-text-muted",
             )}
           >
@@ -360,9 +382,7 @@ function TpSlSection({
     onChange({
       tpPct: raw,
       tpPrice:
-        price != null && price > 0
-          ? price.toFixed(price > 100 ? 2 : 4)
-          : "",
+        price != null && price > 0 ? price.toFixed(price > 100 ? 2 : 4) : "",
     });
   };
 
@@ -389,9 +409,7 @@ function TpSlSection({
     onChange({
       slPct: raw,
       slPrice:
-        price != null && price > 0
-          ? price.toFixed(price > 100 ? 2 : 4)
-          : "",
+        price != null && price > 0 ? price.toFixed(price > 100 ? 2 : 4) : "",
     });
   };
 
@@ -400,9 +418,7 @@ function TpSlSection({
     onChange({
       tpPct: String(pct),
       tpPrice:
-        price != null && price > 0
-          ? price.toFixed(price > 100 ? 2 : 4)
-          : "",
+        price != null && price > 0 ? price.toFixed(price > 100 ? 2 : 4) : "",
     });
   };
 
@@ -415,9 +431,7 @@ function TpSlSection({
     onChange({
       slPct: String(pct),
       slPrice:
-        price != null && price > 0
-          ? price.toFixed(price > 100 ? 2 : 4)
-          : "",
+        price != null && price > 0 ? price.toFixed(price > 100 ? 2 : 4) : "",
     });
   };
 
@@ -428,14 +442,6 @@ function TpSlSection({
 
   const maxProfit = hasTP ? collateral * (tpPctNum / 100) : null;
   const maxLoss = hasSL ? collateral * (slPctNum / 100) : null;
-
-  // Summary shown on the collapsed header
-  const summary = [
-    hasTP ? `TP ${tpPctNum}%` : null,
-    hasSL ? `SL ${slPctNum}%` : "SL None",
-  ]
-    .filter(Boolean)
-    .join(" / ");
 
   const activeTpPreset = hasTP
     ? (TP_PRESETS.find((p) => p === tpPctNum) ?? null)
@@ -450,21 +456,36 @@ function TpSlSection({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-2.5 transition-colors hover:bg-surface-3"
+        className="flex w-full items-center justify-between px-3 py-3 transition-colors hover:bg-surface-3"
         aria-expanded={open}
       >
-        <span className="text-xs font-semibold text-text-muted">TP / SL</span>
-        <div className="flex items-center gap-2">
-          {(hasTP || hasSL) && (
-            <span className="text-xs text-text-faint">{summary}</span>
-          )}
-          <ChevronDown
+        <span className="flex items-center gap-1.5 text-sm">
+          <span className="text-text-muted">TP</span>
+          <span
             className={cn(
-              "h-3.5 w-3.5 text-text-faint transition-transform duration-200",
-              open && "rotate-180",
+              "tabular",
+              hasTP ? "font-semibold text-up" : "text-text-faint",
             )}
-          />
-        </div>
+          >
+            {hasTP ? `${tpPctNum}%` : "None"}
+          </span>
+          <span className="text-text-faint">/</span>
+          <span className="text-text-muted">SL</span>
+          <span
+            className={cn(
+              "tabular",
+              hasSL ? "font-semibold text-down" : "text-text-faint",
+            )}
+          >
+            {hasSL ? `${slPctNum}%` : "None"}
+          </span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 text-text-faint transition-transform duration-200",
+            open && "rotate-180",
+          )}
+        />
       </button>
 
       {/* Expandable body */}
@@ -600,35 +621,42 @@ function TpSlSection({
 function DisclosureRow({
   label,
   value,
-  separator,
+  info,
   warn,
   highlight,
+  labelExtra,
 }: {
   label: React.ReactNode;
   value: React.ReactNode;
-  separator?: boolean;
+  /** Dotted underline on the label — Ostium's "has a tooltip" affordance. */
+  info?: boolean;
   warn?: boolean;
   highlight?: boolean;
+  labelExtra?: React.ReactNode;
 }) {
   return (
-    <>
-      {separator && <div className="my-1 border-t border-border-soft" />}
-      <div className="flex items-center justify-between gap-2 py-0.5">
-        <span className="text-xs text-text-faint">{label}</span>
+    <div className="flex items-center justify-between gap-2 py-1">
+      <span className="flex items-center gap-1 text-xs text-text-faint">
         <span
-          className={cn(
-            "tabular text-xs",
-            warn
-              ? "text-warn"
-              : highlight
-                ? "font-semibold text-text"
-                : "text-text-muted",
-          )}
+          className={cn(info && "border-b border-dotted border-text-faint/50")}
         >
-          {value}
+          {label}
         </span>
-      </div>
-    </>
+        {labelExtra}
+      </span>
+      <span
+        className={cn(
+          "tabular text-xs",
+          warn
+            ? "text-warn"
+            : highlight
+              ? "font-semibold text-text"
+              : "text-text-muted",
+        )}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 
@@ -806,6 +834,11 @@ export function TradeIntentForm({
   });
   const [lastSubmitAt, setLastSubmitAt] = React.useState<number | null>(null);
   const [priceInfoOpen, setPriceInfoOpen] = React.useState(false);
+  // Estimated-size unit (Ostium's ⇅ swap): size the position either in the asset
+  // (e.g. BTC) or in USD notional. `editingSize` buffers the raw keystrokes while
+  // that field is focused so it can be typed freely before re-deriving.
+  const [sizeUnit, setSizeUnit] = React.useState<"asset" | "usd">("asset");
+  const [editingSize, setEditingSize] = React.useState<string | null>(null);
   const [tpsl, setTpsl] = React.useState<TpSlState>({
     tpPrice: "",
     tpPct: "",
@@ -917,8 +950,7 @@ export function TradeIntentForm({
     vault.equity,
   ]);
 
-  const sizeAsset =
-    markPx != null && markPx > 0 ? sizeUsd / markPx : null;
+  const sizeAsset = markPx != null && markPx > 0 ? sizeUsd / markPx : null;
 
   /* ------------------------------------------------------------------ */
   /* Disable conditions                                                   */
@@ -942,7 +974,8 @@ export function TradeIntentForm({
   // orders may be placed: tradeable = Evaluating (0) or Passed (1); Failed (2)
   // and Suspended (3) block placement. A signed-in wallet with no on-chain
   // account yet must finish onboarding before trading.
-  const onchainGateActive = isSuiConfigured() && !isAuthGated && !isGuestAllowed;
+  const onchainGateActive =
+    isSuiConfigured() && !isAuthGated && !isGuestAllowed;
   const onchainStatus = onchainSummary?.statusCode ?? null;
   const isOnchainBlocked =
     onchainGateActive && (onchainStatus === 2 || onchainStatus === 3);
@@ -1000,10 +1033,8 @@ export function TradeIntentForm({
 
     const tpPrice = parseFloat(tpsl.tpPrice);
     const slPrice = parseFloat(tpsl.slPrice);
-    const capturedTp =
-      Number.isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null;
-    const capturedSl =
-      Number.isFinite(slPrice) && slPrice > 0 ? slPrice : null;
+    const capturedTp = Number.isFinite(tpPrice) && tpPrice > 0 ? tpPrice : null;
+    const capturedSl = Number.isFinite(slPrice) && slPrice > 0 ? slPrice : null;
 
     setSubmitState({ phase: "submitting" });
     setTimeout(() => {
@@ -1044,7 +1075,41 @@ export function TradeIntentForm({
     setSubmitState({ phase: "idle" });
   }, []);
 
-  const leverageLabel = `${effectiveLeverage}×`;
+  const assetSizeLabel =
+    sizeAsset == null
+      ? "0"
+      : sizeAsset < 1
+        ? sizeAsset.toFixed(6)
+        : formatNum(sizeAsset, 4);
+  // Raw (un-grouped) estimated size for the editable field, in the active unit.
+  const estSizeRaw =
+    sizeUsd <= 0
+      ? ""
+      : sizeUnit === "asset"
+        ? assetSizeLabel
+        : String(Math.round(sizeUsd * 100) / 100);
+
+  // Editing the estimated size back-solves the collateral the trader must post,
+  // so the whole form keeps deriving from one source: collateral × leverage =
+  // notional. Asset input converts through the live mark; USD input is notional.
+  const applyEstimatedSize = (raw: string) => {
+    setEditingSize(raw);
+    const entered = parseFloat(raw);
+    if (raw === "" || !Number.isFinite(entered) || entered <= 0) {
+      setRawSize("");
+      return;
+    }
+    const notionalUsd =
+      sizeUnit === "asset"
+        ? markPx != null
+          ? entered * markPx
+          : null
+        : entered;
+    if (notionalUsd == null || effectiveLeverage <= 0) return;
+    const nextCollateral = notionalUsd / effectiveLeverage;
+    setRawSize(clampSize(String(Math.round(nextCollateral * 100) / 100)));
+  };
+
   const displaySymbol =
     market?.symbol ?? (symbol.includes(":") ? symbol.split(":")[1]! : symbol);
 
@@ -1056,18 +1121,15 @@ export function TradeIntentForm({
     <div className="flex w-full flex-col gap-0 overflow-hidden">
       {/* Header */}
       <div className="flex w-full items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-            New Order
-          </span>
-          <Badge variant="leverage">{leverageLabel}</Badge>
-        </div>
-        <span className="text-xs text-text-faint">
+        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+          New Order
+        </span>
+        <span className="tabular text-xs text-text-faint">
           {vault.intentCount}/{vault.tier.intentCap} orders
         </span>
       </div>
 
-      <div className="flex flex-col gap-4 p-4">
+      <div className="flex flex-col gap-3 p-4">
         {/* Symbol picker — only shown when uncontrolled */}
         {!isControlled && (
           <div>
@@ -1088,83 +1150,94 @@ export function TradeIntentForm({
         {/* Side toggle — shows live mark price per side */}
         <SideToggle value={side} onValueChange={setSide} symbol={symbol} />
 
-        {/* Collateral / Size input */}
-        <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <CardLabel>Collateral</CardLabel>
-            <span className="tabular text-xs text-text-faint">
-              Max: {formatUsd(maxSize, { decimals: 0 })}
-            </span>
-          </div>
-          <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-text-muted">
-              $
-            </span>
-            <Input
-              mono
-              type="number"
-              min={1}
-              max={maxSize}
-              step={50}
-              autoComplete="off"
-              value={rawSize}
-              onChange={(e) => setRawSize(clampSize(e.target.value))}
-              placeholder="0"
-              className="pl-7"
-              aria-label="Position size in USD"
-            />
-          </div>
-          {/* Derived display: leveraged exposure and estimated asset size */}
-          {sizeUsd > 0 && (
-            <div className="mt-1 flex items-center justify-between px-0.5">
-              <div className="flex items-center gap-1 text-xs text-text-faint">
-                <span>Exposure</span>
-                <span className="tabular text-text-muted">
-                  {formatUsd(sizeUsd, { decimals: 2 })} · {effectiveLeverage}×
-                </span>
-              </div>
-              {sizeAsset != null && (
-                <div className="flex items-center gap-1 text-xs text-text-faint">
-                  <ArrowLeftRight className="h-3 w-3" />
-                  <span className="tabular text-text-muted">
-                    {sizeAsset < 1
-                      ? sizeAsset.toFixed(6)
-                      : formatNum(sizeAsset, 4)}{" "}
-                    {displaySymbol}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-          {/* Quick-size presets */}
-          <div className="mt-1.5 flex gap-1">
-            {SIZE_PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => setRawSize(clampSize(String(preset)))}
-                className={cn(
-                  "flex-1 rounded-sm border py-1 text-xs transition-colors",
-                  rawSize === String(preset)
-                    ? "border-violet/50 bg-violet/15 text-on-accent"
-                    : "border-border bg-transparent text-text-faint hover:border-border-soft hover:text-text-muted",
-                )}
-              >
-                ${preset >= 1000 ? `${preset / 1000}k` : preset}
-              </button>
-            ))}
-          </div>
+        {/* Available to Trade — sits above the order card, Ostium-style */}
+        <div className="flex items-center justify-between px-1">
+          <span className="border-b border-dotted border-text-faint/50 text-xs text-text-muted">
+            Available to Trade
+          </span>
+          <span className="tabular text-xs text-text-muted">
+            {formatNum(availableBalance, 2)} USDC
+          </span>
         </div>
 
-        {/* Leverage + inline margin mode */}
-        <LeverageSelector
-          value={effectiveLeverage}
-          cap={effectiveLeverageCap}
-          onValueChange={setLeverage}
-          marginMode={effectiveMode}
-          onMarginModeChange={setMarginMode}
-          forcedIsolated={forcedIsolated}
-        />
+        {/* Order card — collateral · estimated size · leverage, each a divided
+            section with a big inline value (matching Ostium's order panel). */}
+        <div className="overflow-hidden rounded-[var(--radius)] border border-border bg-surface-2">
+          {/* Collateral — the margin the trader posts, in USDC */}
+          <div className="flex items-center justify-between gap-3 px-3 py-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="text-xs text-text-faint">Collateral</span>
+              <input
+                inputMode="decimal"
+                type="number"
+                min={1}
+                max={maxSize}
+                step={50}
+                autoComplete="off"
+                value={rawSize}
+                onChange={(e) => setRawSize(clampSize(e.target.value))}
+                placeholder="0"
+                aria-label="Collateral in USDC"
+                className="w-full min-w-0 bg-transparent text-3xl font-medium tabular text-text outline-none placeholder:text-text-faint [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-sm font-semibold text-text">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-info text-[10px] font-bold text-bg">
+                $
+              </span>
+              USDC
+            </span>
+          </div>
+
+          {/* Estimated size — editable; back-fills collateral. ⇅ swaps asset ⇄ USD */}
+          <div className="flex items-center justify-between gap-3 border-t border-border-soft px-3 py-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="text-xs text-text-faint">Estimated Size</span>
+              <input
+                inputMode="decimal"
+                type="text"
+                autoComplete="off"
+                value={editingSize !== null ? editingSize : estSizeRaw}
+                onChange={(e) => applyEstimatedSize(e.target.value)}
+                onBlur={() => setEditingSize(null)}
+                placeholder="0"
+                aria-label={`Estimated size in ${sizeUnit === "asset" ? displaySymbol : "USD"}`}
+                className="w-full min-w-0 bg-transparent text-3xl font-medium tabular text-text outline-none placeholder:text-text-faint"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingSize(null);
+                setSizeUnit((u) => (u === "asset" ? "usd" : "asset"));
+              }}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-sm font-semibold text-text transition-colors hover:bg-surface-3"
+              aria-label="Toggle estimated size unit"
+            >
+              {sizeUnit === "asset" ? (
+                <AssetIcon symbol={symbol} size={16} />
+              ) : (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-info text-[10px] font-bold text-bg">
+                  $
+                </span>
+              )}
+              {sizeUnit === "asset" ? displaySymbol : "USD"}
+              <ArrowUpDown className="h-3.5 w-3.5 text-text-faint" />
+            </button>
+          </div>
+
+          {/* Leverage + inline margin mode */}
+          <div className="border-t border-border-soft px-3 py-3">
+            <LeverageSelector
+              value={effectiveLeverage}
+              cap={effectiveLeverageCap}
+              onValueChange={setLeverage}
+              marginMode={effectiveMode}
+              onMarginModeChange={setMarginMode}
+              forcedIsolated={forcedIsolated}
+            />
+          </div>
+        </div>
 
         {/* TP/SL collapsible */}
         <TpSlSection
@@ -1244,12 +1317,60 @@ export function TradeIntentForm({
           Simulated · No real funds · Evaluation account
         </p>
 
-        {/* Disclosure rows — Ostium-style dense two-column */}
+        {/* Order info — plain grouped rows below the button, Ostium-style */}
         {preview && sizeUsd > 0 && (
-          <div className="rounded-[var(--radius)] border border-border-soft bg-surface-2 px-3 py-2">
-            <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                Order details
+          <div className="flex flex-col px-1">
+            <DisclosureRow
+              info
+              label="Slippage"
+              value={`${formatNum(preview.slippageBps, 2)} bps`}
+            />
+            <DisclosureRow
+              info
+              label="Simulated spread"
+              value={`${((preview.slippageBps / 10000) * 100).toFixed(4)}%`}
+            />
+
+            <div className="my-1.5 border-t border-border-soft" />
+
+            <DisclosureRow
+              info
+              label="Amount"
+              value={
+                sizeAsset != null ? `${assetSizeLabel} ${displaySymbol}` : "—"
+              }
+            />
+            <DisclosureRow
+              info
+              label="Exposure"
+              value={formatUsd(sizeUsd, { decimals: 2 })}
+            />
+            <DisclosureRow
+              info
+              label="Collateral at Open"
+              value={`${formatNum(collateral, 2)} USDC`}
+            />
+            <DisclosureRow
+              info
+              label="Liquidation Price"
+              value={
+                estLiquidation == null || estLiquidation <= 0
+                  ? "—"
+                  : formatUsd(estLiquidation, { decimals: 2 })
+              }
+            />
+            {effectiveMode === "cross" && estLiquidation != null && (
+              <p className="pb-0.5 text-[10px] leading-tight text-text-faint">
+                Cross liq tracks account value, not leverage set.
+              </p>
+            )}
+
+            <div className="my-1.5 border-t border-border-soft" />
+
+            {/* Fees group — the live-fill explainer lives on this header */}
+            <div className="flex items-center gap-1 py-1 text-xs font-medium text-text-muted">
+              <span className="border-b border-dotted border-text-faint/50">
+                Fees
               </span>
               <Tooltip
                 content={
@@ -1266,73 +1387,37 @@ export function TradeIntentForm({
                   className="flex items-center text-text-faint transition-colors hover:text-text-muted"
                   aria-label="Price details"
                 >
-                  <Info className="h-3.5 w-3.5" />
+                  <Info className="h-3 w-3" />
                 </button>
               </Tooltip>
             </div>
+            <DisclosureRow
+              info
+              warn
+              label="Open"
+              value={`${formatUsd(preview.feeUsd, { decimals: 2 })} (${HL_TAKER_BPS} bps)`}
+            />
+            <DisclosureRow
+              info
+              warn
+              label="Close (est.)"
+              value={`~${formatUsd(preview.feeUsd, { decimals: 2 })}`}
+            />
+            {fundingRate != null && (
+              <DisclosureRow
+                info
+                label="Funding"
+                value={`${(fundingRate * 100).toFixed(4)}% · ${fundingPayer}`}
+              />
+            )}
 
-            <div className="flex flex-col">
-              <DisclosureRow
-                label="Slippage"
-                value={`${formatNum(preview.slippageBps, 2)} bps`}
-              />
-              <DisclosureRow
-                label="Simulated spread"
-                value={`${((preview.slippageBps / 10000) * 100).toFixed(4)}%`}
-              />
-              <DisclosureRow
-                label="Amount"
-                value={
-                  sizeAsset != null
-                    ? `${sizeAsset < 1 ? sizeAsset.toFixed(6) : formatNum(sizeAsset, 4)} ${displaySymbol}`
-                    : "—"
-                }
-              />
-              <DisclosureRow
-                label="Exposure"
-                value={formatUsd(sizeUsd, { decimals: 2 })}
-              />
-              <DisclosureRow
-                label="Collateral at open"
-                value={formatUsd(collateral, { decimals: 2 })}
-              />
-              <DisclosureRow
-                label="Liquidation price"
-                value={
-                  estLiquidation == null || estLiquidation <= 0
-                    ? "—"
-                    : formatUsd(estLiquidation, { decimals: 2 })
-                }
-              />
-              {effectiveMode === "cross" && estLiquidation != null && (
-                <p className="pb-0.5 text-[10px] leading-tight text-text-faint">
-                  Cross liq tracks account value, not leverage set.
-                </p>
-              )}
-              <DisclosureRow
-                label="Fees · open"
-                value={`${formatUsd(preview.feeUsd, { decimals: 2 })} (${HL_TAKER_BPS} bps)`}
-                separator
-                warn
-              />
-              <DisclosureRow
-                label="Fees · close (est.)"
-                value={`~${formatUsd(preview.feeUsd, { decimals: 2 })}`}
-                warn
-              />
-              {fundingRate != null && (
-                <DisclosureRow
-                  label="Funding"
-                  value={`${(fundingRate * 100).toFixed(4)}% · ${fundingPayer}`}
-                />
-              )}
-              <DisclosureRow
-                label="Your fill"
-                value={formatUsd(preview.fill, { decimals: 2 })}
-                separator
-                highlight
-              />
-            </div>
+            <div className="my-1.5 border-t border-border-soft" />
+
+            <DisclosureRow
+              highlight
+              label="Your fill"
+              value={formatUsd(preview.fill, { decimals: 2 })}
+            />
           </div>
         )}
       </div>

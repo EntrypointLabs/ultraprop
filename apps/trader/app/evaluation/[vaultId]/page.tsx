@@ -1,4 +1,5 @@
 import { EvaluationCockpit } from "@/components/evaluation/EvaluationCockpit";
+import { EvaluationGuard } from "@/components/evaluation/EvaluationGuard";
 import { TIERS } from "@/lib/mock/fixtures";
 import type { Tier } from "@/lib/mock/types";
 
@@ -30,11 +31,13 @@ export default async function EvaluationPage({
   // "BTC" → "hyperliquid:BTC"), which the seed-only server catalog can't always
   // do. A null/garbage value leaves the cockpit on its defaults.
   return (
-    <EvaluationCockpit
-      vaultId={vaultId}
-      tier={resolveTier(tier)}
-      initialSymbol={first(symbol)}
-      initialSide={first(side)}
-    />
+    <EvaluationGuard vaultId={vaultId}>
+      <EvaluationCockpit
+        vaultId={vaultId}
+        tier={resolveTier(tier)}
+        initialSymbol={first(symbol)}
+        initialSide={first(side)}
+      />
+    </EvaluationGuard>
   );
 }
