@@ -2,6 +2,7 @@
 
 import { Maximize2, PauseCircle } from "lucide-react";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Candle } from "@/components/charts/HLCandleChart";
 import { DailyResetCountdown } from "@/components/evaluation/DailyResetCountdown";
@@ -440,14 +441,25 @@ export function EvaluationCockpit({
   // Trailing-24h high/low for the selected market, derived from the candles the
   // chart already loaded — HL's per-coin mark feed gives no 24h range, so this
   // reuses fetched data rather than issuing a second per-market request.
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [candles, setCandles] = useState<Candle[]>([]);
   const onChartHistory = useCallback((next: Candle[]) => setCandles(next), []);
   // Clear the prior market's candles on switch so its 24h range never shows
-  // against the new pair while the new history loads.
-  const onMarketChange = useCallback((id: MarketId) => {
-    setCandles([]);
-    setMarketId(id);
-  }, []);
+  // against the new pair while the new history loads, and mirror the selected
+  // pair into the URL (?symbol=) so a refresh or a shared link restores it.
+  const onMarketChange = useCallback(
+    (id: MarketId) => {
+      setCandles([]);
+      setMarketId(id);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("symbol", id);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
   const range24h = useMemo(() => {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
     const recent = candles.filter((c) => c.T >= cutoff);
