@@ -8,7 +8,6 @@ import { suiWalletAddress } from "@/lib/auth";
 import { openVenueFeed } from "@/lib/feed/venueFeed";
 import {
   buildProfile,
-  DEMO_COHORT,
   DEMO_EQUITY_CURVE,
   DEMO_LEADERBOARD,
   DEMO_POSITIONS,
@@ -476,14 +475,59 @@ export function useCohort(): CohortStats {
   return useCohortStats();
 }
 
+/** Next weekly window reset — Monday 00:00 UTC; a fixed schedule, not data. */
+function nextWeeklyResetMs(): number {
+  const now = new Date();
+  const daysUntilMon = (8 - now.getUTCDay()) % 7 || 7;
+  return Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate() + daysUntilMon,
+  );
+}
+
+function emptyCohort(): CohortStats {
+  return {
+    cohort: "v1 Genesis",
+    members: 0,
+    activeEvaluations: 0,
+    totalPasses: 0,
+    passRate: 0,
+    weekResetsAt: nextWeeklyResetMs(),
+    medianPasserReturnPct: 0,
+  };
+}
+
+/**
+ * Real cohort stats from the ledger via `/api/cohort/stats`. With no ledger the
+ * API reports `available: false` and this returns honest zeros — never a fixture.
+ */
 export function useCohortStats(): CohortStats {
   const { data } = useQuery({
-    queryKey: ["cohort"],
-    queryFn: () => DEMO_COHORT,
-    initialData: DEMO_COHORT,
-    staleTime: Infinity,
+    queryKey: ["cohort-stats"],
+    queryFn: async (): Promise<CohortStats> => {
+      const base = emptyCohort();
+      try {
+        const res = await fetch("/api/cohort/stats");
+        const body = (await res.json()) as Partial<CohortStats> & {
+          available?: boolean;
+        };
+        if (!body?.available) return base;
+        return {
+          ...base,
+          members: body.members ?? 0,
+          activeEvaluations: body.activeEvaluations ?? 0,
+          totalPasses: body.totalPasses ?? 0,
+          passRate: body.passRate ?? 0,
+          medianPasserReturnPct: body.medianPasserReturnPct ?? 0,
+        };
+      } catch {
+        return base;
+      }
+    },
+    staleTime: 60_000,
   });
-  return data ?? DEMO_COHORT;
+  return data ?? emptyCohort();
 }
 
 /* ------------------------------------------------------------------ */

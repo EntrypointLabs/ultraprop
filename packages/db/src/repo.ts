@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import {
   accounts,
@@ -149,4 +149,70 @@ export async function completeIdempotency(
     .update(idempotencyKeys)
     .set({ result })
     .where(eq(idempotencyKeys.key, key));
+}
+
+/** Aggregate cohort figures, read straight from the account/position ledger. */
+export interface CohortStatsRow {
+  members: number;
+  activeEvaluations: number;
+  totalPasses: number;
+  totalFails: number;
+  /** median realized-return % across passed accounts (0 when there are none) */
+  medianPasserReturnPct: number;
+}
+
+/**
+ * Real cohort stats from the ledger: account counts by lifecycle status, and the
+ * median realized return of passed accounts (summed closed-position PnL over
+ * their starting equity). No fixtures — every figure is a row count.
+ */
+export async function getCohortStats(db: Database): Promise<CohortStatsRow> {
+  const statusRows = await db
+    .select({ status: accounts.status, n: sql<number>`count(*)::int` })
+    .from(accounts)
+    .groupBy(accounts.status);
+
+  let members = 0;
+  let activeEvaluations = 0;
+  let totalPasses = 0;
+  let totalFails = 0;
+  for (const row of statusRows) {
+    members += row.n;
+    if (row.status === "evaluating") activeEvaluations += row.n;
+    else if (row.status === "passed") totalPasses += row.n;
+    else if (row.status === "failed" || row.status === "suspended")
+      totalFails += row.n;
+  }
+
+  const passers = await db
+    .select({
+      startingEquity: accounts.startingEquity,
+      pnl: sql<string>`coalesce(sum(${positions.realizedPnl}) filter (where ${positions.status} = 'closed'), 0)`,
+    })
+    .from(accounts)
+    .leftJoin(positions, eq(positions.accountId, accounts.accountId))
+    .where(eq(accounts.status, "passed"))
+    .groupBy(accounts.accountId, accounts.startingEquity);
+
+  const returns = passers
+    .map((p) => {
+      const equity = Number(p.startingEquity);
+      return equity > 0 ? (Number(p.pnl) / equity) * 100 : 0;
+    })
+    .sort((a, b) => a - b);
+  const mid = Math.floor(returns.length / 2);
+  const medianPasserReturnPct =
+    returns.length === 0
+      ? 0
+      : returns.length % 2 === 1
+        ? returns[mid]
+        : (returns[mid - 1] + returns[mid]) / 2;
+
+  return {
+    members,
+    activeEvaluations,
+    totalPasses,
+    totalFails,
+    medianPasserReturnPct,
+  };
 }
