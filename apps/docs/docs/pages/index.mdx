@@ -1,0 +1,67 @@
+---
+layout: landing
+title: Ultraprop Docs
+description: "Ultraprop is a proprietary trading firm for crypto traders. Prove your skill against live market prices, build a verifiable track record, and earn access to capital."
+---
+
+import { HomePage } from 'vocs/components'
+
+<HomePage.Root>
+  <HomePage.Tagline>A proprietary trading firm, built for crypto traders</HomePage.Tagline>
+  <HomePage.Description>Prove your skill against live market prices under rules enforced by code, not by a reviewer. Build a verifiable track record, and earn access to the firm's capital.</HomePage.Description>
+  <HomePage.Buttons>
+    <HomePage.Button href="/getting-started" variant="accent">Get started</HomePage.Button>
+    <HomePage.Button href="/how-it-works">How it works</HomePage.Button>
+  </HomePage.Buttons>
+</HomePage.Root>
+
+:::info
+**Where the product is today.** Ultraprop is in **v1 closed beta**: an invite-led,
+paper-trading phase. You trade against live market prices with the full risk engine
+running, but no real capital is at stake and there are no payouts yet. Everything
+marked _funded_ or _v2_ in these docs is the forward plan, not a promise of a return.
+:::
+
+## What Ultraprop is
+
+The model is the one traditional prop firms have run for years (FTMO, Topstep, and the
+like): pay a small evaluation fee, hit a profit target without breaking the risk rules,
+and trade the firm's capital with profits split in your favor. Ultraprop applies that
+model to crypto markets and improves it with what a public blockchain natively offers.
+You never have to touch the chain: sign up with email, and an account is created for
+you behind the scenes.
+
+## Built on disclosure
+
+Confidence here comes from what you can verify, not from adjectives.
+
+- **The math is shown, never hidden.** Before any trade, you see the exact fill you
+  will get: market price, the house tilt, and fees, broken out line by line. See
+  [the fill & slippage model](/transparency/fill-model).
+- **Rules are enforced by code, not a reviewer.** Drawdown, daily loss, profit target,
+  and trade budget are checked by the evaluation contract. No back-office override, no
+  appeal. See [on-chain rule enforcement](/transparency/enforcement).
+- **Your record is yours, and it is verifiable.** Every pass and credential is recorded
+  on-chain, so your track record is something you can prove to anyone. See
+  [the Genesis credential](/record/credential).
+
+## The tiers
+
+Three evaluation tiers. Each sets your account size, profit target, and how much room
+you have to lose. The full ruleset is shown before you commit, never behind a click.
+
+| Tier | Account size | Profit target | Max drawdown | Max leverage |
+| --- | --- | --- | --- | --- |
+| **Starter** | $10,000 | 8% | 10% | 10× |
+| **Basic** | $25,000 | 8% | 8% | 8× |
+| **Pro** | $50,000 | 10% | 8% | 8× |
+
+See [tiers & accounts](/evaluations/tiers) for the daily loss limit, trade budget, and
+the full v2 ladder.
+
+## Start here
+
+- [Getting started](/getting-started): from sign-up to your first trade.
+- [How it works](/how-it-works): the whole model on one page.
+- [The rules](/evaluations/rules): exactly what ends an evaluation.
+- [How the platform works](/transparency/enforcement): the technical detail, for transparency.

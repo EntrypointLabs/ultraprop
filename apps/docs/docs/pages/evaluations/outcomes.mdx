@@ -1,0 +1,65 @@
+---
+title: Passing & failing
+description: "How an Ultraprop evaluation ends, passing, breaching a hard rule, or auto-terminating after inactivity, and what happens next."
+---
+
+# Passing & failing
+
+Every evaluation ends in one of three outcomes. All three are decided by the
+[contract](/transparency/enforcement), recorded on-chain, and reflected on your
+[credential](/record/credential).
+
+## Pass
+
+You reach your tier's [profit target](/evaluations/rules) with every rule intact. The
+moment your equity crosses the target with nothing breached, the evaluation is
+complete.
+
+On a pass you'll see a result screen confirming the outcome and your stats. Passing:
+
+- **Levels up your [Genesis credential](/record/credential)** to the tier you just
+  cleared.
+- **Unlocks the next tier** in the ladder (Starter → Basic → Pro).
+- **Moves you up the [leaderboard](/record/leaderboard).**
+- In the funded phase (v2), opens a one-click path to claim a
+  [funded account](/funded/overview).
+
+## Fail (a breach)
+
+You break a **hard rule**: your [maximum drawdown](/evaluations/rules) or your
+**daily loss limit**. The evaluation ends immediately, the instant the breach is
+detected. There are no warnings, no second chances, and no appeal, because the
+outcome isn't a person's judgment, it's the rule's.
+
+The fail screen names **exactly which rule was breached** and shows the trade that
+triggered it, so the outcome is fully explicable from your own record. From there you
+can **retry**. A retry is a fresh evaluation purchase: a brand-new account under the
+same credential. You can re-enter at the same tier, drop to a lower one, or step up.
+
+:::info
+Your credential **accumulates history across attempts.** A failed attempt is part of
+your record, not erased from it: every attempt's outcome is kept and feeds your
+track record over time.
+:::
+
+## Inactive
+
+There is no abandon button. If you stop trading, the evaluation simply waits. After
+**7 days with no activity**, it auto-terminates with an `Inactive` outcome, recorded
+separately from a pass or a fail. To trade again after that, you start a new
+evaluation.
+
+## What a breach looks like under the hood
+
+Because Ultraprop fills against real venue prices, the two hard rules are checked
+**after a fill settles**: the system observes the settled trade, recalculates your
+equity, and if you've crossed the drawdown floor or the daily loss limit, the account
+is **frozen** with the breach reason recorded. No further trade can be booked once an
+account is frozen. This is covered in detail in
+[On-chain rule enforcement](/transparency/enforcement).
+
+## After a funded termination (v2)
+
+In the funded phase, breaking a rule **terminates the funded account**. There is no
+in-place revival. You re-enter the same way as any retry: by purchasing a new
+evaluation under the same credential. See [The funded phase](/funded/overview).

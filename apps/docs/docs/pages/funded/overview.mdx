@@ -1,0 +1,64 @@
+---
+title: From evaluation to funded
+description: "The funded phase (v2), what changes when real capital backs your account, and how you get there."
+---
+
+# From evaluation to funded
+
+:::warning
+**The funded phase is v2: the real-capital phase, not yet live.** Today's closed beta
+is paper-trading only: no real capital, no payouts. This section documents the forward
+plan so you know where the platform is going. Numbers and policies marked _open_ will
+be confirmed before the funded phase ships.
+:::
+
+## What "funded" means
+
+Pass an evaluation in the funded phase and you graduate to a **funded account** backed
+by the firm's real capital. You trade the same surface you trained on, same cockpit,
+same markets, same rules, but now:
+
+- **Real vault capital backs your trading.** Your balance is still *notional* (you
+  never custody the firm's money), but real capital is deployed behind your positions
+  on mainnet venues.
+- **Profits are split** with the firm and **paid out** in stablecoins. See
+  [Profit splits & scaling](/funded/splits) and [Payouts](/funded/payouts).
+- **The rules still bind.** Breaking a hard rule **terminates** the funded account.
+
+## How execution changes
+
+In the closed beta, the platform contract is the only place a trade happens; every
+rule can be checked before a fill. In the funded phase, trades execute on **real
+venues** (spot on Cetus, perpetuals on Bluefin). That changes *when* two of the rules
+are checked, not whether:
+
+- **Pre-trade checks** still reject a trade before it executes: account status,
+  position-size and leverage caps, venue concentration, the rate limit, and a stale
+  price feed.
+- **Drawdown and daily loss** are checked **after the fill settles**: the system
+  observes the real fill, recomputes your equity, and if you've crossed a limit, the
+  account is **frozen** with the breach recorded. This is the honest way to enforce
+  those two rules once a real venue is in the loop. The same model is described in
+  [On-chain rule enforcement](/transparency/enforcement).
+
+## If a funded account is terminated
+
+A drawdown or daily-loss breach on a funded account **ends it**. There's no in-place
+revival. You re-enter by **purchasing a new evaluation** under the same
+[credential](/record/credential), at whatever tier you choose. Your credential keeps
+your full history; the terminated account doesn't come back.
+
+## What carries over from the beta
+
+Everything you build now follows you in. Your [Genesis credential](/record/credential)
+**evolves in place**: it gains real-capital history (funded passes, real P&L, funded
+date, payout history) without ever being re-issued. The
+[leaderboard](/record/leaderboard) and your [public profile](/record/profile) continue
+straight through. The record you build in the closed beta is the foundation of your
+funded standing.
+
+## Tiers in the funded phase
+
+The funded phase adds **Elite** ($100k) and **Whale** ($250k) above Pro, and attaches
+a profit split to every tier. The full ladder is in
+[Profit splits & scaling](/funded/splits).

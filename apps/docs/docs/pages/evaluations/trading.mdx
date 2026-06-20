@@ -1,0 +1,80 @@
+---
+title: Placing trades
+description: "How order entry works on Ultraprop: opening positions, the pre-trade fill preview, and take-profit / stop-loss brackets."
+---
+
+# Placing trades
+
+This page covers the mechanics of trading inside an evaluation: opening a position,
+reading the fill preview, and attaching a take-profit / stop-loss bracket.
+
+## Opening a position
+
+From the cockpit you choose a [market](/evaluations/markets), a **side** (long or
+short), your **size**, **leverage** (within your [tier cap](/evaluations/tiers)), and
+your **margin mode** (cross or isolated). Orders fill at the live market price. This
+is market-order execution; you are not placing a resting limit order.
+
+Before you submit, the cockpit shows you the position's **liquidation price** and the
+exact fill you'll receive.
+
+## The pre-trade fill preview
+
+Ultraprop shows you the price you'll get **before** you commit, broken out line by
+line:
+
+```txt
+  oracle mid price     market reference price
++ size slippage        based on order size and book depth
++ house tilt (+2 bps)  fixed, against you, always shown
+± taker fee  (0.045%)  charged on the fill
+─────────────────────
+= your fill price
+```
+
+The **house tilt** is a fixed +2 basis points against the trader on every fill. It is
+not a hidden spread: it is shown every time, it is identical for every participant,
+and it exists so that a fill in the evaluation is always a touch *worse* than the
+median real fill. A strategy that passes here would also pass on a live venue. The
+full reasoning is in [The fill & slippage model](/transparency/fill-model).
+
+## Take-profit and stop-loss brackets
+
+Any open position can carry a **bracket**: an optional take-profit (TP) and/or
+stop-loss (SL) that closes the position automatically when the market price crosses
+your trigger.
+
+- **Take-profit** closes the position in profit at your target price.
+- **Stop-loss** closes the position to cap a loss at your stop price.
+- You can set the triggers as a **price** or as a **percentage** relative to your
+  entry, using preset pills or a custom value.
+- Brackets can carry an **expiry** (15 minutes, 1 hour, 4 hours, or 1 day); an
+  expired bracket is cancelled without firing.
+
+Brackets are **one-cancels-the-other**: when TP or SL fires (or you close the
+position manually) the other leg is cancelled, so there's never a double-close or an
+orphaned order. A bracket on one position never affects any other position, even one
+on the same market in the opposite direction.
+
+When a bracket fires, the position is closed at the trigger, charged the taker fee,
+and booked to your realized P&L. The close shows in your trade history with its reason
+(`tp` or `sl`).
+
+:::tip
+A stop-loss is the cleanest way to protect your [daily loss limit and drawdown
+headroom](/evaluations/rules) on a position you can't watch. Remember that the close
+itself pays a taker fee.
+:::
+
+## Managing open positions
+
+The cockpit's positions table shows every open position with its size, entry,
+unrealized P&L, liquidation price, and any attached bracket. You can reduce or close a
+position outright, or arm and edit its bracket, at any time. Every fill (open, close,
+reduce, or bracket) lands in your trade history with a timestamp.
+
+## What's coming
+
+Resting **limit and stop-entry orders**, and refinements like trailing stops and
+partial take-profits, are on the [roadmap](/roadmap). Today, entries are market orders
+and exits are managed with brackets or manual closes.

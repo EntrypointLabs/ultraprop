@@ -1,0 +1,111 @@
+---
+title: FAQ
+description: "Common questions about Ultraprop: eligibility, costs, payouts, the credential, fairness, and how the platform works."
+---
+
+# FAQ
+
+## Getting in
+
+### Do I need to know anything about crypto?
+
+No. You sign up with email or a social login, and an account is created for you behind
+the scenes: no wallet, no seed phrase, no gas, no network settings. See
+[Verifiability](/transparency/verifiability) for what's happening underneath, if you're
+curious.
+
+### Is there KYC?
+
+The closed beta is invite-led with no fiat banking surface, so there's no document
+upload or KYC theatre to get started. Lightweight verification may be added later only
+where a jurisdiction requires it.
+
+### How do I get access right now?
+
+Ultraprop is in **closed beta.** Starter evaluations open via an invite code; Basic and
+Pro are started by paying the [evaluation fee](/evaluations/payment).
+
+## The evaluation
+
+### What exactly do I have to do to pass?
+
+Reach your tier's [profit target](/evaluations/rules) (8% or 10%) without breaking a
+hard rule: your maximum drawdown or your daily loss limit. That's it.
+
+### What ends my evaluation early?
+
+Crossing your **maximum drawdown** or your **daily loss limit**. Either one freezes the
+account immediately. There are no warnings and no appeals. See
+[Passing & failing](/evaluations/outcomes).
+
+### Can I get the fee back if I fail?
+
+No. The evaluation fee is non-refundable per attempt. In the [funded phase](/funded/payouts),
+your *first successful payout* refunds your original fee, but that applies to funded
+trading, not to a failed paper evaluation.
+
+### What can I trade?
+
+Crypto **perpetuals**: the Hyperliquid catalog of ~180 markets, long or short, with
+per-market leverage and cross or isolated margin. See [Markets](/evaluations/markets).
+Spot, prediction markets, and airdrop strategies are on the [roadmap](/roadmap).
+
+### What order types are there?
+
+Market-order entries with optional **take-profit / stop-loss brackets** (which can
+carry an expiry). Resting limit and stop-entry orders are on the
+[roadmap](/roadmap). See [Placing trades](/evaluations/trading).
+
+## Fairness & trust
+
+### Who decides if I passed or failed?
+
+The contract does. Rules are [enforced in code](/transparency/enforcement); there's no
+human reviewer, no override, and nothing to appeal. The outcome is whatever the rule
+computed from your trades, and you can verify it yourself.
+
+### Is the slippage hidden?
+
+No. Your exact fill (oracle price, size slippage, the +2 bps house tilt, and the
+taker fee) is shown line by line **before** you submit. See
+[The fill & slippage model](/transparency/fill-model).
+
+### What happens if prices break mid-trade?
+
+If the price feed goes stale, trading **pauses** rather than filling you against a bad
+number. See [Prices & oracles](/transparency/prices).
+
+### Why does the daily limit reset at a weird time for me?
+
+The daily loss limit resets at **00:00 UTC** for everyone; there's no per-trader
+timezone. The cockpit shows a live countdown to the next reset.
+
+## The record
+
+### What's the Genesis credential: is it a token or an airdrop?
+
+**Neither.** It's a non-transferable, on-chain record of what you've proven as a
+trader: proof of skill, not an allocation or a claim on future value. Ultraprop makes
+no token or airdrop promise. See [The Genesis credential](/record/credential).
+
+### Does a failed attempt wipe my record?
+
+No. Your credential accumulates history across every attempt: passes, fails, and
+inactive terminations all stay part of the record.
+
+## Money (funded phase / v2)
+
+### When do real payouts start?
+
+In the **funded phase (v2)**, which is not yet live. The closed beta is paper-trading
+with no real capital and no payouts. See [The funded phase](/funded/overview).
+
+### How big is the profit split?
+
+From **75/25** up to **90/10** in your favor, depending on tier, and it improves as you
+stay profitable. See [Profit splits & scaling](/funded/splits).
+
+### How fast are payouts?
+
+Stablecoin transfers settle in minutes and reach anywhere, with an automatic fiat
+off-ramp: no wire transfer, no bank rejection. See [Payouts](/funded/payouts).

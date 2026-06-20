@@ -17,12 +17,20 @@ onlyBuiltDependencies:
 allowBuilds:
   '@reown/appkit': set this to true or false
   bufferutil: set this to true or false
+  es5-ext: set this to true or false
   esbuild: true
   keccak: set this to true or false
   sharp: false
   utf-8-validate: set this to true or false
 minimumReleaseAgeExclude:
   - '@privy-io/node@0.21.0'
+# apps/docs runs Vocs on React 18 while every other workspace is on React 19. Pin a
+# single @types/react major so the trader's tsc never sees two ReactNode types
+# (the "X cannot be used as a JSX component" error). Docs only typechecks its config,
+# so React-19 types are fine there; its runtime react stays 18.
+overrides:
+  '@types/react': ^19.2.0
+  '@types/react-dom': ^19.2.0
 
 # Rust crates (services/risk-engine, packages/shared/slippage) are intentionally
 # excluded — the root Cargo workspace owns them. Including a Rust crate dir under

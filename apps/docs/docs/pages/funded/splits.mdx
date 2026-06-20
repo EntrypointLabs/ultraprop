@@ -1,0 +1,57 @@
+---
+title: Profit splits & scaling
+description: "The funded-phase profit splits by tier and the scaling ladder that grows a funded account over time."
+---
+
+# Profit splits & scaling
+
+:::warning
+This is **v2**: the funded phase, not yet live. The closed beta has no real capital
+and no profit splits. Definitions marked _open_ below are deliberately not invented;
+they'll be set before the funded phase ships.
+:::
+
+## Profit splits by tier
+
+On a funded account, profits are split between you and the firm. The split improves
+with tier, and the higher tiers keep more for the trader:
+
+| Tier | Eval fee | Account size | Profit target | Max drawdown | Profit split (you / firm) |
+| --- | --- | --- | --- | --- | --- |
+| Starter | $100 | $10,000 | 8% | 10% | 75 / 25 |
+| Basic | $250 | $25,000 | 8% | 10% | 80 / 20 |
+| Pro | $500 | $50,000 | 8% | 10% | 80 / 20 |
+| Elite | $1,000 | $100,000 | 10% | 8% | 85 / 15 |
+| Whale | $2,500 | $250,000 | 10% | 8% | 90 / 10 |
+
+Your split is **locked to your account when it's created**, so later changes to the
+firm's tier configuration never retroactively change an open account.
+
+## The scaling ladder
+
+Funded accounts grow as you stay profitable, reviewed on a monthly cycle:
+
+- **A profitable month** → your account size grows **+25%**.
+- **Three consecutive profitable months** → **+50%**.
+- **Six consistent months** → your profit split improves by **+5 percentage points**,
+  capped at **90 / 10**.
+
+So a Pro trader who strings together a long, clean run can grow a $50,000 account
+materially and improve their split over time, without paying for a higher tier.
+
+:::info
+What counts as a _"profitable month"_ and a _"consistent"_ run (the exact profit
+threshold and any minimum-trading-days requirement) is an **open question** that will
+be defined measurably before the funded phase launches. Pass-rate and scaling
+economics are the firm's most carefully modeled risk, so these aren't numbers anyone
+guesses at.
+:::
+
+## Why the splits look like this
+
+The split is how the firm earns on the traders who succeed, alongside the
+[evaluation fees](/evaluations/payment) from those who don't. Keeping 75–90% with the
+trader is deliberately generous; the firm's edge is in the aggregate across many
+accounts, not in squeezing any one trader. The
+[economics](/how-it-works#why-the-model-works) only hold if good traders are paid
+well enough to stay.

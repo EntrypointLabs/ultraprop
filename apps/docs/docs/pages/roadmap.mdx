@@ -1,0 +1,87 @@
+---
+title: Roadmap
+description: "Where Ultraprop is headed: the funded phase, new order types and venues, and future trading categories like prediction markets and airdrop strategies."
+---
+
+# Roadmap
+
+Ultraprop ships in phases. The closed beta proves the evaluation; later phases add real
+capital, more ways to trade, and more markets. This page is an honest map of what's
+live, what's next, and what's further out, not a set of promises about returns or
+dates.
+
+:::info
+**Status legend.** **Live** is in the product today. **Next** is actively being
+built. **Planned** is on the roadmap and scoped, but not yet started.
+:::
+
+## Live today (v1 closed beta)
+
+- **The evaluation**: paper-trading against live market prices with the full risk
+  engine enforcing [the rules](/evaluations/rules).
+- **Three tiers**: [Starter, Basic, Pro](/evaluations/tiers).
+- **The Hyperliquid perpetuals catalog**: ~180 markets, per-market leverage, cross and
+  isolated margin. See [Markets](/evaluations/markets).
+- **Market orders with take-profit / stop-loss brackets.** See [Placing trades](/evaluations/trading).
+- **The [Genesis credential](/record/credential), [leaderboard](/record/leaderboard),
+  and [public profiles](/record/profile).**
+- **Light and dark themes.**
+
+## Next
+
+- **Live mark & funding fidelity**: streaming venue marks and funding rates, accurate
+  per-market fees, and precise liquidation pricing, so the catalog behaves exactly like
+  the live venue.
+- **Resting order types**: limit and stop-entry orders, beyond today's market-order
+  entries and bracket exits.
+
+## Planned
+
+### The funded phase (v2)
+
+Real capital, [profit splits](/funded/splits), [payouts](/funded/payouts), and the
+**Elite** and **Whale** tiers. This is the big one: it turns a proven track record
+into a real-capital account. See [The funded phase](/funded/overview) for the full
+forward spec.
+
+### More venues
+
+A second perpetuals venue (**Bybit**) and spot execution (**Cetus**) alongside the
+funded phase, with **Suilend** used only to earn yield on idle vault capital. The aim
+is one consistent trading surface across more liquidity.
+
+### New trading categories
+
+The PRD scopes additional categories as first-class evaluation surfaces once real
+settlement exists for them:
+
+- **Prediction markets**: taking positions on event outcomes (the Polymarket-style
+  category). These need real settlement against an external outcome, so they arrive with
+  the real-capital phases, not paper trading.
+- **Airdrop strategies**: using funded capital to run the qualifying on-chain
+  interactions that protocols reward, with the platform taking a cut of what's claimed.
+  This can't be meaningfully paper-traded, so it's a funded-phase category.
+
+Both are explicitly **out of scope for the closed beta** and gated behind the
+infrastructure that makes them real.
+
+### A portable reputation credential
+
+A production reputation system that other protocols can read, so your verified track
+record can unlock access, better terms, or higher limits elsewhere. The closed-beta
+[Genesis credential](/record/credential) is the seed of this; the production schema
+comes once the use cases are visible.
+
+## Further out (ecosystem)
+
+Directional, not committed: a public capital vault where outside capital can back the
+funded pool; community governance over evaluation parameters; a partner program for
+protocols building on trader reputation; and expansion to additional chains and venues
+as liquidity justifies it.
+
+:::warning
+**No token, and no airdrop promise.** Nothing on this roadmap is a token, an
+allocation, or a reward beyond the [profit splits](/funded/splits) described for the
+funded phase. The Genesis credential is proof of trading skill, not a claim on future
+value. See [the credential](/record/credential).
+:::

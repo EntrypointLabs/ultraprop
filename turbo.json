@@ -3,7 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"],
+      "outputs": ["dist/**", ".next/**", "docs/dist/**"],
       "env": [
         "PRIVY_APP_SECRET",
         "SUI_ADMIN_SECRET_KEY",
