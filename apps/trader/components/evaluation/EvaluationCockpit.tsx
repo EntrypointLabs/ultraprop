@@ -157,7 +157,7 @@ function MarketStrip({
   const returnTone = returnPct >= 0 ? "text-up" : "text-down";
 
   return (
-    <div className="rounded-t-[calc(var(--radius-lg)-1px)] border-b border-border bg-surface">
+    <div className="border-b border-border bg-surface">
       {/* Mobile: two-row layout to prevent wrapping chaos.
           Row 1: selector + primary price stats (mark + 24h change).
           Row 2: scrollable secondary stats (range + account + controls).
@@ -582,9 +582,9 @@ export function EvaluationCockpit({
     return <Redirect href={`/evaluation/${vaultId}/inactive`} />;
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 sm:py-8">
-      <div className="flex flex-col overflow-hidden rounded-[var(--radius-lg)] border border-border bg-bg">
-        {/* ── Market stats strip ─────────────────────────────────────────── */}
+    <div className="flex w-full flex-col bg-bg lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+      {/* ── Market stats strip (fixed) ─────────────────────────────────── */}
+      <div className="shrink-0 border-b border-border">
         <MarketStrip
           marketId={marketId}
           onMarketChange={onMarketChange}
@@ -595,49 +595,36 @@ export function EvaluationCockpit({
           onchainEquityUsd={onchainEquityUsd}
           liveUnrealizedUsd={liveUnrealizedUsd}
         />
+      </div>
 
-        {/* ── Main trading grid ──────────────────────────────────────────────
-            Mobile (<md):   single column, everything stacks
-            Tablet (md):    2-col [1fr 320px] — chart+compliance left, order right
-            Desktop (lg+):  2-col [1fr 360px] — same structure, wider order rail  */}
-        <div className="grid grid-cols-1 overflow-hidden md:grid-cols-[1fr_320px] md:grid-rows-[auto_auto] lg:grid-cols-[1fr_360px]">
-          {/* LEFT TOP: chart + compliance strip */}
-          <div className="flex min-w-0 flex-col border-b border-border bg-surface md:col-start-1 md:row-start-1 md:border-r">
-            {/* Live Hyperliquid candle feed for the selected market */}
-            <div className="h-[300px] border-b border-border sm:h-[380px] lg:h-[460px]">
-              <HLCandleChart marketId={marketId} onHistory={onChartHistory} />
-            </div>
-
-            {/* Risk / compliance strip */}
-            <div className="px-3 py-2.5 sm:px-4 sm:py-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-text-faint">
-                  Compliance
-                </span>
-                <span className="text-xs text-text-faint">
-                  click to inspect
-                </span>
-              </div>
-              <RulePills rules={rules} />
-            </div>
+      {/* ── Trading area ───────────────────────────────────────────────────
+          <lg: a single column; the page scrolls normally.
+          lg+: two columns that fill the viewport, each scrolling on its own so
+          the page itself never scrolls (matching Ostium's trade screen). */}
+      <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1 lg:flex-row">
+        {/* LEFT: chart + compliance + positions / orders / history */}
+        <div className="flex min-w-0 flex-col bg-surface lg:min-h-0 lg:flex-1 lg:border-r lg:border-border">
+          {/* Live Hyperliquid candle feed — fixed height on mobile, fills the
+              remaining column height on desktop (the chart auto-resizes). */}
+          <div className="h-[300px] border-b border-border sm:h-[380px] lg:h-auto lg:min-h-0 lg:flex-1">
+            <HLCandleChart marketId={marketId} onHistory={onChartHistory} />
           </div>
 
-          {/* RIGHT: order entry rail — spans the full height of the left column */}
-          <div className="flex min-w-0 flex-col border-b border-border bg-surface md:col-start-2 md:row-span-2 md:row-start-1 md:border-b-0 md:overflow-y-auto">
-            <TradeIntentForm
-              vaultId={vaultId}
-              marketId={marketId}
-              onMarketChange={onMarketChange}
-              onSubmitOrder={submitOrder}
-              isGuestAllowed={isDemoVault && DEMO_TRADING_ENABLED}
-              initialSide={presetSide ?? undefined}
-            />
+          {/* Risk / compliance strip */}
+          <div className="shrink-0 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-faint">
+                Compliance
+              </span>
+              <span className="text-xs text-text-faint">click to inspect</span>
+            </div>
+            <RulePills rules={rules} />
           </div>
 
-          {/* LEFT BOTTOM: positions / trade history / account tabs */}
-          <div className="flex min-w-0 flex-col border-border bg-surface md:col-start-1 md:row-start-2 md:border-r">
+          {/* Positions / orders / history — the table scrolls within this panel */}
+          <div className="flex flex-col lg:h-[240px] lg:min-h-0 lg:shrink-0">
             {/* Tab strip + expand control */}
-            <div className="flex items-center justify-between border-b border-border pr-2">
+            <div className="flex shrink-0 items-center justify-between border-b border-border pr-2">
               <div className="flex items-center gap-0 overflow-x-auto">
                 {BOTTOM_TABS.map((tab) => (
                   <button
@@ -690,9 +677,9 @@ export function EvaluationCockpit({
               )}
             </div>
 
-            {/* Tab content — scrolls both axes so wide tables don't blow out the
-                container on narrow viewports. Desktop gets a fixed height cap. */}
-            <div className="overflow-x-auto overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 md:h-[220px]">
+            {/* Tab content — the scroll region. Scrolls both axes so wide tables
+                stay contained; on desktop it fills the panel's fixed height. */}
+            <div className="overflow-auto px-3 py-3 sm:px-4 sm:py-4 lg:min-h-0 lg:flex-1">
               {showSignInWall ? (
                 <div className="flex h-full min-h-[120px] flex-col items-center justify-center gap-3 text-center">
                   <p className="max-w-xs text-sm text-text-muted">
@@ -706,6 +693,22 @@ export function EvaluationCockpit({
                 activeTabBody
               )}
             </div>
+          </div>
+        </div>
+
+        {/* RIGHT: order entry rail — fixed width; scrolls on its own. The inner
+            wrapper is shrink-0 so the form keeps its natural height (its root is
+            overflow-hidden, which would otherwise let flex shrink + clip it). */}
+        <div className="flex min-w-0 flex-col border-t border-border bg-surface lg:w-[360px] lg:min-h-0 lg:shrink-0 lg:overflow-y-auto lg:border-t-0">
+          <div className="shrink-0">
+            <TradeIntentForm
+              vaultId={vaultId}
+              marketId={marketId}
+              onMarketChange={onMarketChange}
+              onSubmitOrder={submitOrder}
+              isGuestAllowed={isDemoVault && DEMO_TRADING_ENABLED}
+              initialSide={presetSide ?? undefined}
+            />
           </div>
         </div>
       </div>

@@ -7,9 +7,11 @@ import { AccountMenu } from "@/components/shell/AccountMenu";
 import { Logo } from "@/components/shell/Logo";
 import { Button } from "@/components/ui/Button";
 import { Identicon } from "@/components/ui/Identicon";
+import { userVaultId } from "@/lib/auth";
 import { accountHandle } from "@/lib/identity";
 import { useSession } from "@/lib/mock/hooks";
 import { useMockStore } from "@/lib/mock/store";
+import { useAccountSetup } from "@/lib/sui/useTradingAccount";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
@@ -25,14 +27,39 @@ export function TopNav() {
   const openLogin = useMockStore((s) => s.openLogin);
   const signedIn = session.status === "connected";
 
+  // Once the trader has paid for and opened their on-chain account, surface a
+  // direct route to their cockpit so trading is one click from anywhere — no
+  // detour back through the tier picker.
+  const { hasAccount, suiAddress } = useAccountSetup();
+  const tradeHref =
+    hasAccount && suiAddress ? `/evaluation/${userVaultId(suiAddress)}` : null;
+  const tradeActive = pathname.startsWith("/evaluation");
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur">
-      <nav className="mx-auto flex h-14 max-w-[1440px] items-center gap-4 px-4 sm:px-6">
+      <nav className="flex h-14 w-full items-center gap-4 px-4 sm:px-6">
         <Link href="/" className="shrink-0">
           <Logo />
         </Link>
 
         <div className="hidden items-center gap-1 md:flex">
+          {tradeHref && (
+            <Link
+              href={tradeHref}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-semibold transition-[color,background-color] duration-150 ease-out",
+                tradeActive
+                  ? "bg-brand/10 text-brand"
+                  : "text-text hover:bg-brand/10 hover:text-brand",
+              )}
+            >
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-brand"
+                aria-hidden="true"
+              />
+              Trade
+            </Link>
+          )}
           {NAV_LINKS.map((l) => {
             const active =
               l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
