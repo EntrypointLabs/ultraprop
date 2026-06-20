@@ -27,7 +27,13 @@ import { suiWalletAddress } from "@/lib/auth";
 import { accountHandle } from "@/lib/identity";
 import { useProfile, useSbt } from "@/lib/mock/hooks";
 import { useMockStore } from "@/lib/mock/store";
-import { useAccountSetup } from "@/lib/sui/useTradingAccount";
+import type { Profile } from "@/lib/mock/types";
+import { statusFromCode } from "@/lib/sui/onchainRules";
+import { usdcToUsd } from "@/lib/sui/propfirm";
+import {
+  useAccountSetup,
+  useOnchainAccountSummaryFor,
+} from "@/lib/sui/useTradingAccount";
 
 /** Total trades across all evaluations — rough proxy using eval count * a per-eval fixture. */
 const TRADES_PER_EVAL = 12;
@@ -51,8 +57,28 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
   const email = (user as { email?: { address?: string } } | null)?.email
     ?.address;
 
-  const profile = useProfile(wallet);
+  const baseProfile = useProfile(wallet);
   const sbt = useSbt(wallet);
+
+  // Overlay the wallet's verifiable on-chain account (realized equity, status,
+  // tier) on top of the seeded profile. Fields with no on-chain source — the
+  // join date, consistency score, SBT level — keep their seeded values.
+  const onchain = useOnchainAccountSummaryFor(wallet);
+  const profile = React.useMemo<Profile>(() => {
+    const summary = onchain.summary;
+    if (!summary) return baseProfile;
+    const status = statusFromCode(summary.statusCode);
+    return {
+      ...baseProfile,
+      shadowPnl: usdcToUsd(summary.equity) - usdcToUsd(summary.fundedSize),
+      passes: status === "passed" ? 1 : 0,
+      fails: status === "failed" ? 1 : 0,
+      highestTier: summary.tier
+        ? summary.tier.charAt(0).toUpperCase() + summary.tier.slice(1)
+        : baseProfile.highestTier,
+    };
+  }, [baseProfile, onchain.summary]);
+
   const totalTrades = profile.evaluations.length * TRADES_PER_EVAL;
 
   const tabs: ProfileTab[] = [
