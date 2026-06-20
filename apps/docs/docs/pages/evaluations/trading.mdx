@@ -1,6 +1,6 @@
 ---
 title: Placing trades
-description: How order entry works on Ultraprop — opening positions, the pre-trade fill preview, and take-profit / stop-loss brackets.
+description: "How order entry works on Ultraprop: opening positions, the pre-trade fill preview, and take-profit / stop-loss brackets."
 ---
 
 # Placing trades
@@ -12,7 +12,7 @@ reading the fill preview, and attaching a take-profit / stop-loss bracket.
 
 From the cockpit you choose a [market](/evaluations/markets), a **side** (long or
 short), your **size**, **leverage** (within your [tier cap](/evaluations/tiers)), and
-your **margin mode** (cross or isolated). Orders fill at the live market price — this
+your **margin mode** (cross or isolated). Orders fill at the live market price. This
 is market-order execution; you are not placing a resting limit order.
 
 Before you submit, the cockpit shows you the position's **liquidation price** and the
@@ -23,23 +23,24 @@ exact fill you'll receive.
 Ultraprop shows you the price you'll get **before** you commit, broken out line by
 line:
 
-```
-  Oracle mid price        the live reference price
-+ size slippage           based on order size and book depth
-+ house tilt (2 bps)      a fixed tilt against you, always disclosed
-± taker fee (0.045%)      charged on the fill
+```txt
+  oracle mid price     market reference price
++ size slippage        based on order size and book depth
++ house tilt (+2 bps)  fixed, against you, always shown
+± taker fee  (0.045%)  charged on the fill
+─────────────────────
 = your fill price
 ```
 
 The **house tilt** is a fixed +2 basis points against the trader on every fill. It is
-not a hidden spread — it is shown every time, it is identical for every participant,
+not a hidden spread: it is shown every time, it is identical for every participant,
 and it exists so that a fill in the evaluation is always a touch *worse* than the
 median real fill. A strategy that passes here would also pass on a live venue. The
 full reasoning is in [The fill & slippage model](/transparency/fill-model).
 
 ## Take-profit and stop-loss brackets
 
-Any open position can carry a **bracket** — an optional take-profit (TP) and/or
+Any open position can carry a **bracket**: an optional take-profit (TP) and/or
 stop-loss (SL) that closes the position automatically when the market price crosses
 your trigger.
 
@@ -50,8 +51,8 @@ your trigger.
 - Brackets can carry an **expiry** (15 minutes, 1 hour, 4 hours, or 1 day); an
   expired bracket is cancelled without firing.
 
-Brackets are **one-cancels-the-other**: when TP or SL fires — or you close the
-position manually — the other leg is cancelled, so there's never a double-close or an
+Brackets are **one-cancels-the-other**: when TP or SL fires (or you close the
+position manually) the other leg is cancelled, so there's never a double-close or an
 orphaned order. A bracket on one position never affects any other position, even one
 on the same market in the opposite direction.
 
@@ -69,8 +70,8 @@ itself pays a taker fee.
 
 The cockpit's positions table shows every open position with its size, entry,
 unrealized P&L, liquidation price, and any attached bracket. You can reduce or close a
-position outright, or arm and edit its bracket, at any time. Every fill — open, close,
-reduce, or bracket — lands in your trade history with a timestamp.
+position outright, or arm and edit its bracket, at any time. Every fill (open, close,
+reduce, or bracket) lands in your trade history with a timestamp.
 
 ## What's coming
 

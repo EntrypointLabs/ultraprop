@@ -1,35 +1,36 @@
 ---
 title: The fill & slippage model
-description: Exactly how Ultraprop builds your fill price — oracle mid, size slippage, the disclosed house tilt, and fees — and why it's deliberately conservative.
+description: "Exactly how Ultraprop builds your fill price (oracle mid, size slippage, the disclosed house tilt, and fees), and why it's deliberately conservative."
 ---
 
 # The fill & slippage model
 
-When you submit a trade, the price you get isn't the headline market price — it's a
+When you submit a trade, the price you get isn't the headline market price: it's a
 fill built from several components. Ultraprop shows you that build **before** you
 commit, every time. This page documents each piece, because a slippage model you can't
 see is a slippage model you can't trust.
 
 ## The components of a fill
 
-```
-  Oracle mid price        the live reference price for the market
-+ size slippage           larger orders, and thinner books, fill worse
-+ house tilt (+2 bps)     a fixed tilt against you, disclosed every time
-± taker fee (0.045%)      charged on the fill
+```txt
+  oracle mid price     market reference price
++ size slippage        bigger order, thinner book = worse
++ house tilt (+2 bps)  fixed, against you, always shown
+± taker fee  (0.045%)  charged on the fill
+─────────────────────
 = your fill price
 ```
 
 ### Oracle mid price
 
-The live reference price for the market, sourced from real mainnet data — not a
+The live reference price for the market, sourced from real mainnet data, not a
 testnet feed and not a synthetic random walk. See [Prices & oracles](/transparency/prices).
 
 ### Size slippage
 
 Real fills move against you as your order grows relative to available liquidity. The
 model accounts for **order size and book depth**, so a large order in a thin market
-fills worse than a small order in a deep one — exactly as it would on a live venue.
+fills worse than a small order in a deep one, exactly as it would on a live venue.
 
 ### The house tilt
 
@@ -47,7 +48,7 @@ signature, and it's deliberate:
 
 A taker fee is charged on every fill, including the fill that closes a position via a
 [bracket](/evaluations/trading). The reference rate is **0.045%**. Fees feed your
-equity math, which means **fees alone can move you toward your drawdown floor** — a
+equity math, which means **fees alone can move you toward your drawdown floor**. A
 heavily traded account is paying its way down even between wins.
 
 ## Why "show the math" is a principle, not a feature
@@ -62,9 +63,9 @@ execution**. If it weren't:
 
 So the model is shown in full, calibrated against real historical swap data, and tilted
 conservatively. The whole credibility of the platform rests on this number being
-honest — which is why it's never hidden.
+honest, which is why it's never hidden.
 
 :::info
 The model is the same for every trader and every market. There is no "VIP" pricing,
-no per-account spread, and no surprise at submit — the preview is the fill.
+no per-account spread, and no surprise at submit: the preview is the fill.
 :::

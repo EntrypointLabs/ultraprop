@@ -1,6 +1,6 @@
 ---
 title: On-chain rule enforcement
-description: How Ultraprop enforces evaluation rules in code — pre-trade rejections, post-fill invariant checks, and why there's no human override.
+description: "How Ultraprop enforces evaluation rules in code: pre-trade rejections, post-fill invariant checks, and why there's no human override."
 ---
 
 # On-chain rule enforcement
@@ -8,35 +8,35 @@ description: How Ultraprop enforces evaluation rules in code — pre-trade rejec
 The single most important property of an Ultraprop evaluation is that **the rules are
 enforced by code, not by a person.** A smart contract on the Sui blockchain is the
 authority on whether you passed or failed. This page explains how that works, because
-"trust us, it's automatic" isn't good enough — you should understand the mechanism.
+"trust us, it's automatic" isn't good enough. You should understand the mechanism.
 
 ## Two kinds of check
 
 Rules fall into two groups depending on when they can be checked.
 
-### Pre-trade — rejected before the trade happens
+### Pre-trade: rejected before the trade happens
 
 These are asserted *before* a fill, so a trade that would break them never executes:
 
-- **Account status** — a frozen or terminated account can't trade.
-- **Position-size and leverage caps** — bounded by your [tier](/evaluations/tiers) and
+- **Account status**: a frozen or terminated account can't trade.
+- **Position-size and leverage caps**: bounded by your [tier](/evaluations/tiers) and
   the market's own max.
-- **Venue concentration** — limits on how much exposure piles onto a single venue.
-- **Rate limit and trade budget** — a minimum interval between trades and a cap of 200
+- **Venue concentration**: limits on how much exposure piles onto a single venue.
+- **Rate limit and trade budget**: a minimum interval between trades and a cap of 200
   per evaluation.
-- **Stale price** — if the oracle price is too old, the trade reverts rather than
+- **Stale price**: if the oracle price is too old, the trade reverts rather than
   filling against a bad number. See [Prices & oracles](/transparency/prices).
 
-### Post-fill — detected after the trade settles
+### Post-fill: detected after the trade settles
 
-The two hard rules — **maximum drawdown** and **daily loss limit** — depend on your
+The two hard rules (**maximum drawdown** and **daily loss limit**) depend on your
 equity *after* a fill. In the funded phase especially, trades settle on real venues,
 so these are necessarily checked once the fill lands:
 
 > After the trade settles, recompute equity. If it's below the drawdown floor or the
 > day's loss limit, **freeze the account** and record the breach reason.
 
-A frozen account books no further trades. The freeze is the failure — there's no
+A frozen account books no further trades. The freeze is the failure; there's no
 queue of trades that sneak in after a breach.
 
 ## Why this matters
@@ -48,7 +48,7 @@ whether it counts. That's where disputes live: missed flags, inconsistent calls,
 - **No override.** There is no back-office button to pass a trader who failed or fail a
   trader who passed. The firm's own admin tools have **no path** to change an
   evaluation outcome.
-- **No appeal — because there's nothing to appeal.** The outcome is whatever the rule
+- **No appeal, because there's nothing to appeal.** The outcome is whatever the rule
   computed from your trades. You can verify it yourself.
 - **Same rules for everyone.** The parameters are on-chain configuration, applied
   identically to every account, and **snapshotted onto your account when it's
@@ -59,7 +59,7 @@ whether it counts. That's where disputes live: missed flags, inconsistent calls,
 A dedicated **risk engine** (written in Rust, subscribed to the chain over WebSocket)
 watches every account in real time, observes settled fills, and drives the
 contract-level freeze when a post-fill breach occurs. It's how enforcement stays
-real-time without trusting your browser to police itself — the engine and the contract
+real-time without trusting your browser to police itself. The engine and the contract
 agree, and the contract has the final say.
 
 :::tip

@@ -1,12 +1,12 @@
 ---
 title: Verifiability
-description: How Ultraprop records trades and outcomes on-chain, what "invisible crypto" means, and how anyone can independently verify a track record.
+description: "How Ultraprop records trades and outcomes on-chain, what 'invisible crypto' means, and how anyone can independently verify a track record."
 ---
 
 # Verifiability
 
 Ultraprop runs on the **Sui blockchain**, but you'll never have to know that to use
-it. The chain is infrastructure — it's there to make the evaluation trustworthy and
+it. The chain is infrastructure: it's there to make the evaluation trustworthy and
 the record tamper-proof, not to be the product's face. This page explains what's
 recorded, how it stays verifiable, and why you never have to touch any of it.
 
@@ -18,7 +18,7 @@ The platform is built so the trader never sees a blockchain:
   with email or social login; an account is provisioned for you behind the scenes.
 - You see _"account created,"_ not _"wallet created."_
 - Payments on-ramp from a card; [payouts](/funded/payouts) off-ramp to fiat.
-- The on-chain record exists and is verifiable, but it's a detail you can drill into —
+- The on-chain record exists and is verifiable, but it's a detail you can drill into,
   never something pushed in your face.
 
 If you don't care that there's a chain underneath, you never have to. If you do, every
@@ -28,16 +28,16 @@ claim the platform makes can be checked independently.
 
 The contract is the single source of truth for your account. It records:
 
-- **A per-trade ledger.** Each trade writes a ledger entry — the market and venue,
+- **A per-trade ledger.** Each trade writes a ledger entry: the market and venue,
   side, size, price, fees, funding, P&L, and (for a close) the reason. Your equity is
   reproducible from this ledger plus the price stream.
-- **Your account state.** Status, balances, rule budgets, and limits — the same numbers
+- **Your account state.** Status, balances, rule budgets, and limits: the same numbers
   the contract checks and your cockpit displays.
 - **Your credential.** Your [Genesis credential](/record/credential) is an on-chain,
   non-transferable record that accumulates your history across attempts.
 - **Outcomes.** Every pass, fail, and inactive termination is an on-chain event.
 
-Account ownership is the credential itself, not a transferable token — there's no
+Account ownership is the credential itself, not a transferable token. There's no
 "account NFT" to sell, and each evaluation attempt is a fresh account record under the
 same credential.
 
@@ -49,7 +49,7 @@ firm:
 - A [public profile](/record/profile) links straight to the on-chain credential object
   so a viewer can confirm the level and history are real.
 - The [vault that backs funded capital](/funded/overview) is on-chain, so reserves can
-  be audited — unlike a traditional firm, where capital adequacy is a black box and
+  be audited, unlike a traditional firm, where capital adequacy is a black box and
   several have collapsed on traders holding "passed" accounts they couldn't cash.
 - Rule [enforcement](/transparency/enforcement) is contract code, so the logic that
   decided your outcome is itself inspectable.
@@ -66,6 +66,6 @@ Transparency cuts toward the operator too:
 
 :::tip
 The short version: you trade like it's a normal app, and the platform behaves like a
-public ledger. You get the convenience of web2 and the verifiability of on-chain — and
+public ledger. You get the convenience of web2 and the verifiability of on-chain, and
 you don't have to choose between them.
 :::

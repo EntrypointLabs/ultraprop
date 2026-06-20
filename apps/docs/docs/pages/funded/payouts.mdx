@@ -1,12 +1,12 @@
 ---
 title: Payouts
-description: How funded-phase payouts work — stablecoin distribution, the fiat off-ramp, and the refund-on-first-payout flywheel.
+description: "How funded-phase payouts work, stablecoin distribution, the fiat off-ramp, and the refund-on-first-payout flywheel."
 ---
 
 # Payouts
 
 :::warning
-Payouts are **v2** — the funded phase, not yet live. The closed beta is paper-trading
+Payouts are **v2**: the funded phase, not yet live. The closed beta is paper-trading
 with no payouts. This documents the forward plan; eligibility criteria marked _open_
 are not yet finalized.
 :::
@@ -16,24 +16,24 @@ are not yet finalized.
 When you've earned profit on a funded account, you **request a payout** from the
 funded dashboard. The flow:
 
-1. **Eligibility is checked** — minimum profit, minimum days traded, and the payout
+1. **Eligibility is checked**: minimum profit, minimum days traded, and the payout
    cadence. (The exact thresholds are an **open question** and will be set before
-   launch — they are not invented here.)
+   launch; they are not invented here.)
 2. **Your split is applied.** Your share is computed from your tier's
    [profit split](/funded/splits); the firm's cut routes to the vault and treasury.
-3. **Your share is released as USDC**, approved by a **multisig** — never a single hot
-   key — and sent to your account.
+3. **Your share is released as USDC**, approved by a **multisig** (never a single hot
+   key), and sent to your account.
 4. **It off-ramps to fiat automatically**, so you can receive value as money without
    touching a wallet or an exchange.
 
 You see a clean confirmation: the amount and when it arrives. The on-chain record
-exists and is verifiable, but it isn't pushed in your face — the
+exists and is verifiable, but it isn't pushed in your face. The
 [invisible-crypto principle](/transparency/verifiability) applies to payouts too.
 
 ## Speed and reach
 
 Because payouts are stablecoin transfers under the hood, they settle in **minutes, not
-days**, and reach anywhere — no wire transfer, no bank rejection, no FX haircut. This
+days**, and reach anywhere: no wire transfer, no bank rejection, no FX haircut. This
 is one of the clearest advantages over traditional prop firms, where payouts crawl
 through banking rails over days or weeks.
 
@@ -48,11 +48,11 @@ rewards the traders who actually perform and aligns the firm with their success.
 
 ## Safety in the mechanism
 
-- **Multisig approval.** No payout moves on a single key — releasing trader funds
+- **Multisig approval.** No payout moves on a single key; releasing trader funds
   requires multisig approval, so no one person can drain the vault.
 - **Pull-payment with a retry guard.** Your claimable balance is tracked per account
   and claimed safely; a hiccup mid-claim can be retried without losing or duplicating
   funds.
 - **No override path.** The same firm tooling that approves payouts has **no ability to
-  override an evaluation outcome** — enforcement stays on-chain. See
+  override an evaluation outcome**. Enforcement stays on-chain. See
   [On-chain rule enforcement](/transparency/enforcement).

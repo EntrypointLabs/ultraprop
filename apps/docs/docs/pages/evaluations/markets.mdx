@@ -1,20 +1,20 @@
 ---
 title: Markets & instruments
-description: What you can trade on Ultraprop — the Hyperliquid perpetuals catalog, leverage, margin modes, and how prices are sourced.
+description: "What you can trade on Ultraprop: the Hyperliquid perpetuals catalog, leverage, margin modes, and how prices are sourced."
 ---
 
 # Markets & instruments
 
 Ultraprop evaluations are traded on **crypto perpetual futures**. You get a broad
 catalog, real market prices, and the same per-market constraints a live venue would
-apply — because the goal is for your evaluation to behave exactly like the real thing.
+apply, because the goal is for your evaluation to behave exactly like the real thing.
 
 ## What you can trade
 
-The catalog mirrors the **Hyperliquid perpetuals universe** — on the order of ~180
-active markets. BTC, ETH, and SOL are front and center, with the full list — majors,
-mid-caps, and the `k`-prefixed small-caps (kPEPE, kSHIB, kBONK, priced per 1,000
-tokens) — loaded into the market browser.
+The catalog mirrors the **Hyperliquid perpetuals universe**, on the order of ~180
+active markets. BTC, ETH, and SOL are front and center, and the full list loads into
+the market browser: majors, mid-caps, and the `k`-prefixed small-caps (kPEPE, kSHIB,
+kBONK, priced per 1,000 tokens).
 
 You can go **long or short** on any listed market. Browse markets from the cockpit or
 the markets page, and deep-link straight into a position with a symbol and a side.
@@ -28,8 +28,8 @@ strategies are on the [roadmap](/roadmap), not in the current product.
 
 Leverage is capped two ways, and the **lower** of the two always applies:
 
-- **Your tier cap** — Starter 10×, Basic and Pro 8×. See [Tiers](/evaluations/tiers).
-- **The market's own max** — each market has its own ceiling, from 3× on the
+- **Your tier cap**: Starter 10×, Basic and Pro 8×. See [Tiers](/evaluations/tiers).
+- **The market's own max**: each market has its own ceiling, from 3× on the
   thinnest markets up to 40× on the deepest. A 40×-capable market still tops out at
   your tier cap.
 
@@ -40,17 +40,17 @@ that allows only 3×, they're held to 3×.
 
 Both **cross** and **isolated** margin are supported:
 
-- **Isolated** — margin is confined to the single position; its liquidation is
+- **Isolated**: margin is confined to the single position; its liquidation is
   independent of the rest of your account.
-- **Cross** — positions share account margin.
+- **Cross**: positions share account margin.
 
 A handful of markets force isolated margin; the cockpit shows which mode applies and
 the resulting **liquidation price** before you open.
 
 ## Funding and fees
 
-Perpetuals carry **funding** — a periodic payment between longs and shorts that keeps
-the perp tethered to the underlying — and a **taker fee** on each fill. Both are
+Perpetuals carry **funding** (a periodic payment between longs and shorts that keeps
+the perp tethered to the underlying) and a **taker fee** on each fill. Both are
 modeled against your notional balance:
 
 - **Funding** accrues to open perp positions on the venue's cadence.
@@ -64,5 +64,5 @@ How these combine into your fill price is broken out in
 
 Market prices come from **live mainnet sources**, not a testnet feed or a random
 walk. Your fill is built from the live mark price at the moment you submit. If the
-price feed goes stale, trading is **paused** rather than filled against a bad number —
-see [Prices & oracles](/transparency/prices).
+price feed goes stale, trading is **paused** rather than filled against a bad number.
+See [Prices & oracles](/transparency/prices).
