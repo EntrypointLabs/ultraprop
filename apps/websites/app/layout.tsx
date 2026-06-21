@@ -28,6 +28,31 @@ export const metadata: Metadata = {
   title: "Ultraprop · the on-chain crypto prop firm",
   description:
     "An on-chain proprietary trading firm. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices. Clear the evaluation to earn a funded account.",
+  openGraph: {
+    title: "Ultraprop · the on-chain crypto prop firm",
+    description:
+      "An on-chain proprietary trading firm. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices. Clear the evaluation to earn a funded account.",
+    url: "https://ultraprop.xyz",
+    siteName: "Ultraprop",
+    images: [
+      {
+        url: "https://ultraprop.xyz/og-image.png",
+        width: 2400,
+        height: 1260,
+        alt: "Ultraprop — the on-chain crypto prop firm, powered by Sui",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ultraprop · the on-chain crypto prop firm",
+    description:
+      "An on-chain proprietary trading firm. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices. Clear the evaluation to earn a funded account.",
+    site: "@ultraprop_xyz",
+    images: ["https://ultraprop.xyz/og-image.png"],
+  },
 };
 
 export const viewport: Viewport = {
