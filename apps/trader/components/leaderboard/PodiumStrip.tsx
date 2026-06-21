@@ -2,7 +2,7 @@
 
 import { UserRound } from "lucide-react";
 import Link from "next/link";
-import { Avatar, Badge } from "@/components/ui";
+import { Avatar, Badge, Skeleton } from "@/components/ui";
 import { accountHandle } from "@/lib/identity";
 import type { LeaderboardAxis, LeaderboardEntry } from "@/lib/mock/types";
 import { cn, formatUsd } from "@/lib/utils";
@@ -188,6 +188,34 @@ function PodiumSlot({ medal, axisLabel }: { medal: Medal; axisLabel: string }) {
         <span className="tabular text-base font-semibold text-text-faint">
           —
         </span>
+      </div>
+    </div>
+  );
+}
+
+/** Placeholder for the podium while the leaderboard query resolves, sized to the
+ * real cards so the slide doesn't flash an empty block then jump. */
+export function PodiumSkeleton() {
+  return (
+    <div className="mb-6">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
+          Top Traders
+        </span>
+        <span className="h-px flex-1 bg-border-soft" />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="flex flex-col items-center gap-2 rounded-[var(--radius-lg)] border border-border bg-surface-2/40 p-4"
+          >
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-12" />
+            <Skeleton className="mt-1 h-4 w-16" />
+          </div>
+        ))}
       </div>
     </div>
   );

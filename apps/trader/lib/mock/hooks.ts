@@ -407,12 +407,14 @@ export function useSbt(address?: string): SbtState {
  * axis over the chosen window. With no ledger the API reports `available: false`
  * and this returns an honest empty board — never a fixture.
  */
-export function useLeaderboard(opts: {
+/** The leaderboard plus its loading state — for surfaces that want a skeleton
+ * on first paint instead of flashing an empty board while the query resolves. */
+export function useLeaderboardQuery(opts: {
   axis: LeaderboardAxis;
   window: LeaderboardWindow;
-}): LeaderboardEntry[] {
+}): { entries: LeaderboardEntry[]; isLoading: boolean } {
   const { axis, window } = opts;
-  const { data } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ["leaderboard", axis, window],
     queryFn: async (): Promise<LeaderboardEntry[]> => {
       try {
@@ -431,7 +433,14 @@ export function useLeaderboard(opts: {
     },
     staleTime: 60_000,
   });
-  return data ?? [];
+  return { entries: data ?? [], isLoading: isPending };
+}
+
+export function useLeaderboard(opts: {
+  axis: LeaderboardAxis;
+  window: LeaderboardWindow;
+}): LeaderboardEntry[] {
+  return useLeaderboardQuery(opts).entries;
 }
 
 export function useProfile(wallet: string): Profile {
