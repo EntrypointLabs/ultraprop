@@ -51,7 +51,7 @@ export function Footer() {
             <DiscordIcon />
           </a>
           <a
-            href="https://x.com/ultraprop"
+            href="https://x.com/ultraprop_xyz"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="X"
