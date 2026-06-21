@@ -417,7 +417,7 @@ export function MarketSelector({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search markets · use ↑ ↓ to navigate"
               aria-label="Search markets"
-              className="w-full bg-transparent text-sm text-text placeholder:text-text-faint outline-none! focus-visible:outline-none!"
+              className="w-full bg-transparent md:text-sm text-text placeholder:text-text-faint outline-none! focus-visible:outline-none!"
             />
           </div>
 
