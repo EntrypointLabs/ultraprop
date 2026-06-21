@@ -3,7 +3,7 @@ export const links = {
   app: "https://app.ultraprop.xyz",
   docs: "https://docs.ultraprop.xyz",
   blog: "https://blog.ultraprop.xyz",
-  x: "https://x.com/ultraprop",
+  x: "https://x.com/ultraprop_xyz",
   discord: "https://discord.gg/ultraprop",
   telegram: "https://t.me/ultraprop",
 } as const;

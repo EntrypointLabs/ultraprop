@@ -34,13 +34,11 @@ export default defineConfig({
       },
     },
   },
-  socials: [
-    { icon: "x", link: "https://x.com/ultraprop" },
-  ],
+  socials: [{ icon: "x", link: "https://x.com/ultraprop_xyz" }],
   topNav: [
     { text: "Docs", link: "/", match: "/" },
     { text: "Roadmap", link: "/roadmap" },
-    { text: "Launch app", link: "https://ultraprop.xyz" },
+    { text: "Launch app", link: "https://app.ultraprop.xyz" },
   ],
   sidebar: [
     {
@@ -82,7 +80,10 @@ export default defineConfig({
     {
       text: "How the platform works",
       items: [
-        { text: "On-chain rule enforcement", link: "/transparency/enforcement" },
+        {
+          text: "On-chain rule enforcement",
+          link: "/transparency/enforcement",
+        },
         { text: "The fill & slippage model", link: "/transparency/fill-model" },
         { text: "Prices & oracles", link: "/transparency/prices" },
         { text: "Verifiability", link: "/transparency/verifiability" },
