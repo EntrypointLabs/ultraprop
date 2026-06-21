@@ -1,3 +1,4 @@
+import React from "react";
 import { defineConfig } from "vocs";
 
 export default defineConfig({
@@ -34,17 +35,19 @@ export default defineConfig({
       },
     },
   },
-  head: [
-    ["meta", { property: "og:image", content: "https://docs.ultraprop.xyz/og-image.png" }],
-    ["meta", { property: "og:image:width", content: "2400" }],
-    ["meta", { property: "og:image:height", content: "1260" }],
-    ["meta", { property: "og:image:alt", content: "Ultraprop — the on-chain crypto prop firm, powered by Sui" }],
-    ["meta", { property: "og:site_name", content: "Ultraprop Docs" }],
-    ["meta", { property: "og:type", content: "website" }],
-    ["meta", { name: "twitter:card", content: "summary_large_image" }],
-    ["meta", { name: "twitter:site", content: "@ultraprop_xyz" }],
-    ["meta", { name: "twitter:image", content: "https://docs.ultraprop.xyz/og-image.png" }],
-  ],
+  head: React.createElement(
+    React.Fragment,
+    null,
+    React.createElement("meta", { property: "og:image", content: "https://docs.ultraprop.xyz/og-image.png" }),
+    React.createElement("meta", { property: "og:image:width", content: "2400" }),
+    React.createElement("meta", { property: "og:image:height", content: "1260" }),
+    React.createElement("meta", { property: "og:image:alt", content: "Ultraprop — the on-chain crypto prop firm, powered by Sui" }),
+    React.createElement("meta", { property: "og:site_name", content: "Ultraprop Docs" }),
+    React.createElement("meta", { property: "og:type", content: "website" }),
+    React.createElement("meta", { name: "twitter:card", content: "summary_large_image" }),
+    React.createElement("meta", { name: "twitter:site", content: "@ultraprop_xyz" }),
+    React.createElement("meta", { name: "twitter:image", content: "https://docs.ultraprop.xyz/og-image.png" }),
+  ),
   socials: [{ icon: "x", link: "https://x.com/ultraprop_xyz" }],
   topNav: [
     { text: "Docs", link: "/", match: "/" },
