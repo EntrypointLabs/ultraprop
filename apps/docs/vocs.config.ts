@@ -34,6 +34,17 @@ export default defineConfig({
       },
     },
   },
+  head: [
+    ["meta", { property: "og:image", content: "https://docs.ultraprop.xyz/og-image.png" }],
+    ["meta", { property: "og:image:width", content: "2400" }],
+    ["meta", { property: "og:image:height", content: "1260" }],
+    ["meta", { property: "og:image:alt", content: "Ultraprop — the on-chain crypto prop firm, powered by Sui" }],
+    ["meta", { property: "og:site_name", content: "Ultraprop Docs" }],
+    ["meta", { property: "og:type", content: "website" }],
+    ["meta", { name: "twitter:card", content: "summary_large_image" }],
+    ["meta", { name: "twitter:site", content: "@ultraprop_xyz" }],
+    ["meta", { name: "twitter:image", content: "https://docs.ultraprop.xyz/og-image.png" }],
+  ],
   socials: [{ icon: "x", link: "https://x.com/ultraprop_xyz" }],
   topNav: [
     { text: "Docs", link: "/", match: "/" },
