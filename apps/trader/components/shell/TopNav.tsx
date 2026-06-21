@@ -14,11 +14,15 @@ import { useMockStore } from "@/lib/mock/store";
 import { useAccountSetup } from "@/lib/sui/useTradingAccount";
 import { cn } from "@/lib/utils";
 
-const NAV_LINKS = [
+const NAV_LINKS: { href: string; label: string; external?: boolean }[] = [
   { href: "/markets", label: "Markets" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/points", label: "Points" },
+  { href: "https://docs.ultraprop.xyz", label: "Docs", external: true },
 ];
+
+const NAV_LINK_CLASS =
+  "rounded-sm px-3 py-1.5 text-sm font-medium transition-[color,background-color] duration-150 ease-out hover:bg-surface-2";
 
 export function TopNav() {
   const pathname = usePathname();
@@ -61,6 +65,22 @@ export function TopNav() {
             </Link>
           )}
           {NAV_LINKS.map((l) => {
+            if (l.external) {
+              return (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    NAV_LINK_CLASS,
+                    "text-text-muted hover:text-text",
+                  )}
+                >
+                  {l.label}
+                </a>
+              );
+            }
             const active =
               l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
             return (
@@ -68,7 +88,7 @@ export function TopNav() {
                 key={l.href}
                 href={l.href}
                 className={cn(
-                  "rounded-sm px-3 py-1.5 text-sm font-medium transition-[color,background-color] duration-150 ease-out hover:bg-surface-2",
+                  NAV_LINK_CLASS,
                   active ? "text-text" : "text-text-muted hover:text-text",
                 )}
               >
