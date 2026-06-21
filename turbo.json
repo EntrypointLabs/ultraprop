@@ -5,6 +5,7 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", ".next/**", "docs/dist/**"],
       "env": [
+        "GATEWAY_URL",
         "PRIVY_APP_SECRET",
         "SUI_ADMIN_SECRET_KEY",
         "PROPFIRM_ADMIN_CAP_ID",
