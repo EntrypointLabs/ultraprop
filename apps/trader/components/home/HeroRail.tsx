@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Lock, UserRound } from "lucide-react";
 import Link from "next/link";
 import { Avatar, Badge, Button } from "@/components/ui";
 import { userVaultId } from "@/lib/auth";
@@ -83,8 +83,15 @@ function CompactTierCards() {
           >
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-semibold text-text">{tier.name}</span>
-                {tier.locked && <Lock className="h-3 w-3 text-text-faint" aria-hidden="true" />}
+                <span className="text-sm font-semibold text-text">
+                  {tier.name}
+                </span>
+                {tier.locked && (
+                  <Lock
+                    className="h-3 w-3 text-text-faint"
+                    aria-hidden="true"
+                  />
+                )}
               </div>
               <div className="tabular mt-0.5 text-xs text-text-muted">
                 {formatUsd(tier.shadowAllocation, { decimals: 0 })} account
@@ -92,10 +99,19 @@ function CompactTierCards() {
             </div>
             <div className="shrink-0 text-right">
               <div className="tabular text-xs font-medium text-up">
-                +{formatPct(tier.profitTarget * 100, { sign: false, decimals: 0 })} target
+                +
+                {formatPct(tier.profitTarget * 100, {
+                  sign: false,
+                  decimals: 0,
+                })}{" "}
+                target
               </div>
               <div className="tabular text-xs text-down">
-                {formatPct(tier.maxDrawdown * 100, { sign: false, decimals: 0 })} max DD
+                {formatPct(tier.maxDrawdown * 100, {
+                  sign: false,
+                  decimals: 0,
+                })}{" "}
+                max DD
               </div>
             </div>
             <Badge variant="leverage" className="shrink-0 tabular">
@@ -110,7 +126,9 @@ function CompactTierCards() {
 
 function TrendingTraders() {
   const entries = useLeaderboard({ axis: "shadowPnl", window: "weekly" });
-  const top4 = entries.slice(0, 4);
+  // Always render three rows so the panel keeps its shape while the cohort is
+  // small; ranks with no trader yet show as muted "open" slots, not blanks.
+  const slots = Array.from({ length: 3 }, (_, i) => entries[i] ?? null);
 
   return (
     <div className="rounded-[var(--radius-lg)] border border-border bg-surface">
@@ -126,7 +144,9 @@ function TrendingTraders() {
         </Link>
       </div>
       <div className="divide-y divide-border-soft">
-        {top4.map((entry) => {
+        {slots.map((entry, i) => {
+          if (!entry)
+            return <TrendingSlot key={`open-${i + 1}`} rank={i + 1} />;
           const isUp = entry.shadowPnl >= 0;
           return (
             <Link
@@ -158,6 +178,32 @@ function TrendingTraders() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** An unfilled "trending" rank — preserves the panel's three-row shape before
+ * the cohort has three ranked traders, without inventing one. */
+function TrendingSlot({ rank }: { rank: number }) {
+  return (
+    <div className="flex items-center gap-2.5 px-4 py-2.5">
+      <span className="tabular w-5 shrink-0 text-xs text-text-faint">
+        #{rank}
+      </span>
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border">
+        <UserRound className="h-3 w-3 text-text-faint" aria-hidden="true" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="truncate text-sm font-medium text-text-faint">
+          Open spot
+        </div>
+        <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-faint">
+          Be the next
+        </div>
+      </div>
+      <span className="tabular shrink-0 text-sm font-semibold text-text-faint">
+        —
+      </span>
     </div>
   );
 }
