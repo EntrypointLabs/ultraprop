@@ -15,11 +15,14 @@ import {
   CardLabel,
   StatTile,
 } from "@/components/ui";
+import { Redirect } from "@/components/Redirect";
+import { useAuthoritativeStatus } from "@/lib/evaluation/authoritativeStatus";
 import { useSbt, useSession, useVault } from "@/lib/mock/hooks";
 import { formatPct, formatUsd } from "@/lib/utils";
 
 function PassedContent({ vaultId }: { vaultId: string }) {
   const vault = useVault(vaultId);
+  const status = useAuthoritativeStatus(vaultId);
   const { session } = useSession();
   const sbt = useSbt(session.address ?? undefined);
   const confettiFired = React.useRef(false);
@@ -56,6 +59,10 @@ function PassedContent({ vaultId }: { vaultId: string }) {
   // Derive a simple profit-to-target ratio
   const targetGain = vault.startingEquity * vault.tier.profitTarget;
   const actualGain = vault.equity - vault.startingEquity;
+
+  // Only the genuinely-passed vault shows this screen; anything else bounces
+  // back to the cockpit, which routes it to the correct terminal (or live) view.
+  if (status !== "passed") return <Redirect href={`/evaluation/${vaultId}`} />;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:py-12 space-y-8">
