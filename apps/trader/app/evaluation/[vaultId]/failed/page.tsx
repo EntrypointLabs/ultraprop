@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { use } from "react";
 import { Redirect } from "@/components/Redirect";
-import { useAuthoritativeStatus } from "@/lib/evaluation/authoritativeStatus";
 import { FailureDebrief } from "@/components/terminal/FailureDebrief";
 import {
   Badge,
@@ -31,7 +30,6 @@ import {
 function FailedContent({ vaultId }: { vaultId: string }) {
   const router = useRouter();
   const vault = useVault(vaultId);
-  const status = useAuthoritativeStatus(vaultId);
   const cohort = useCohortStats();
   const equityCurve = useEquityCurve(vaultId);
   const { session } = useSession();
@@ -54,11 +52,11 @@ function FailedContent({ vaultId }: { vaultId: string }) {
     }
   }
 
-  // The failed screen reflects the REAL terminated vault. Guard on the SAME
-  // authoritative status the cockpit redirects on — guarding on the raw sim
-  // `vault.status` while the cockpit redirects on the on-chain status loops
-  // forever when the two disagree (chain "failed", sim still "active").
-  const isFailed = status === "failed";
+  // The failed screen reflects the REAL terminated vault. A vault reached here
+  // only via the cockpit flipping status to "failed"; a direct nav (or a vault
+  // that never failed) has no debrief to show, so bounce back to its cockpit
+  // rather than fabricating a failure.
+  const isFailed = vault.status === "failed";
 
   const equitySpark = React.useMemo(
     () => equityCurve.map((p) => p.equity),

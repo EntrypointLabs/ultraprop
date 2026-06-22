@@ -14,8 +14,6 @@ import {
   Sparkline,
   StatTile,
 } from "@/components/ui";
-import { Redirect } from "@/components/Redirect";
-import { useAuthoritativeStatus } from "@/lib/evaluation/authoritativeStatus";
 import { useEquityCurve, useSession, useVault } from "@/lib/mock/hooks";
 import type { VaultState } from "@/lib/mock/types";
 import { usePaperEngine } from "@/lib/sim/usePaperEngine";
@@ -32,7 +30,6 @@ function daysIdle(vault: VaultState): number {
 function InactiveContent({ vaultId }: { vaultId: string }) {
   const router = useRouter();
   const vault = useVault(vaultId);
-  const status = useAuthoritativeStatus(vaultId);
   const equityCurve = useEquityCurve(vaultId);
   const { session } = useSession();
   const { resume } = usePaperEngine(vaultId, vault.tier);
@@ -59,11 +56,6 @@ function InactiveContent({ vaultId }: { vaultId: string }) {
       : vault.tier.id === "basic"
         ? "Pro"
         : null;
-
-  // Only a genuinely-paused vault shows this screen; anything else bounces back
-  // to the cockpit, which routes it to the correct terminal (or live) view.
-  if (status !== "inactive")
-    return <Redirect href={`/evaluation/${vaultId}`} />;
 
   return (
     <div className="mx-auto max-w-xl px-4 py-8 sm:py-12 space-y-8">
