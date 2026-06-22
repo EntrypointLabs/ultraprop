@@ -21,10 +21,29 @@ export type RawHashSigner = (hash: `0x${string}`) => Promise<{
 /** The user's Sui embedded-wallet identity, read off the Privy wallet account. */
 export interface PrivySuiWallet {
   address: string;
-  /** Base64 Ed25519 public key. Privy exposes this on the wallet's `publicKey`
-   * field for tier-2 (curve-signing) chains like Sui; without it we can't
-   * derive the address or serialize a signature. */
+  /** Ed25519 public key Privy exposes on the wallet's `publicKey` field for
+   * tier-2 (curve-signing) chains like Sui, as a `0x`-prefixed hex string;
+   * without it we can't derive the address or serialize a signature. */
   publicKey: string;
+}
+
+/**
+ * Decodes Privy's Sui public key to its raw 32 bytes. Privy returns it as a
+ * `0x`-prefixed hex string (its tier-2 curve-wallet format), so decode by shape
+ * — base64 only as a fallback — and require the canonical 32 bytes, failing
+ * loudly here rather than letting a wrong-length key surface as the SDK's opaque
+ * "Expected 32 bytes" error deep inside signing.
+ */
+function decodeSuiPublicKey(publicKey: string): Uint8Array {
+  const looksHex =
+    publicKey.startsWith("0x") || /^[0-9a-fA-F]{64}$/.test(publicKey);
+  const bytes = looksHex ? fromHex(publicKey) : fromBase64(publicKey);
+  if (bytes.length !== 32) {
+    throw new Error(
+      `Unexpected Sui public key length: got ${bytes.length} bytes, expected 32.`,
+    );
+  }
+  return bytes;
 }
 
 function toHex(bytes: Uint8Array): `0x${string}` {
@@ -56,7 +75,7 @@ class PrivySuiSigner extends Signer {
 
   constructor(wallet: PrivySuiWallet, signRawHash: RawHashSigner) {
     super();
-    this.#publicKey = new Ed25519PublicKey(fromBase64(wallet.publicKey));
+    this.#publicKey = new Ed25519PublicKey(decodeSuiPublicKey(wallet.publicKey));
     this.#signRawHash = signRawHash;
   }
 
