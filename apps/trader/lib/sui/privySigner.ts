@@ -71,7 +71,7 @@ function fromHex(value: string): Uint8Array {
  * digest via Privy's `signRawHash`. This keeps digest computation in the SDK
  * (no hand-rolled hashing) and means the firm never holds the user's key.
  */
-class PrivySuiSigner extends Signer {
+export class PrivySuiSigner extends Signer {
   readonly #publicKey: Ed25519PublicKey;
   readonly #signRawHash: RawHashSigner;
 
@@ -97,7 +97,7 @@ class PrivySuiSigner extends Signer {
 }
 
 /** Lowercases and zero-pads a Sui address to its 32-byte canonical hex form. */
-function normalizeSuiAddress(address: string): string {
+export function normalizeSuiAddress(address: string): string {
   const hex = (address.startsWith("0x") ? address.slice(2) : address)
     .toLowerCase()
     .padStart(64, "0");
@@ -131,9 +131,23 @@ export async function signAndExecuteWithPrivy(params: {
   const txBytes = await tx.build({ client });
   const { signature } = await signer.signTransaction(txBytes);
 
+  return executeSignedTransaction(client, txBytes, [signature]);
+}
+
+/**
+ * Executes already-signed transaction bytes and unwraps the result to a digest,
+ * throwing the on-chain error on failure. Shared by the self-paid
+ * (`signAndExecuteWithPrivy`) and gas-sponsored execute paths so both surface
+ * identical failure messages.
+ */
+export async function executeSignedTransaction(
+  client: SuiGraphQLClient,
+  txBytes: Uint8Array,
+  signatures: string[],
+): Promise<{ digest: string }> {
   const result = await client.executeTransaction({
     transaction: txBytes,
-    signatures: [signature],
+    signatures,
     include: { effects: true },
   });
 
