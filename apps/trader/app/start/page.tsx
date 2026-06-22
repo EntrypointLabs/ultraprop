@@ -36,9 +36,9 @@ export default async function StartPage({
 
         <p className="text-base text-text-muted max-w-2xl leading-relaxed">
           Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog
-          in simulation against live market prices. Every rule is enforced
-          automatically in real time — drawdown, daily loss, profit target — and
-          emits verifiable pass/fail events. Pass an evaluation to level your
+          in simulation against live market prices. Every rule (drawdown, daily
+          loss, profit target) is enforced automatically in real time and emits
+          verifiable pass/fail events. Pass an evaluation to level your
           non-transferable Genesis credential: proof of trading skill earned in
           the closed beta.
         </p>
@@ -75,7 +75,7 @@ export default async function StartPage({
               01
             </span>
             <span>
-              Sign in — your account must be on the closed-beta allowlist.
+              Sign in. Your account must be on the closed-beta allowlist.
             </span>
           </li>
           <li className="flex gap-3">
@@ -96,7 +96,7 @@ export default async function StartPage({
               Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual
               catalog in simulation against live market prices. Every fill is
               shown pre-submit with market mid, slippage, and the +2 bps house
-              tilt — no hidden math.
+              tilt, with no hidden math.
             </span>
           </li>
           <li className="flex gap-3">
