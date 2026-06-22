@@ -150,8 +150,18 @@ export function usePayAndStart() {
         paymentDigest: digest,
       });
     },
-    onSuccess: (_result, _tier) => {
-      queryClient.invalidateQueries({ queryKey: ["trading-account"] });
+    onSuccess: (result, tier) => {
+      // Prime the cache with the just-opened account so /start (and the cockpit)
+      // reflect it immediately. An invalidate-driven refetch would race the
+      // indexer, which lags a beat behind account creation and would re-read
+      // "no account", leaving the tier grid stuck on the pre-purchase CTA.
+      if (wallet) {
+        queryClient.setQueryData(
+          ["trading-account", wallet.address],
+          result.accountId,
+        );
+        queryClient.setQueryData(["account-tier", result.accountId], tier);
+      }
     },
   });
 }
@@ -173,8 +183,19 @@ export function useRedeemInvite() {
         inviteCode,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trading-account"] });
+    onSuccess: (result) => {
+      // Invites always open a Starter account; prime the cache so the tier grid
+      // flips to it immediately (see the note in usePayAndStart).
+      if (wallet) {
+        queryClient.setQueryData(
+          ["trading-account", wallet.address],
+          result.accountId,
+        );
+        queryClient.setQueryData<TierName>(
+          ["account-tier", result.accountId],
+          "starter",
+        );
+      }
     },
   });
 }
