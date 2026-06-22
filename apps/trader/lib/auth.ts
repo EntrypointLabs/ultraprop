@@ -38,9 +38,9 @@ export function suiWalletAddress(user: User | null | undefined): string | null {
 
 export interface SuiWalletIdentity {
   address: string;
-  /** Ed25519 public key Privy exposes on tier-2 (curve) wallet accounts, as a
-   * `0x`-prefixed hex string. Required to assemble a serialized Sui signature
-   * for user-signed txns. */
+  /** Flag-prefixed Ed25519 public key Privy exposes on tier-2 (curve) wallet
+   * accounts, as a hex string (1-byte scheme flag + 32-byte key). Required to
+   * assemble a serialized Sui signature for user-signed txns. */
   publicKey: string;
 }
 

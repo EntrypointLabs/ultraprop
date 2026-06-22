@@ -247,7 +247,7 @@ export function CreateAccountFlow() {
             {getUsdc.isPending ? (
               <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
             ) : funded ? (
-              "Test USDC added — get more"
+              "Get more test USDC"
             ) : (
               "Get test USDC"
             )}

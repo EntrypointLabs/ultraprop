@@ -353,11 +353,15 @@ export async function fetchUsdcCoins(
   client: SuiGraphQLClient,
   owner: string,
   usdcType: string,
-): Promise<{ coinObjectId: string; balance: bigint }[]> {
+): Promise<
+  { coinObjectId: string; balance: bigint; version: string; digest: string }[]
+> {
   const { objects } = await client.listCoins({ owner, coinType: usdcType });
   return objects.map((c) => ({
     coinObjectId: c.objectId,
     balance: BigInt(c.balance),
+    version: String(c.version),
+    digest: c.digest,
   }));
 }
 
@@ -383,20 +387,23 @@ export function buildFaucetTransaction(params: {
  * Transfers exactly `evalFee` of the user's USDC to the firm's eval-funds
  * address — the PAID path's payment step. The trader signs it; the resulting tx
  * digest is forwarded to the server, which verifies the transfer before opening
- * the account. The caller supplies the user's own USDC coin ids (gathered via
- * `fetchUsdcCoins`).
+ * the account. The caller supplies the user's own USDC coins as fully-resolved
+ * object refs (gathered via `fetchUsdcCoins`). The refs MUST be resolved here:
+ * the sponsored flow serializes this as a transaction kind and rebuilds it on
+ * the server, where resolving a bare owned-object id would validate ownership
+ * against a zero sender and fail. A resolved ref skips that resolution.
  */
 export function buildPayEvalFeeTransaction(params: {
   config: OnboardingConfig;
   evalFee: bigint;
-  usdcCoinIds: string[];
+  usdcCoins: { objectId: string; version: string; digest: string }[];
 }): Transaction {
-  const { config, evalFee, usdcCoinIds } = params;
-  if (usdcCoinIds.length === 0) {
-    throw new Error("You have no test USDC yet — mint some first.");
+  const { config, evalFee, usdcCoins } = params;
+  if (usdcCoins.length === 0) {
+    throw new Error("You have no test USDC yet. Mint some first.");
   }
   const tx = new Transaction();
-  const [primary, ...rest] = usdcCoinIds.map((id) => tx.object(id));
+  const [primary, ...rest] = usdcCoins.map((coin) => tx.objectRef(coin));
   if (rest.length > 0) tx.mergeCoins(primary, rest);
   const [payment] = tx.splitCoins(primary, [tx.pure.u64(evalFee)]);
   tx.transferObjects([payment], tx.pure.address(config.evalFundsAddress));

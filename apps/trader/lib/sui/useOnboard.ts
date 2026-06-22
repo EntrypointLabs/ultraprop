@@ -16,8 +16,8 @@ import {
 import {
   type PrivySuiWallet,
   type RawHashSigner,
-  signAndExecuteWithPrivy,
 } from "@/lib/sui/privySigner";
+import { sponsorAndExecuteWithPrivy } from "@/lib/sui/sponsor";
 
 interface OnboardResult {
   accountId: string;
@@ -77,7 +77,7 @@ function useOnboardContext() {
  * Sui wallet. Returns nothing; the minted coins are then spent by `usePayAndStart`.
  */
 export function useGetTestUsdc() {
-  const { wallet, signer } = useOnboardContext();
+  const { wallet, signer, getAccessToken } = useOnboardContext();
 
   return useMutation({
     mutationFn: async (tier: TierName): Promise<void> => {
@@ -88,11 +88,12 @@ export function useGetTestUsdc() {
       const client = getGraphQLClient();
       const evalFee = await fetchEvalFee(client, wallet.address, tier, config);
       const tx = buildFaucetTransaction({ config, amount: evalFee });
-      await signAndExecuteWithPrivy({
+      await sponsorAndExecuteWithPrivy({
         client,
         tx,
         wallet: wallet as PrivySuiWallet,
         signRawHash: signer,
+        getAccessToken,
       });
     },
   });
@@ -127,13 +128,18 @@ export function usePayAndStart() {
       const tx = buildPayEvalFeeTransaction({
         config,
         evalFee,
-        usdcCoinIds: coins.map((c) => c.coinObjectId),
+        usdcCoins: coins.map((c) => ({
+          objectId: c.coinObjectId,
+          version: c.version,
+          digest: c.digest,
+        })),
       });
-      const { digest } = await signAndExecuteWithPrivy({
+      const { digest } = await sponsorAndExecuteWithPrivy({
         client,
         tx,
         wallet: wallet as PrivySuiWallet,
         signRawHash: signer,
+        getAccessToken,
       });
 
       const token = await getAccessToken();
