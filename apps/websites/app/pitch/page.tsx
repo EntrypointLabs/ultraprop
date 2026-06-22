@@ -365,8 +365,8 @@ export default function PitchPage() {
           </div>
         </section>
 
-        {/* closing cta */}
-        <section className="border-t border-border-soft py-24 text-center sm:py-28">
+        {/* closing cta — no top divider; the red backdrop scene separates it */}
+        <section className="py-24 text-center sm:py-28">
           <h2 className="mx-auto max-w-2xl text-balance font-display text-3xl font-normal leading-tight sm:text-5xl">
             <span className="text-brand">Prove your edge.</span> Earn a funded
             account.
