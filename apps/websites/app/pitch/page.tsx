@@ -21,6 +21,9 @@ export const metadata: Metadata = {
 
 const EXPLORER = "https://suiscan.xyz/testnet/object/";
 
+// The landing page's footer-backdrop scene, reused at the foot of this page.
+const BG_IMAGE = "/footer-backdrop.jpg";
+
 const PROBLEMS = [
   {
     title: "The rules are theirs",
@@ -161,7 +164,7 @@ export default function PitchPage() {
         </a>
       </header>
 
-      <main className="mx-auto w-full max-w-[1200px] flex-1 px-5 sm:px-8">
+      <main className="mx-auto w-full max-w-[1200px] px-5 sm:px-8">
         {/* hero */}
         <section className="flex flex-col items-center pt-16 pb-24 text-center sm:pt-24">
           <span className="hero-in hero-in-1 inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-3 py-1 text-xs text-text-muted">
@@ -330,14 +333,47 @@ export default function PitchPage() {
             ))}
           </div>
         </section>
+      </main>
+
+      {/* full-height closing scene: the CTA and footer share the landing's
+          backdrop under a deep red duotone, filling the viewport. The vertical
+          wash keeps the dense footer copy on a near-black substrate. */}
+      <div className="relative isolate flex min-h-dvh flex-col">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
+        >
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url("${BG_IMAGE}")` }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{ background: "#6e1a1d", mixBlendMode: "multiply" }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(to bottom, #0a0a0c 0%, rgba(10,10,12,0.5) 22%, rgba(10,10,12,0.4) 46%, rgba(10,10,12,0.72) 72%, rgba(10,10,12,0.9) 88%, #0a0a0c 100%)",
+            }}
+          />
+          <div
+            className="absolute inset-x-0 bottom-0 h-[70%]"
+            style={{
+              background:
+                "radial-gradient(72% 90% at 50% 122%, color-mix(in oklab, var(--brand) 30%, transparent), transparent 64%)",
+            }}
+          />
+        </div>
 
         {/* closing cta */}
-        <section className="border-t border-border-soft py-24 text-center sm:py-28">
-          <h2 className="mx-auto max-w-2xl text-balance font-display text-3xl font-normal leading-tight sm:text-5xl">
+        <section className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-center justify-center px-5 py-24 text-center sm:px-8">
+          <h2 className="max-w-2xl text-balance font-display text-3xl font-normal leading-tight sm:text-5xl">
             <span className="text-brand">Prove your edge.</span> Earn a funded
             account.
           </h2>
-          <p className="mx-auto mt-5 max-w-md text-pretty text-text-muted">
+          <p className="mt-5 max-w-md text-pretty text-text-muted">
             Live prices, contract-enforced rules, and a track record that is
             yours. Prove it, never just promise it.
           </p>
@@ -351,9 +387,9 @@ export default function PitchPage() {
             </a>
           </div>
         </section>
-      </main>
 
-      <SiteFooter />
+        <SiteFooter />
+      </div>
     </div>
   );
 }
