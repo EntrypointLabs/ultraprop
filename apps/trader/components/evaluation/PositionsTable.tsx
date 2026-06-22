@@ -13,7 +13,12 @@ import {
   Thead,
   Tr,
 } from "@/components/ui";
-import { coinOf, decimalsFor, getMarket } from "@/lib/mock/markets";
+import {
+  coinOf,
+  decimalsFor,
+  getMarket,
+  type MarketId,
+} from "@/lib/mock/markets";
 import type { Position } from "@/lib/mock/types";
 import { cn, formatPct, formatUsd } from "@/lib/utils";
 
@@ -35,6 +40,11 @@ interface PositionsTableProps {
   onSetBracket?: (id: string, bracket: BracketPatch) => void;
   /** Cancel a position's bracket — one leg, or both when `leg` is omitted. */
   onCancelBracket?: (id: string, leg?: "tp" | "sl") => void;
+  /**
+   * Select a position's market, opening its chart. Wires the whole row so a
+   * click anywhere but the inline controls (close, TP/SL) switches the chart.
+   */
+  onSelectMarket?: (marketId: MarketId) => void;
 }
 
 function SideBadge({ side }: { side: "long" | "short" }) {
@@ -244,6 +254,7 @@ export function PositionsTable({
   onClose,
   onSetBracket,
   onCancelBracket,
+  onSelectMarket,
 }: PositionsTableProps) {
   if (positions.length === 0) {
     return (
@@ -294,15 +305,42 @@ export function PositionsTable({
           const pnlTone = netPnl >= 0 ? "text-up" : "text-down";
           const isDecimalPrice = pos.entryPrice < 1000;
           const priceDecimals = isDecimalPrice ? 4 : 1;
+          const selectMarket = onSelectMarket
+            ? () => onSelectMarket(pos.symbol)
+            : undefined;
           return (
-            <Tr key={pos.id}>
+            <Tr
+              key={pos.id}
+              onClick={
+                selectMarket &&
+                ((e) => {
+                  // The row's own controls (close, TP/SL, the market button)
+                  // act on their own — only bare cells switch the chart.
+                  if ((e.target as HTMLElement).closest("button, input"))
+                    return;
+                  selectMarket();
+                })
+              }
+              className={cn(selectMarket && "cursor-pointer")}
+            >
               <Td>
                 <div className="flex items-center gap-2">
                   <AssetIcon symbol={pos.symbol} size={20} venue />
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium">
-                      {coinOf(pos.symbol)}
-                    </span>
+                    {selectMarket ? (
+                      <button
+                        type="button"
+                        onClick={selectMarket}
+                        aria-label={`Show ${coinOf(pos.symbol)} chart`}
+                        className="text-left text-xs font-medium transition-colors hover:text-brand"
+                      >
+                        {coinOf(pos.symbol)}
+                      </button>
+                    ) : (
+                      <span className="text-xs font-medium">
+                        {coinOf(pos.symbol)}
+                      </span>
+                    )}
                     {/* Side badge inline on xs — shown when Side column is hidden */}
                     <span className="sm:hidden">
                       <SideBadge side={pos.side} />
