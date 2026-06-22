@@ -16,6 +16,7 @@ import { Redirect } from "@/components/Redirect";
 import { TradeIntentForm } from "@/components/trade";
 import { Badge, Button, ConnectionDot, Modal, Skeleton } from "@/components/ui";
 import { DEMO_TRADING_ENABLED } from "@/lib/auth";
+import { useAuthoritativeStatus } from "@/lib/evaluation/authoritativeStatus";
 import { DEMO_VAULT_ID } from "@/lib/mock/fixtures";
 import {
   useConnection,
@@ -38,7 +39,7 @@ import {
 import { useMockStore } from "@/lib/mock/store";
 import type { RuleBudget, Side, Tier } from "@/lib/mock/types";
 import { usePaperEngine } from "@/lib/sim/usePaperEngine";
-import { onchainRuleBudgets, statusFromCode } from "@/lib/sui/onchainRules";
+import { onchainRuleBudgets } from "@/lib/sui/onchainRules";
 import { usdcToUsd } from "@/lib/sui/propfirm";
 import { useOnchainAccountSummary } from "@/lib/sui/useTradingAccount";
 import {
@@ -406,20 +407,9 @@ export function EvaluationCockpit({
   const isDemoVault = vaultId === DEMO_VAULT_ID;
   const showSignInWall = !session.address && !isDemoVault;
 
-  // Authoritative outcome = the ON-CHAIN status the executor set, when an
-  // on-chain account exists; the engine's `detectOutcome` is the TRIGGER that
-  // drives the executor (already wired in the bridge), but the chain is the
-  // source of truth for the terminal screen. Fall back to the engine status for
-  // the signed-out demo / unconfigured package. A local pause ("inactive") has
-  // no on-chain notion, so it's preserved while the chain still reads Evaluating.
-  const chainStatus =
-    onchainSummary != null ? statusFromCode(onchainSummary.statusCode) : null;
-  const authoritativeStatus =
-    chainStatus == null
-      ? vault.status
-      : chainStatus === "active" && vault.status === "inactive"
-        ? "inactive"
-        : chainStatus;
+  // Authoritative outcome shared with the terminal pages so the cockpit's
+  // redirect and each page's guard read the SAME value (a mismatch loops).
+  const authoritativeStatus = useAuthoritativeStatus(vaultId);
 
   const [marketId, setMarketId] = useState<MarketId>(
     presetMarketId ?? DEFAULT_MARKET_ID,
