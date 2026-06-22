@@ -303,6 +303,16 @@ export function buildRuleBudgets(vault: {
   });
 }
 
+/**
+ * Distinct trades = one per position opened. An opening entry carries no
+ * `positionId` (it's the start of the trade); every close — manual, TP, SL or
+ * liquidation — references the position it settles, so excluding records with a
+ * `positionId` collapses a round trip back to the single trade it represents.
+ */
+export function countTrades(trades: TradeRecord[]): number {
+  return trades.filter((trade) => trade.positionId == null).length;
+}
+
 export const DEMO_VAULT: VaultState = {
   vaultId: DEMO_VAULT_ID,
   tier: STARTER,
@@ -325,6 +335,7 @@ export const DEMO_VAULT: VaultState = {
   triggerTrade: null,
   violatedRule: null,
   intentCount: 3,
+  tradeCount: countTrades(DEMO_TRADES),
 };
 
 export const DEMO_SBT: SbtState = {

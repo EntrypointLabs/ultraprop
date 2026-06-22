@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
+  countTrades,
   DEMO_EQUITY_CURVE,
   DEMO_POSITIONS,
   DEMO_TRADES,
@@ -950,5 +951,6 @@ export function toVaultState(v: SimVault): VaultState {
     triggerTrade: v.triggerTrade,
     violatedRule: v.violatedRule,
     intentCount: v.intentCount,
+    tradeCount: countTrades(v.trades),
   };
 }
