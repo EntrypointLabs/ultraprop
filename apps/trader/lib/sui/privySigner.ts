@@ -28,16 +28,18 @@ export interface PrivySuiWallet {
 }
 
 /**
- * Decodes Privy's Sui public key to its raw 32 bytes. Privy returns it as a
- * `0x`-prefixed hex string (its tier-2 curve-wallet format), so decode by shape
- * — base64 only as a fallback — and require the canonical 32 bytes, failing
- * loudly here rather than letting a wrong-length key surface as the SDK's opaque
- * "Expected 32 bytes" error deep inside signing.
+ * Decodes Privy's Sui public key to the raw 32 bytes `Ed25519PublicKey` expects.
+ * Privy returns the *flag-prefixed* Sui public key — a 1-byte signature-scheme
+ * flag followed by the 32-byte Ed25519 key (33 bytes) — as a hex string. We
+ * accept hex (with or without `0x`) and base64 for safety, then drop the leading
+ * scheme-flag byte when present. The address-match guard in
+ * `signAndExecuteWithPrivy` catches any mis-decode before gas is spent.
  */
 function decodeSuiPublicKey(publicKey: string): Uint8Array {
-  const looksHex =
-    publicKey.startsWith("0x") || /^[0-9a-fA-F]{64}$/.test(publicKey);
-  const bytes = looksHex ? fromHex(publicKey) : fromBase64(publicKey);
+  const stripped = publicKey.startsWith("0x") ? publicKey.slice(2) : publicKey;
+  const isHex = stripped.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(stripped);
+  let bytes = isHex ? fromHex(stripped) : fromBase64(publicKey);
+  if (bytes.length === 33) bytes = bytes.slice(1);
   if (bytes.length !== 32) {
     throw new Error(
       `Unexpected Sui public key length: got ${bytes.length} bytes, expected 32.`,
