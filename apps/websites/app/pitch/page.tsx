@@ -21,6 +21,9 @@ export const metadata: Metadata = {
 
 const EXPLORER = "https://suiscan.xyz/testnet/object/";
 
+// The landing page's footer-backdrop scene, reused at the foot of this page.
+const BG_IMAGE = "/footer-backdrop.jpg";
+
 const PROBLEMS = [
   {
     title: "The rules are theirs",
@@ -143,6 +146,37 @@ export default function PitchPage() {
           className="absolute inset-x-0 bottom-0 h-40"
           style={{
             background: "linear-gradient(to bottom, transparent, #0a0a0c)",
+          }}
+        />
+      </div>
+
+      {/* footer atmosphere: the landing's backdrop scene rising under the closing
+          CTA and footer, pushed to a deep red duotone. The vertical wash keeps the
+          dense footer copy on a near-black substrate so it stays legible. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[860px]"
+      >
+        <div
+          className="absolute inset-0 bg-cover bg-bottom"
+          style={{ backgroundImage: `url("${BG_IMAGE}")` }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: "#6e1a1d", mixBlendMode: "multiply" }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(to bottom, #0a0a0c 0%, rgba(10,10,12,0.5) 20%, rgba(10,10,12,0.42) 34%, rgba(10,10,12,0.72) 54%, rgba(10,10,12,0.9) 80%, #0a0a0c 100%)",
+          }}
+        />
+        <div
+          className="absolute inset-x-0 bottom-0 h-[70%]"
+          style={{
+            background:
+              "radial-gradient(72% 90% at 50% 128%, color-mix(in oklab, var(--brand) 30%, transparent), transparent 64%)",
           }}
         />
       </div>
