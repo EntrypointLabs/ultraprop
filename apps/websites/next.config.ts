@@ -11,6 +11,16 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  async redirects() {
+    return [
+      {
+        source: "/demo",
+        destination:
+          "https://drive.google.com/file/d/12Va7XdeDLOjkyaAyFegTYyC9X-NGazf9/view",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
