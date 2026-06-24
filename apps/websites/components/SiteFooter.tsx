@@ -21,10 +21,26 @@ const COLUMNS: { title: string; items: FooterItem[] }[] = [
   {
     title: "Features",
     items: [
-      { label: "Live market data", href: links.docs, external: true },
-      { label: "Slippage preview", href: links.docs, external: true },
-      { label: "Genesis credential", href: links.docs, external: true },
-      { label: "Tier ladder", href: links.docs, external: true },
+      {
+        label: "Live market data",
+        href: `${links.docs}/transparency/prices`,
+        external: true,
+      },
+      {
+        label: "Slippage preview",
+        href: `${links.docs}/transparency/fill-model`,
+        external: true,
+      },
+      {
+        label: "Genesis credential",
+        href: `${links.docs}/record/credential`,
+        external: true,
+      },
+      {
+        label: "Tier ladder",
+        href: `${links.docs}/evaluations/tiers`,
+        external: true,
+      },
     ],
   },
   {
@@ -32,7 +48,7 @@ const COLUMNS: { title: string; items: FooterItem[] }[] = [
     items: [
       { label: "Documentation", href: links.docs, external: true },
       { label: "Protocol Explorer", soon: true },
-      { label: "API", href: `${links.docs}/api`, external: true },
+      { label: "API", soon: true },
     ],
   },
   {
