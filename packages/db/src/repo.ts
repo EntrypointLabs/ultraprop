@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import {
   accounts,
@@ -28,6 +28,39 @@ export async function upsertAccount(
       target: accounts.accountId,
       set: { status: row.status, tier: row.tier, updatedAt: new Date() },
     });
+}
+
+export interface SettledTotals {
+  /** Summed realized PnL (USD) over closed + liquidated positions. */
+  realizedPnl: number;
+  /** Number of settled positions (the simplified intent count). */
+  count: number;
+}
+
+/**
+ * Realized-PnL sum and settled-position count for an account, computed in the
+ * database in one row. The settlement loop needs these every tick; aggregating
+ * in SQL returns a single row instead of re-transferring the account's entire
+ * closed-trade history on each pass — the difference between bytes and gigabytes
+ * of egress over a day of ticking. Uses the `(account_id, status)` index.
+ */
+export async function settledTotals(
+  db: Database,
+  accountId: string,
+): Promise<SettledTotals> {
+  const [row] = await db
+    .select({
+      realizedPnl: sql<string>`coalesce(sum(${positions.realizedPnl}), 0)`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(positions)
+    .where(
+      and(
+        eq(positions.accountId, accountId),
+        inArray(positions.status, ["closed", "liquidated"]),
+      ),
+    );
+  return { realizedPnl: Number(row?.realizedPnl ?? 0), count: row?.count ?? 0 };
 }
 
 export async function accountExists(
