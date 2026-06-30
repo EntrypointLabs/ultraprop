@@ -4,6 +4,7 @@ import {
   type Database,
   type PositionRow,
   positions,
+  settledTotals,
 } from "@shared/db";
 import {
   accrueFunding,
@@ -21,7 +22,7 @@ import {
   type Tier,
 } from "@shared/sim-core";
 import { HyperliquidAdapter, type MarkTick } from "@shared/venues";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { type OnChainWriter, usdToUsdcBaseUnits } from "./onchain.js";
 
 /** Why a position closed in the loop (manual closes come via the intake API). */
@@ -81,7 +82,9 @@ export class SettlementEngine {
     for (const market of await adapter.listMarkets()) {
       this.maxLeverage.set(market.id, market.maxLeverage);
     }
-    this.unsubscribe = adapter.subscribeMarks((ticks) => this.ingestTicks(ticks));
+    this.unsubscribe = adapter.subscribeMarks((ticks) =>
+      this.ingestTicks(ticks),
+    );
     this.timer = setInterval(() => void this.settleOnce(), this.intervalMs);
     console.log(
       `[settlement] started; ${this.maxLeverage.size} markets, ${this.intervalMs}ms tick`,
@@ -188,33 +191,27 @@ export class SettlementEngine {
     row.lastFundedAt = lastFundedAt;
   }
 
-  /** Account-wide equity for cross-margin liquidation: starting + realized + carry. */
+  /** Account-wide equity for cross-margin liquidation: starting + realized + carry.
+   * Realized PnL is summed in the database (one row), and only the starting-equity
+   * column is read — this runs every tick, so it must never pull whole rows or the
+   * full closed-trade history. */
   private async accountValue(
     accountId: string,
     openRows: PositionRow[],
   ): Promise<number> {
     const [account] = await this.db
-      .select()
+      .select({ startingEquity: accounts.startingEquity })
       .from(accounts)
       .where(eq(accounts.accountId, accountId));
     const starting = account ? Number(account.startingEquity) : 0;
-    const closed = await this.db
-      .select()
-      .from(positions)
-      .where(
-        and(
-          eq(positions.accountId, accountId),
-          inArray(positions.status, ["closed", "liquidated"]),
-        ),
-      );
-    const realizedTotal = closed.reduce(
-      (sum, p) => sum + Number(p.realizedPnl ?? 0),
-      0,
-    );
+    const { realizedPnl } = await settledTotals(this.db, accountId);
     const openPositions = openRows.map((row) =>
-      toEnginePosition(row, this.marks.get(row.marketId)?.markPx ?? Number(row.entryPrice)),
+      toEnginePosition(
+        row,
+        this.marks.get(row.marketId)?.markPx ?? Number(row.entryPrice),
+      ),
     );
-    return computeEquity(starting, realizedTotal, openPositions);
+    return computeEquity(starting, realizedPnl, openPositions);
   }
 
   /** TP/SL crossing (exact) or a liquidation crossing; null if the position lives. */
@@ -310,18 +307,9 @@ export class SettlementEngine {
       .where(eq(accounts.accountId, accountId));
     if (!account || account.status !== "evaluating") return;
 
-    const closed = await this.db
-      .select()
-      .from(positions)
-      .where(
-        and(
-          eq(positions.accountId, accountId),
-          inArray(positions.status, ["closed", "liquidated"]),
-        ),
-      );
-    const realizedTotal = closed.reduce(
-      (sum, p) => sum + Number(p.realizedPnl ?? 0),
-      0,
+    const { realizedPnl, count: settledCount } = await settledTotals(
+      this.db,
+      accountId,
     );
     const openRows = await this.db
       .select()
@@ -330,17 +318,20 @@ export class SettlementEngine {
         and(eq(positions.accountId, accountId), eq(positions.status, "open")),
       );
     const openPositions = openRows.map((row) =>
-      toEnginePosition(row, this.marks.get(row.marketId)?.markPx ?? Number(row.entryPrice)),
+      toEnginePosition(
+        row,
+        this.marks.get(row.marketId)?.markPx ?? Number(row.entryPrice),
+      ),
     );
 
     const startingEquity = Number(account.startingEquity);
-    const equity = computeEquity(startingEquity, realizedTotal, openPositions);
+    const equity = computeEquity(startingEquity, realizedPnl, openPositions);
     const rules = evaluateRules({
       startingEquity,
       equity,
       dailyAnchorEquity: startingEquity,
       tier: tierFromAccount(account),
-      intentCount: closed.length,
+      intentCount: settledCount,
     });
     const outcome = detectOutcome("active", rules, null);
     if (outcome.status === "failed") {
@@ -367,7 +358,8 @@ function toEnginePosition(row: PositionRow, markPx: number): Position {
   const sizeUsd = Number(row.sizeUsd);
   const entryPrice = Number(row.entryPrice);
   const side = row.side as Side;
-  const pnlPct = ((markPx - entryPrice) / entryPrice) * (side === "long" ? 1 : -1);
+  const pnlPct =
+    ((markPx - entryPrice) / entryPrice) * (side === "long" ? 1 : -1);
   return {
     id: row.id,
     symbol: row.marketId,

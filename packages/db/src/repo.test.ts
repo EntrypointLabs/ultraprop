@@ -12,6 +12,7 @@ import {
   completeIdempotency,
   findOpenPositionByClientId,
   insertOpenPosition,
+  settledTotals,
   upsertAccount,
 } from "./repo.js";
 import {
@@ -140,5 +141,34 @@ describe("ledger repo", () => {
     expect(await accountExists(db, "0xacc")).toBe(true);
     await upsertAccount(db, { ...ACCOUNT, status: "passed" });
     expect(await accountExists(db, "0xacc")).toBe(true);
+  });
+
+  it("settledTotals aggregates realized PnL + count over settled positions only", async () => {
+    // No settled positions yet.
+    expect(await settledTotals(db, "0xacc")).toEqual({
+      realizedPnl: 0,
+      count: 0,
+    });
+
+    const a = await insertOpenPosition(db, openRow("p_a"));
+    const b = await insertOpenPosition(db, openRow("p_b"));
+    await insertOpenPosition(db, openRow("p_open")); // stays open → excluded
+
+    await closeOpenPosition(db, {
+      id: a,
+      exitPrice: "110",
+      realizedPnl: "950.50",
+      closeReason: "manual",
+    });
+    await closeOpenPosition(db, {
+      id: b,
+      exitPrice: "90",
+      realizedPnl: "-200.25",
+      closeReason: "liquidation",
+    });
+
+    const totals = await settledTotals(db, "0xacc");
+    expect(totals.count).toBe(2);
+    expect(totals.realizedPnl).toBeCloseTo(750.25, 2);
   });
 });
