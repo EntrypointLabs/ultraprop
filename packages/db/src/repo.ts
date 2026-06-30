@@ -63,6 +63,54 @@ export async function settledTotals(
   return { realizedPnl: Number(row?.realizedPnl ?? 0), count: row?.count ?? 0 };
 }
 
+export interface Username {
+  /** The minted SuiNS subname, e.g. `gifted.ultraprop.sui`. */
+  displayName: string;
+  /** The `SuinsRegistration` NFT object id backing it. */
+  subnameNftId: string;
+}
+
+/**
+ * Record a freshly minted username (the subname + its NFT id) across every
+ * account the owner holds. Matches on the lowercased owner address so it's
+ * agnostic to hex casing, the same way the rest of the write path lowercases.
+ * Returns the number of account rows updated — 0 means the owner has no account
+ * yet, which the caller surfaces as "open your account first".
+ */
+export async function setUsername(
+  db: Database,
+  owner: string,
+  username: Username,
+): Promise<number> {
+  const updated = await db
+    .update(accounts)
+    .set({
+      displayName: username.displayName,
+      subnameNftId: username.subnameNftId,
+      updatedAt: new Date(),
+    })
+    .where(eq(accounts.owner, owner.toLowerCase()))
+    .returning({ accountId: accounts.accountId });
+  return updated.length;
+}
+
+/** The owner's current username + backing NFT, or null if unset (or no account). */
+export async function getUsername(
+  db: Database,
+  owner: string,
+): Promise<Username | null> {
+  const [row] = await db
+    .select({
+      displayName: accounts.displayName,
+      subnameNftId: accounts.subnameNftId,
+    })
+    .from(accounts)
+    .where(eq(accounts.owner, owner.toLowerCase()))
+    .limit(1);
+  if (!row?.displayName) return null;
+  return { displayName: row.displayName, subnameNftId: row.subnameNftId ?? "" };
+}
+
 export async function accountExists(
   db: Database,
   accountId: string,
@@ -254,6 +302,8 @@ export async function getCohortStats(db: Database): Promise<CohortStatsRow> {
 export interface LeaderboardRow {
   /** the Sui address that owns the account (the trader identity) */
   owner: string;
+  /** the owner's claimed SuiNS username, or null to fall back to the handle */
+  displayName: string | null;
   tier: string;
   status: string;
   /** realized PnL (USD) summed over closed positions within the window */
@@ -285,6 +335,7 @@ export async function getLeaderboard(
   const rows = await db
     .select({
       owner: accounts.owner,
+      displayName: accounts.displayName,
       tier: accounts.tier,
       status: accounts.status,
       pnl: sql<string>`coalesce(sum(${positions.realizedPnl}) filter (where ${closedInWindow}), 0)`,
@@ -294,12 +345,14 @@ export async function getLeaderboard(
     .groupBy(
       accounts.accountId,
       accounts.owner,
+      accounts.displayName,
       accounts.tier,
       accounts.status,
     );
 
   return rows.map((row) => ({
     owner: row.owner,
+    displayName: row.displayName,
     tier: row.tier,
     status: row.status,
     shadowPnl: Number(row.pnl),

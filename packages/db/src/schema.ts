@@ -26,19 +26,32 @@ export const accounts = pgTable("accounts", {
   accountId: text("account_id").primaryKey(),
   /** Sui address that owns the AccountCap. */
   owner: text("owner").notNull(),
+  /** Optional self-chosen username: a SuiNS subname (e.g. `gifted.ultraprop.sui`)
+   * minted to the owner. Null falls back to the generated handle. */
+  displayName: text("display_name"),
+  /** The `SuinsRegistration` NFT object id minted for `displayName`, so the
+   * username can be linked to its on-chain entity. Null when no username is set. */
+  subnameNftId: text("subname_nft_id"),
   tier: text("tier").notNull(),
   /** evaluating | passed | failed | suspended — mirrors the on-chain statusCode. */
   status: text("status").notNull().default("evaluating"),
   /** Equity the evaluation opened at (USD), the static floor for the rules. */
-  startingEquity: numeric("starting_equity", { precision: 20, scale: 8 }).notNull(),
+  startingEquity: numeric("starting_equity", {
+    precision: 20,
+    scale: 8,
+  }).notNull(),
   /** Tier rule snapshot taken at open, so settlement never depends on a live read. */
   profitTarget: numeric("profit_target", { precision: 10, scale: 6 }).notNull(),
   maxDrawdown: numeric("max_drawdown", { precision: 10, scale: 6 }).notNull(),
   dailyLoss: numeric("daily_loss", { precision: 10, scale: 6 }).notNull(),
   leverageCap: numeric("leverage_cap", { precision: 10, scale: 2 }).notNull(),
   intentCap: integer("intent_cap").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 /**
@@ -65,7 +78,10 @@ export const positions = pgTable(
     marginMode: text("margin_mode").notNull(),
     /** The executor's own modeled fill — authoritative, never client-asserted. */
     entryPrice: numeric("entry_price", { precision: 20, scale: 8 }).notNull(),
-    entryFeeUsd: numeric("entry_fee_usd", { precision: 20, scale: 8 }).notNull(),
+    entryFeeUsd: numeric("entry_fee_usd", {
+      precision: 20,
+      scale: 8,
+    }).notNull(),
     fundingPaid: numeric("funding_paid", { precision: 20, scale: 8 })
       .notNull()
       .default("0"),
@@ -73,7 +89,9 @@ export const positions = pgTable(
     stopLoss: numeric("stop_loss", { precision: 20, scale: 8 }),
     /** open | closed | liquidated */
     status: text("status").notNull().default("open"),
-    openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+    openedAt: timestamp("opened_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     lastFundedAt: timestamp("last_funded_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     exitPrice: numeric("exit_price", { precision: 20, scale: 8 }),
@@ -100,7 +118,9 @@ export const idempotencyKeys = pgTable("idempotency_keys", {
   key: text("key").primaryKey(),
   scope: text("scope").notNull(),
   result: jsonb("result"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
 });
 
