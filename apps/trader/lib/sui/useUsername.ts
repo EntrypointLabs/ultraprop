@@ -29,6 +29,12 @@ export function useUsername(wallet: string | null) {
       const res = await fetch(
         `/api/account/username?owner=${encodeURIComponent(wallet as string)}`,
       );
+      // Don't collapse a failed read into "no username" — throw so React Query
+      // surfaces an error state (and retries) instead of caching a false null
+      // that would render the fallback handle as if nothing were claimed.
+      if (!res.ok) {
+        throw new Error(`Couldn't read username (${res.status}).`);
+      }
       const body = (await res.json().catch(() => ({}))) as {
         username?: Username | null;
       };

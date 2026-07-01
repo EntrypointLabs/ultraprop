@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { authenticatePrivyRequest, PrivyAuthError } from "@/lib/privy-server";
 import { isUsernameClaimingEnabled } from "@/lib/sui/config";
 import {
+  isUsernameAvailable,
   mintUsernameSubname,
   normalizeLabel,
   SuiNsError,
@@ -23,8 +24,14 @@ export async function GET(req: NextRequest) {
   try {
     return NextResponse.json({ username: await getUsername(db, owner) });
   } catch (error) {
+    // Don't mask a read failure as "no username set" — that would render every
+    // trader's fallback handle during a DB blip. Surface it so the client can
+    // retry instead of caching a false null.
     console.error("[username] read", error);
-    return NextResponse.json({ username: null });
+    return NextResponse.json(
+      { error: "Couldn't read the username." },
+      { status: 502 },
+    );
   }
 }
 
@@ -106,16 +113,54 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status });
     }
     console.error("[username] mint", error);
+    // A concurrent claim (or a double-submit) can win the race between the
+    // availability pre-check and this mint; the on-chain abort surfaces as a
+    // plain Error. Re-check so the loser gets a clear 409 "taken" instead of a
+    // blanket "try again". If the re-check itself fails, fall through to 502.
+    const stillFree = await isUsernameAvailable(label).catch(() => true);
+    if (!stillFree) {
+      return NextResponse.json(
+        { error: "That username is taken. Try another." },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       { error: "We couldn't mint your username. Please try again." },
       { status: 502 },
     );
   }
 
-  const updated = await setUsername(db, suiAddress, {
-    displayName: minted.name,
-    subnameNftId: minted.nftId,
-  });
+  let updated: number;
+  try {
+    updated = await setUsername(db, suiAddress, {
+      displayName: minted.name,
+      subnameNftId: minted.nftId,
+    });
+  } catch (error) {
+    // The mint already succeeded on-chain (the NFT is in the user's wallet), so a
+    // failed DB write must not read as a failed claim. Log the full mint so it can
+    // be reconciled, and hand the minted identity back so the client can re-record
+    // it without paying to mint again.
+    console.error(
+      "[username] mint recorded on-chain but DB write failed",
+      {
+        suiAddress,
+        name: minted.name,
+        nftId: minted.nftId,
+        digest: minted.digest,
+      },
+      error,
+    );
+    return NextResponse.json(
+      {
+        error:
+          "Your username was minted but we couldn't save it. It's in your wallet — refresh in a moment, and contact support if it doesn't appear.",
+        username: { displayName: minted.name, subnameNftId: minted.nftId },
+        digest: minted.digest,
+      },
+      { status: 500 },
+    );
+  }
   if (updated === 0) {
     // The subname is already minted on-chain; surface that the account is missing
     // rather than silently dropping a successful mint.

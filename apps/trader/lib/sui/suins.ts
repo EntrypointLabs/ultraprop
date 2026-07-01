@@ -2,6 +2,7 @@ import "server-only";
 
 import { getJsonRpcFullnodeUrl, SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { Transaction } from "@mysten/sui/transactions";
+import { normalizeSuiAddress } from "@mysten/sui/utils";
 import { SuinsClient, SuinsTransaction } from "@mysten/suins";
 import { expectExecuted, loadAdminKeypair } from "@shared/sui-propfirm";
 import { getGrpcClient } from "@/lib/sui/client";
@@ -71,13 +72,13 @@ function suinsClient(): SuinsClient {
   return cachedClient;
 }
 
-/** Whether an error means the looked-up name record simply doesn't exist (a free
- * name) — the registry's dynamic field read throws `notExists` rather than
- * returning null, so we map that one case to "no record". */
+/** Whether an error means the looked-up name record simply doesn't exist. The
+ * JSON-RPC client returns null for an unregistered name (see `suinsClient`), so a
+ * thrown error here is only "no record" when it carries the registry's typed
+ * `notExists` code. Everything else — an RPC timeout, a 5xx, a provider blip — is
+ * a real failure and must propagate, not be mistaken for a free name. */
 function isNotFound(error: unknown): boolean {
-  const code = (error as { code?: unknown }).code;
-  const message = error instanceof Error ? error.message : String(error);
-  return code === "notExists" || /does not exist|not found/i.test(message);
+  return (error as { code?: unknown }).code === "notExists";
 }
 
 /** The name record for `name`, or null when it isn't registered. */
@@ -125,7 +126,19 @@ export async function mintUsernameSubname(
       "Username claiming isn't available yet — the parent domain isn't registered.",
     );
   }
-  if (!(await isNameFree(name))) {
+  // A live registration is taken — unless it already resolves to this same owner.
+  // That's the state left when a prior mint succeeded on-chain but its DB write
+  // failed: the NFT sits in the owner's wallet with the name pointing at them.
+  // Treat that as an idempotent success so the claim re-records instead of
+  // dead-ending on "taken" for a name the caller already owns.
+  const existing = await getRecordOrNull(name);
+  if (existing && existing.expirationTimestampMs >= Date.now()) {
+    if (
+      existing.nftId &&
+      normalizeSuiAddress(existing.targetAddress) === normalizeSuiAddress(owner)
+    ) {
+      return { name, nftId: existing.nftId, digest: "" };
+    }
     throw new SuiNsError("That username is taken. Try another.");
   }
 

@@ -58,6 +58,8 @@ export function UsernameSetting({
   const settled = debounced === label && !availability.isFetching;
   const checking = label.length >= 3 && !settled;
   const result = settled && label.length >= 3 ? availability.data : undefined;
+  const availabilityFailed =
+    settled && label.length >= 3 && availability.isError;
   const canClaim = Boolean(result?.available) && !claim.isPending;
 
   function onChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -142,6 +144,7 @@ export function UsernameSetting({
         <Feedback
           label={label}
           checking={checking}
+          availabilityFailed={availabilityFailed}
           result={result}
           claimError={
             claim.isError
@@ -159,11 +162,13 @@ export function UsernameSetting({
 function Feedback({
   label,
   checking,
+  availabilityFailed,
   result,
   claimError,
 }: {
   label: string;
   checking: boolean;
+  availabilityFailed: boolean;
   result:
     | { available: boolean; name?: string; reason?: string | null }
     | undefined;
@@ -181,6 +186,15 @@ function Feedback({
         tone="muted"
         icon={<Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
         text="Checking availability…"
+      />
+    );
+  }
+  if (availabilityFailed) {
+    return (
+      <Line
+        tone="bad"
+        icon={<X className="h-3 w-3" aria-hidden="true" />}
+        text="Couldn't check that name — try again."
       />
     );
   }

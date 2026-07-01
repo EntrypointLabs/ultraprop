@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "accounts_display_name_unique" ON "accounts" USING btree ("display_name") WHERE "accounts"."display_name" is not null;--> statement-breakpoint
+ALTER TABLE "accounts" ADD CONSTRAINT "accounts_username_coupled" CHECK (("accounts"."display_name" is null) = ("accounts"."subname_nft_id" is null));
