@@ -232,6 +232,27 @@ export async function completeIdempotency(
     .where(eq(idempotencyKeys.key, key));
 }
 
+/**
+ * Fixed-window rate limit over the durable key store: the first caller to claim
+ * `key` in a window inserts the row and proceeds; a later caller in the same
+ * window collides and is limited. The caller buckets the timestamp into `key` to
+ * size the window. Cross-instance safe — the unique insert is the gate, so the
+ * limit holds across serverless instances (an in-process counter would not).
+ * Returns true when the caller may proceed. `scope` keeps these keys from
+ * colliding with idempotency keys in the same table.
+ */
+export async function claimRateLimit(
+  db: Database,
+  key: string,
+): Promise<boolean> {
+  const inserted = await db
+    .insert(idempotencyKeys)
+    .values({ key, scope: "rate-limit" })
+    .onConflictDoNothing()
+    .returning({ key: idempotencyKeys.key });
+  return inserted.length > 0;
+}
+
 /** Aggregate cohort figures, read straight from the account/position ledger. */
 export interface CohortStatsRow {
   members: number;

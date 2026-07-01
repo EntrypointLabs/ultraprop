@@ -1,4 +1,4 @@
-import { getUsername, setUsername } from "@shared/db";
+import { claimRateLimit, getUsername, setUsername } from "@shared/db";
 import { type NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { authenticatePrivyRequest, PrivyAuthError } from "@/lib/privy-server";
@@ -11,6 +11,11 @@ import {
 } from "@/lib/sui/suins";
 
 export const runtime = "nodejs";
+
+/** One mint attempt per trader per window. Each attempt is a firm-paid on-chain
+ * transaction, so this blunts scripted abuse without hindering a real user who
+ * claims once. */
+const CLAIM_WINDOW_MS = 15_000;
 
 /** Public read: the username (minted subname + backing NFT) an owner has set, or
  * null. Drives the profile header for any wallet, not just the signed-in one. */
@@ -100,6 +105,21 @@ export async function POST(req: Request) {
     const message =
       error instanceof SuiNsError ? error.message : "Invalid username.";
     return NextResponse.json({ error: message }, { status: 400 });
+  }
+
+  // Cap firm-paid mint attempts per trader. Keyed on the Privy user (not the
+  // wallet, so switching wallets can't sidestep it) and bucketed into a fixed
+  // window; the durable claim holds across serverless instances.
+  const claimBucket = Math.floor(Date.now() / CLAIM_WINDOW_MS);
+  const withinLimit = await claimRateLimit(
+    db,
+    `username-claim:${trader.userId}:${claimBucket}`,
+  );
+  if (!withinLimit) {
+    return NextResponse.json(
+      { error: "You're doing that too fast — wait a moment and try again." },
+      { status: 429 },
+    );
   }
 
   let minted: Awaited<ReturnType<typeof mintUsernameSubname>>;

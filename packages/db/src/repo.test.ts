@@ -8,6 +8,7 @@ import type { Database } from "./client.js";
 import {
   accountExists,
   claimIdempotency,
+  claimRateLimit,
   closeOpenPosition,
   completeIdempotency,
   findOpenPositionByClientId,
@@ -205,5 +206,14 @@ describe("ledger repo", () => {
         subnameNftId: "0xg",
       }),
     ).toBe(0);
+  });
+
+  it("claimRateLimit: first claim in a window wins, repeats in it are limited", async () => {
+    expect(await claimRateLimit(db, "username-claim:user_1:100")).toBe(true);
+    // Same key (same window) collides → limited.
+    expect(await claimRateLimit(db, "username-claim:user_1:100")).toBe(false);
+    // A later window, or a different user, is a fresh key → allowed again.
+    expect(await claimRateLimit(db, "username-claim:user_1:101")).toBe(true);
+    expect(await claimRateLimit(db, "username-claim:user_2:100")).toBe(true);
   });
 });
