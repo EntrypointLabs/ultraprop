@@ -15,5 +15,6 @@
   "upgradeCap": "0xb5f20caffc7b45823fd910b2dc7ac1c0cbfcc2039976be860f9f40a0b776847c",
   "usdcType": "0xf97bea36c6fd7558f7fbfa5cd0f5bdf7e4751d33d1ac678ab8161aa32934b12b::usdc::USDC",
   "usdcPackageId": "0xf97bea36c6fd7558f7fbfa5cd0f5bdf7e4751d33d1ac678ab8161aa32934b12b",
-  "usdcFaucet": "0xa2e780966bf19a96256a5b59c218b4e43782ff503074623f59c9c45275aee762"
+  "usdcFaucet": "0xa2e780966bf19a96256a5b59c218b4e43782ff503074623f59c9c45275aee762",
+  "packageIdLatest": "0xf62a9440cc94416ae8c3c17fe1feecf42ffeb0efb4c2112508664d35fa0da708"
 }

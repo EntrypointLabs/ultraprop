@@ -19,6 +19,7 @@
     "@privy-io/node": "^0.21.0",
     "@privy-io/react-auth": "^3.29.2",
     "@shared/db": "workspace:*",
+    "@shared/events": "workspace:*",
     "@shared/sim-core": "workspace:*",
     "@shared/sui-propfirm": "workspace:*",
     "@shared/venues": "workspace:*",

@@ -6,6 +6,7 @@ import { fromBase64 } from "@mysten/sui/utils";
 import type { ExecutorSuiConfig } from "./config.js";
 import {
   buildFailEvaluationTransaction,
+  buildLogTradeDetailedTransaction,
   buildLogTradeTransaction,
   buildPassEvaluationTransaction,
   buildReactivateTransaction,
@@ -61,6 +62,26 @@ export interface LogTradeParams {
   market: string;
 }
 
+/**
+ * Full closed-trade detail for `log_trade_detailed`. The extra fields beyond
+ * `LogTradeParams` ride only in the `TradeSettled` event. All USD/price/leverage
+ * values are u64 fixed-point at 1e6; `pnl`/`fundingPaid` are magnitudes whose
+ * signs live in `isWin`/`fundingIsCredit`.
+ */
+export interface LogTradeDetailedParams extends LogTradeParams {
+  /** 0 = long, 1 = short */
+  side: number;
+  sizeUsd: bigint;
+  leverage: bigint;
+  entryPrice: bigint;
+  exitPrice: bigint;
+  entryFee: bigint;
+  fundingPaid: bigint;
+  fundingIsCredit: boolean;
+  /** 0 = manual, 1 = tp, 2 = sl, 3 = liquidation */
+  closeReason: number;
+}
+
 /** True for a syntactically valid Sui object id: `0x` + up to 64 hex digits. */
 function isAccountId(value: string): boolean {
   return /^0x[0-9a-fA-F]{1,64}$/.test(value.trim());
@@ -97,6 +118,16 @@ export class PropfirmExecutor {
     if (!isAccountId(params.accountId)) throw new Error("Invalid account id.");
     const digest = await this.exec((config) =>
       buildLogTradeTransaction({ config, ...params }),
+    );
+    return { digest };
+  }
+
+  async logTradeDetailed(
+    params: LogTradeDetailedParams,
+  ): Promise<ExecutorResult> {
+    if (!isAccountId(params.accountId)) throw new Error("Invalid account id.");
+    const digest = await this.exec((config) =>
+      buildLogTradeDetailedTransaction({ config, ...params }),
     );
     return { digest };
   }

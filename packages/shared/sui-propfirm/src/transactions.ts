@@ -63,6 +63,63 @@ export function buildLogTradeTransaction(params: {
 }
 
 /**
+ * Records a closed trade on-chain AND emits the full-detail `TradeSettled` event
+ * so a trader's realized history can be reconstructed off-chain from events
+ * alone. Identical equity/gate effects as `buildLogTradeTransaction`; the extra
+ * args (side, size, leverage, entry/exit price, fees, funding, close reason)
+ * ride only in the event. All USD/price/leverage values are u64 fixed-point at
+ * 1e6; `pnl` and `fundingPaid` are magnitudes with their signs in `isWin` and
+ * `fundingIsCredit`. `side`: 0 long / 1 short. `closeReason`: 0 manual / 1 tp /
+ * 2 sl / 3 liquidation.
+ */
+export function buildLogTradeDetailedTransaction(params: {
+  config: WriteConfig;
+  accountId: string;
+  isWin: boolean;
+  pnl: bigint;
+  venue: string;
+  market: string;
+  side: number;
+  sizeUsd: bigint;
+  leverage: bigint;
+  entryPrice: bigint;
+  exitPrice: bigint;
+  entryFee: bigint;
+  fundingPaid: bigint;
+  fundingIsCredit: boolean;
+  closeReason: number;
+}): Transaction {
+  const tx = new Transaction();
+  // `log_trade_detailed` was introduced by the upgrade, so it lives at the latest
+  // package version; the original `packageId` doesn't have it.
+  const packageId = params.config.packageIdLatest ?? params.config.packageId;
+  tx.moveCall({
+    target: `${packageId}::user_account::log_trade_detailed`,
+    arguments: [
+      tx.object(params.config.executorCapId),
+      tx.object(params.config.accessRegistryId),
+      tx.object(params.config.accountRegistryId),
+      tx.pure.id(params.accountId),
+      tx.pure.bool(params.isWin),
+      tx.pure.u64(params.pnl),
+      tx.pure.string(params.venue),
+      tx.pure.string(params.market),
+      tx.pure.u8(params.side),
+      tx.pure.u64(params.sizeUsd),
+      tx.pure.u64(params.leverage),
+      tx.pure.u64(params.entryPrice),
+      tx.pure.u64(params.exitPrice),
+      tx.pure.u64(params.entryFee),
+      tx.pure.u64(params.fundingPaid),
+      tx.pure.bool(params.fundingIsCredit),
+      tx.pure.u8(params.closeReason),
+      tx.object(CLOCK_OBJECT_ID),
+    ],
+  });
+  return tx;
+}
+
+/**
  * Assembles an executor-gated lifecycle call that takes only the account id
  * (`pass_evaluation`, `fail_evaluation`, `register_dd_breach`). The contract arg
  * order is identical across the three: cap, access registry, account registry,

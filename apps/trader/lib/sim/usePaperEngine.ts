@@ -7,6 +7,7 @@ import { usePrices, useSession } from "@/lib/mock/hooks";
 import type { PriceTick, Tier } from "@/lib/mock/types";
 import { useOnchainBridge } from "@/lib/sui/useOnchainBridge";
 import { type OrderIntent, toVaultState, useSimStore } from "./store";
+import { useVaultHydration } from "./useVaultHydration";
 
 /**
  * The paper-trading controller and the SINGLE writer of the evaluation caches.
@@ -48,6 +49,10 @@ export function usePaperEngine(
   const { session } = useSession();
   const hydrated = useSimStore((s) => s.hydrated);
   const owner = session.address ?? DEMO_WALLET;
+
+  // On a fresh device, rebuild this vault's record from on-chain events + the
+  // server ledger before trading resumes. A no-op once it has local trades.
+  useVaultHydration(vaultId);
 
   // Mirror realized closes and the eval outcome onto the deployed contracts. A
   // no-op until the trader has an on-chain account and the package is configured.

@@ -3,6 +3,7 @@ import "server-only";
 import {
   expectExecuted,
   loadAdminKeypair,
+  type LogTradeDetailedParams,
   PropfirmExecutor,
 } from "@shared/sui-propfirm";
 import { getGraphQLClient, getGrpcClient } from "./client";
@@ -141,6 +142,18 @@ export function logTrade(params: {
   market: string;
 }): Promise<ExecutorResult> {
   return propfirmExecutor().logTrade(params);
+}
+
+/**
+ * Records a closed trade on-chain with full detail, emitting `TradeSettled` so
+ * the realized history can be rebuilt off-chain from events on any device. Same
+ * equity/gate effects as `logTrade`; the extra fields are event-only. USD/price/
+ * leverage args are u64 fixed-point at 1e6; `pnl`/`fundingPaid` are magnitudes.
+ */
+export function logTradeDetailed(
+  params: LogTradeDetailedParams,
+): Promise<ExecutorResult> {
+  return propfirmExecutor().logTradeDetailed(params);
 }
 
 /** Marks the account's evaluation passed on-chain. */

@@ -25,6 +25,13 @@ export const CLOCK_OBJECT_ID = "0x6";
 /** The shared-object ids a write transaction references. */
 export interface WriteConfig {
   packageId: string;
+  /**
+   * The LATEST package version id, set after an in-place upgrade. Calls to
+   * functions introduced by the upgrade (e.g. `log_trade_detailed`) must target
+   * it; pre-upgrade functions and all struct/event TYPE tags keep using the
+   * original `packageId`. Falls back to `packageId` when unset (no upgrade yet).
+   */
+  packageIdLatest?: string;
   accountRegistryId: string;
   accessRegistryId: string;
   executorCapId: string;

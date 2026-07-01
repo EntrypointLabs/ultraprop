@@ -63,6 +63,9 @@ importers:
       '@shared/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@shared/events':
+        specifier: workspace:*
+        version: link:../../packages/shared/events
       '@shared/sim-core':
         specifier: workspace:*
         version: link:../../packages/shared/sim-core

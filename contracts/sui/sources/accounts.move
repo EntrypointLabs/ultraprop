@@ -163,6 +163,31 @@ public struct TradeLogged has copy, drop {
     timestamp_ms: u64,
 }
 
+/// Richer companion to `TradeLogged` carrying the full closed-trade detail an
+/// off-chain indexer needs to reconstruct a trader's history from events alone.
+/// All USD/price values are u64 fixed-point at 1e6. `funding_paid` is a
+/// magnitude; its sign lives in `funding_is_credit`.
+public struct TradeSettled has copy, drop {
+    account_id: ID,
+    seq: u64,
+    is_win: bool,
+    pnl: u64,
+    side: u8, // 0 = long, 1 = short
+    venue: String,
+    market: String,
+    size_usd: u64,
+    leverage: u64,
+    entry_price: u64,
+    exit_price: u64,
+    entry_fee: u64,
+    funding_paid: u64,
+    funding_is_credit: bool,
+    close_reason: u8, // 0 = manual, 1 = tp, 2 = sl, 3 = liquidation
+    equity_after: u64,
+    reputation_after: u64,
+    timestamp_ms: u64,
+}
+
 public struct AccountBreached has copy, drop {
     account_id: ID,
     reason: u8,
@@ -482,23 +507,17 @@ public fun promote(
 /// Applies a closed trade's PnL to equity, rolls the daily-loss baseline at UTC
 /// day boundaries, enforces the daily-loss and static max-drawdown gates
 /// (suspending on breach), updates reputation, and appends the journal entry.
-public fun log_trade(
-    cap: &ExecutorCap,
-    access_registry: &AccessRegistry,
-    accounts: &mut AccountRegistry,
-    account_id: ID,
+/// Returns a copy of the journal entry plus a breach reason — 0 for no breach,
+/// otherwise `REASON_DAILY_LOSS`/`REASON_MAX_DRAWDOWN` — so callers can emit the
+/// appropriate events. State effects are identical regardless of caller.
+fun apply_trade(
+    state: &mut AccountState,
     is_win: bool,
     pnl: u64,
     venue: String,
     market: String,
-    clock: &Clock,
-    _ctx: &TxContext,
-) {
-    access::assert_executor(access_registry, cap);
-    let now_ms = clock.timestamp_ms();
-    let state = borrow_account_mut(accounts, account_id);
-    assert!(trading_allowed(state.status), EAccountNotActive);
-
+    now_ms: u64,
+): (TradeEntry, u8) {
     let now_day = now_ms / DAY_MS;
     if (now_day > state.current_day) {
         state.day_start_equity = state.equity;
@@ -542,30 +561,115 @@ public fun log_trade(
     state.next_trade_seq = seq + 1;
     state.updated_at_ms = now_ms;
 
-    let logged = *table::borrow(&state.trades, seq);
+    let breach_reason = if (breached_daily) REASON_DAILY_LOSS
+        else if (breached_dd) REASON_MAX_DRAWDOWN
+        else 0;
+    (*table::borrow(&state.trades, seq), breach_reason)
+}
+
+/// Emits `AccountBreached` for an account just suspended by `apply_trade`.
+fun emit_breach(account_id: ID, state: &AccountState, reason: u8, now_ms: u64) {
+    event::emit(AccountBreached {
+        account_id,
+        reason,
+        equity: state.equity,
+        breach_count: state.breach_count,
+        timestamp_ms: now_ms,
+    });
+}
+
+/// Applies a closed trade and emits `TradeLogged`. The full state machine lives
+/// in `apply_trade`; new callers should prefer `log_trade_detailed`, which also
+/// emits the richer `TradeSettled` event.
+public fun log_trade(
+    cap: &ExecutorCap,
+    access_registry: &AccessRegistry,
+    accounts: &mut AccountRegistry,
+    account_id: ID,
+    is_win: bool,
+    pnl: u64,
+    venue: String,
+    market: String,
+    clock: &Clock,
+    _ctx: &TxContext,
+) {
+    access::assert_executor(access_registry, cap);
+    let now_ms = clock.timestamp_ms();
+    let state = borrow_account_mut(accounts, account_id);
+    assert!(trading_allowed(state.status), EAccountNotActive);
+
+    let (logged, breach_reason) = apply_trade(state, is_win, pnl, venue, market, now_ms);
 
     event::emit(TradeLogged {
         account_id,
-        seq,
-        is_win,
-        pnl,
+        seq: logged.seq,
+        is_win: logged.is_win,
+        pnl: logged.pnl,
         venue: logged.venue,
         market: logged.market,
-        equity_after: state.equity,
-        reputation_after: state.reputation,
-        timestamp_ms: now_ms,
+        equity_after: logged.equity_after,
+        reputation_after: logged.reputation_after,
+        timestamp_ms: logged.timestamp_ms,
     });
 
-    if (breached_daily || breached_dd) {
-        let reason = if (breached_daily) REASON_DAILY_LOSS else REASON_MAX_DRAWDOWN;
-        event::emit(AccountBreached {
-            account_id,
-            reason,
-            equity: state.equity,
-            breach_count: state.breach_count,
-            timestamp_ms: now_ms,
-        });
-    };
+    if (breach_reason != 0) emit_breach(account_id, state, breach_reason, now_ms);
+}
+
+/// Applies a closed trade and emits `TradeSettled` (plus the breach event when
+/// suspended), carrying the full trade detail — side, size, leverage, entry and
+/// exit price, fees, funding, close reason — so a trader's realized history can
+/// be reconstructed off-chain from events alone, on any device. State effects
+/// are identical to `log_trade`. All USD/price args are u64 fixed-point at 1e6.
+public fun log_trade_detailed(
+    cap: &ExecutorCap,
+    access_registry: &AccessRegistry,
+    accounts: &mut AccountRegistry,
+    account_id: ID,
+    is_win: bool,
+    pnl: u64,
+    venue: String,
+    market: String,
+    side: u8,
+    size_usd: u64,
+    leverage: u64,
+    entry_price: u64,
+    exit_price: u64,
+    entry_fee: u64,
+    funding_paid: u64,
+    funding_is_credit: bool,
+    close_reason: u8,
+    clock: &Clock,
+    _ctx: &TxContext,
+) {
+    access::assert_executor(access_registry, cap);
+    let now_ms = clock.timestamp_ms();
+    let state = borrow_account_mut(accounts, account_id);
+    assert!(trading_allowed(state.status), EAccountNotActive);
+
+    let (logged, breach_reason) = apply_trade(state, is_win, pnl, venue, market, now_ms);
+
+    event::emit(TradeSettled {
+        account_id,
+        seq: logged.seq,
+        is_win: logged.is_win,
+        pnl: logged.pnl,
+        side,
+        venue: logged.venue,
+        market: logged.market,
+        size_usd,
+        leverage,
+        entry_price,
+        exit_price,
+        entry_fee,
+        funding_paid,
+        funding_is_credit,
+        close_reason,
+        equity_after: logged.equity_after,
+        reputation_after: logged.reputation_after,
+        timestamp_ms: logged.timestamp_ms,
+    });
+
+    if (breach_reason != 0) emit_breach(account_id, state, breach_reason, now_ms);
 }
 
 /// Marks an evaluating account as passed once its equity meets the profit

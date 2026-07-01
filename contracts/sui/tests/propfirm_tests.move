@@ -159,6 +159,49 @@ fun exec_log_trade(
     scenario.next_tx(ADMIN);
 }
 
+/// Executor logs one trade via the detailed path against `account_id`. The
+/// extra detail args ride only in the `TradeSettled` event; state effects must
+/// match `exec_log_trade` exactly.
+fun exec_log_trade_detailed(
+    scenario: &mut Scenario,
+    account_id: ID,
+    is_win: bool,
+    pnl: u64,
+    ms: u64,
+) {
+    scenario.next_tx(ADMIN);
+    let exec_cap = scenario.take_from_sender<ExecutorCap>();
+    let registry = scenario.take_shared<AccessRegistry>();
+    let mut accounts = scenario.take_shared<AccountRegistry>();
+    let clock = clock_at(scenario, ms);
+    user_account::log_trade_detailed(
+        &exec_cap,
+        &registry,
+        &mut accounts,
+        account_id,
+        is_win,
+        pnl,
+        string::utf8(b"hyperliquid"),
+        string::utf8(b"BTC-PERP"),
+        0, // side: long
+        1_000_000_000, // size_usd: $1,000
+        2, // leverage
+        50_000_000_000, // entry_price: $50,000
+        50_200_000_000, // exit_price: $50,200
+        500_000, // entry_fee: $0.50
+        0, // funding_paid
+        false, // funding_is_credit
+        0, // close_reason: manual
+        &clock,
+        scenario.ctx(),
+    );
+    clock::destroy_for_testing(clock);
+    scenario.return_to_sender(exec_cap);
+    ts::return_shared(registry);
+    ts::return_shared(accounts);
+    scenario.next_tx(ADMIN);
+}
+
 // === open_account ===
 
 #[test]
@@ -349,6 +392,52 @@ fun log_trade_on_suspended_aborts() {
     exec_log_trade(&mut scenario, account_id, false, 1_001_000_000, 0);
     exec_log_trade(&mut scenario, account_id, true, 1_000_000, 0);
 
+    scenario.end();
+}
+
+// === log_trade_detailed ===
+
+#[test]
+fun log_trade_detailed_applies_same_state_as_log_trade() {
+    let mut scenario = ts::begin(ADMIN);
+    bootstrap(&mut scenario);
+    open_starter_account(&mut scenario);
+    let account_id = trader_account_id(&mut scenario);
+
+    // A +$200 win must move equity, counts and reputation exactly as log_trade.
+    exec_log_trade_detailed(&mut scenario, account_id, true, 200_000_000, 0);
+
+    scenario.next_tx(ADMIN);
+    {
+        let accounts = scenario.take_shared<AccountRegistry>();
+        assert!(user_account::equity(&accounts, account_id) == STARTER_FUNDED_SIZE + 200_000_000, 0);
+        assert!(user_account::status_code(&accounts, account_id) == STATUS_EVALUATING, 1);
+        let (total, wins, losses) = user_account::trade_counts(&accounts, account_id);
+        assert!(total == 1 && wins == 1 && losses == 0, 2);
+        assert!(user_account::reputation(&accounts, account_id) == 1_005, 3); // +REP_WIN
+        ts::return_shared(accounts);
+    };
+    scenario.end();
+}
+
+#[test]
+fun log_trade_detailed_max_drawdown_suspends() {
+    let mut scenario = ts::begin(ADMIN);
+    bootstrap(&mut scenario);
+    open_starter_account(&mut scenario);
+    let account_id = trader_account_id(&mut scenario);
+
+    // The detailed path must enforce the same max-dd breach and suspension.
+    exec_log_trade_detailed(&mut scenario, account_id, false, 1_001_000_000, 0);
+
+    scenario.next_tx(ADMIN);
+    {
+        let accounts = scenario.take_shared<AccountRegistry>();
+        assert!(user_account::equity(&accounts, account_id) <= STARTER_MAX_DD_FLOOR, 0);
+        assert!(user_account::status_code(&accounts, account_id) == STATUS_SUSPENDED, 1);
+        assert!(user_account::breach_count(&accounts, account_id) == 1, 2);
+        ts::return_shared(accounts);
+    };
     scenario.end();
 }
 

@@ -1,4 +1,5 @@
 import { SuiGraphQLClient } from "@mysten/sui/graphql";
+import { getJsonRpcFullnodeUrl, SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { type PublicSuiConfig, publicSuiConfig } from "./config";
 
@@ -24,6 +25,7 @@ function defaultGrpcUrl(network: Network): string {
 
 let cachedGraphql: SuiGraphQLClient | null = null;
 let cachedGrpc: SuiGrpcClient | null = null;
+let cachedJsonRpc: SuiJsonRpcClient | null = null;
 
 /**
  * A shared GraphQL client pointed at the configured network. Works in both the
@@ -53,4 +55,20 @@ export function getGrpcClient(): SuiGrpcClient {
     baseUrl: grpcUrl ?? defaultGrpcUrl(network),
   });
   return cachedGrpc;
+}
+
+/**
+ * A shared JSON-RPC client, used solely for `queryEvents` — the one read the
+ * GraphQL/gRPC clients don't expose. Reconstructing a trader's realized history
+ * means paging the `TradeSettled` event log by type, which `suix_queryEvents`
+ * does natively. Everything else stays on the GraphQL read path.
+ */
+export function getJsonRpcClient(): SuiJsonRpcClient {
+  if (cachedJsonRpc) return cachedJsonRpc;
+  const { network, rpcUrl } = publicSuiConfig();
+  cachedJsonRpc = new SuiJsonRpcClient({
+    network,
+    url: rpcUrl ?? getJsonRpcFullnodeUrl(network),
+  });
+  return cachedJsonRpc;
 }

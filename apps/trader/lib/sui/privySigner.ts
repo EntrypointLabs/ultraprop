@@ -21,10 +21,31 @@ export type RawHashSigner = (hash: `0x${string}`) => Promise<{
 /** The user's Sui embedded-wallet identity, read off the Privy wallet account. */
 export interface PrivySuiWallet {
   address: string;
-  /** Base64 Ed25519 public key. Privy exposes this on the wallet's `publicKey`
-   * field for tier-2 (curve-signing) chains like Sui; without it we can't
-   * derive the address or serialize a signature. */
+  /** Ed25519 public key Privy exposes on the wallet's `publicKey` field for
+   * tier-2 (curve-signing) chains like Sui, as a `0x`-prefixed hex string;
+   * without it we can't derive the address or serialize a signature. */
   publicKey: string;
+}
+
+/**
+ * Decodes Privy's Sui public key to the raw 32 bytes `Ed25519PublicKey` expects.
+ * Privy returns the *flag-prefixed* Sui public key — a 1-byte signature-scheme
+ * flag followed by the 32-byte Ed25519 key (33 bytes) — as a hex string. We
+ * accept hex (with or without `0x`) and base64 for safety, then drop the leading
+ * scheme-flag byte when present. The address-match guard in
+ * `signAndExecuteWithPrivy` catches any mis-decode before gas is spent.
+ */
+function decodeSuiPublicKey(publicKey: string): Uint8Array {
+  const stripped = publicKey.startsWith("0x") ? publicKey.slice(2) : publicKey;
+  const isHex = stripped.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(stripped);
+  let bytes = isHex ? fromHex(stripped) : fromBase64(publicKey);
+  if (bytes.length === 33) bytes = bytes.slice(1);
+  if (bytes.length !== 32) {
+    throw new Error(
+      `Unexpected Sui public key length: got ${bytes.length} bytes, expected 32.`,
+    );
+  }
+  return bytes;
 }
 
 function toHex(bytes: Uint8Array): `0x${string}` {
@@ -50,13 +71,13 @@ function fromHex(value: string): Uint8Array {
  * digest via Privy's `signRawHash`. This keeps digest computation in the SDK
  * (no hand-rolled hashing) and means the firm never holds the user's key.
  */
-class PrivySuiSigner extends Signer {
+export class PrivySuiSigner extends Signer {
   readonly #publicKey: Ed25519PublicKey;
   readonly #signRawHash: RawHashSigner;
 
   constructor(wallet: PrivySuiWallet, signRawHash: RawHashSigner) {
     super();
-    this.#publicKey = new Ed25519PublicKey(fromBase64(wallet.publicKey));
+    this.#publicKey = new Ed25519PublicKey(decodeSuiPublicKey(wallet.publicKey));
     this.#signRawHash = signRawHash;
   }
 
@@ -76,7 +97,7 @@ class PrivySuiSigner extends Signer {
 }
 
 /** Lowercases and zero-pads a Sui address to its 32-byte canonical hex form. */
-function normalizeSuiAddress(address: string): string {
+export function normalizeSuiAddress(address: string): string {
   const hex = (address.startsWith("0x") ? address.slice(2) : address)
     .toLowerCase()
     .padStart(64, "0");
@@ -110,9 +131,23 @@ export async function signAndExecuteWithPrivy(params: {
   const txBytes = await tx.build({ client });
   const { signature } = await signer.signTransaction(txBytes);
 
+  return executeSignedTransaction(client, txBytes, [signature]);
+}
+
+/**
+ * Executes already-signed transaction bytes and unwraps the result to a digest,
+ * throwing the on-chain error on failure. Shared by the self-paid
+ * (`signAndExecuteWithPrivy`) and gas-sponsored execute paths so both surface
+ * identical failure messages.
+ */
+export async function executeSignedTransaction(
+  client: SuiGraphQLClient,
+  txBytes: Uint8Array,
+  signatures: string[],
+): Promise<{ digest: string }> {
   const result = await client.executeTransaction({
     transaction: txBytes,
-    signatures: [signature],
+    signatures,
     include: { effects: true },
   });
 

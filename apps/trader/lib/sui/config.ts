@@ -29,6 +29,14 @@ export interface PublicSuiConfig {
    * back to the network's default fullnode when unset. */
   grpcUrl: string | null;
   packageId: string;
+  /**
+   * The latest package version id after an in-place upgrade. Used ONLY for calls
+   * to upgrade-introduced functions (`log_trade_detailed`) and the type tag of
+   * the upgrade-introduced `TradeSettled` event. Everything else — existing calls
+   * and all struct type tags (`AccountCap`, `AccountCreated`) — keeps using the
+   * original `packageId`. Falls back to `packageId` when unset.
+   */
+  packageIdLatest: string;
   accountRegistryId: string;
   accessRegistryId: string;
   treasuryId: string;
@@ -73,6 +81,9 @@ export function publicSuiConfig(): PublicSuiConfig {
     graphqlUrl: clean(process.env.NEXT_PUBLIC_SUI_GRAPHQL_URL) || null,
     grpcUrl: clean(process.env.NEXT_PUBLIC_SUI_GRPC_URL) || null,
     packageId: clean(process.env.NEXT_PUBLIC_PROPFIRM_PACKAGE_ID),
+    packageIdLatest:
+      clean(process.env.NEXT_PUBLIC_PROPFIRM_PACKAGE_ID_LATEST) ||
+      clean(process.env.NEXT_PUBLIC_PROPFIRM_PACKAGE_ID),
     accountRegistryId: clean(process.env.NEXT_PUBLIC_PROPFIRM_ACCOUNT_REGISTRY_ID),
     accessRegistryId: clean(process.env.NEXT_PUBLIC_PROPFIRM_ACCESS_REGISTRY_ID),
     treasuryId: clean(process.env.NEXT_PUBLIC_PROPFIRM_TREASURY_ID),

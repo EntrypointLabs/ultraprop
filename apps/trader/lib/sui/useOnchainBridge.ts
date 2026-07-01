@@ -165,9 +165,16 @@ async function reconcile(
   }
 
   // 1) Realized closes, oldest first (store prepends, so iterate in reverse).
+  //    `onChain` closes were rehydrated from the event log — already recorded, so
+  //    skip them; re-sending would double-log under a new idempotency key.
   for (let i = vault.trades.length - 1; i >= 0; i--) {
     const trade = vault.trades[i];
-    if (!isRealizedClose(trade) || ledger.sentTrades.has(trade.id)) continue;
+    if (
+      !isRealizedClose(trade) ||
+      trade.onChain ||
+      ledger.sentTrades.has(trade.id)
+    )
+      continue;
     return sendClose(accountId, trade, ledger, getToken);
   }
 

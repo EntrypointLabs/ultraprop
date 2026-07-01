@@ -127,6 +127,9 @@ export interface TradeRecord {
   liquidated?: boolean;
   /** why this position closed; undefined for the entry trade that opened it */
   closedBy?: "manual" | "tp" | "sl" | "liquidation";
+  /** true for a close rehydrated from the on-chain event log on a fresh device.
+   * It is ALREADY recorded on-chain, so the bridge must not re-send it. */
+  onChain?: boolean;
 }
 
 export type RuleKind =

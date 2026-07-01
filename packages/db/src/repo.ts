@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import type { Database } from "./client.js";
 import {
   accounts,
@@ -72,6 +72,24 @@ export async function findOpenPositionByClientId(
     )
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * Every currently-open position for an account, newest first. Open positions are
+ * never on-chain (only realized closes are), so this ledger read is what lets a
+ * fresh device rehydrate the trader's live positions and resume marking them.
+ */
+export async function selectOpenPositionsByAccount(
+  db: Database,
+  accountId: string,
+): Promise<PositionRow[]> {
+  return db
+    .select()
+    .from(positions)
+    .where(
+      and(eq(positions.accountId, accountId), eq(positions.status, "open")),
+    )
+    .orderBy(desc(positions.openedAt));
 }
 
 export interface ClosePositionInput {

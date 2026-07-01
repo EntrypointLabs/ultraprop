@@ -2,6 +2,8 @@ import {
   accountExists,
   findOpenPositionByClientId,
   insertOpenPosition,
+  type PositionRow,
+  selectOpenPositionsByAccount,
 } from "@shared/db";
 import { applyFill } from "@shared/sim-core";
 import { fetchAssetCtxs } from "@shared/venues";
@@ -44,6 +46,45 @@ interface OpenBody {
   marginMode: "isolated" | "cross";
   takeProfit?: number | null;
   stopLoss?: number | null;
+}
+
+/** A trader's open position, as returned for cross-device rehydration. The live
+ * mark, unrealized PnL and liquidation price are recomputed by the engine after
+ * load, so they are intentionally absent here. */
+export interface OpenPositionDto {
+  id: string;
+  symbol: string;
+  side: "long" | "short";
+  sizeUsd: number;
+  entryPrice: number;
+  leverage: number;
+  marginMode: "isolated" | "cross";
+  entryFeeUsd: number;
+  fundingPaid: number;
+  takeProfit: number | null;
+  stopLoss: number | null;
+  openedAt: number;
+  lastFundedAt: number;
+}
+
+function toOpenPositionDto(row: PositionRow): OpenPositionDto {
+  return {
+    // Restore the client's original position id so bracket/close correlation and
+    // the bridge's idempotency ledger line up with the rehydrated position.
+    id: row.clientTradeId ?? row.id,
+    symbol: row.marketId,
+    side: row.side as "long" | "short",
+    sizeUsd: Number(row.sizeUsd),
+    entryPrice: Number(row.entryPrice),
+    leverage: Number(row.leverage),
+    marginMode: row.marginMode as "isolated" | "cross",
+    entryFeeUsd: Number(row.entryFeeUsd),
+    fundingPaid: Number(row.fundingPaid),
+    takeProfit: row.takeProfit != null ? Number(row.takeProfit) : null,
+    stopLoss: row.stopLoss != null ? Number(row.stopLoss) : null,
+    openedAt: row.openedAt.getTime(),
+    lastFundedAt: (row.lastFundedAt ?? row.openedAt).getTime(),
+  };
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -177,5 +218,38 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     return serverError(error, "We couldn't record the open on-chain ledger.");
+  }
+}
+
+/**
+ * Lists the caller's still-open positions for an account, so a fresh device can
+ * rehydrate the live positions the chain can't hold. Soft-empty when the ledger
+ * is disabled (no `DATABASE_URL`) — the client then shows whatever it has
+ * locally. Ownership is checked the same way as the open path.
+ */
+export async function GET(req: Request) {
+  const auth = await requireTrader(req);
+  if (auth.response) return auth.response;
+
+  const db = getDb();
+  if (!db) return NextResponse.json({ positions: [] });
+
+  const accountId = (new URL(req.url).searchParams.get("accountId") ?? "").trim();
+  if (!isAccountId(accountId)) {
+    return NextResponse.json({ error: "Invalid account id." }, { status: 400 });
+  }
+
+  try {
+    const owner = await owningAddress(auth.trader.suiAddresses, accountId);
+    if (!owner) {
+      return NextResponse.json(
+        { error: "That account is not linked to your wallet." },
+        { status: 403 },
+      );
+    }
+    const rows = await selectOpenPositionsByAccount(db, accountId);
+    return NextResponse.json({ positions: rows.map(toOpenPositionDto) });
+  } catch (error) {
+    return serverError(error, "We couldn't load your open positions.");
   }
 }

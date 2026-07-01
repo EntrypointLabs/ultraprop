@@ -38,9 +38,10 @@ async function post(
     },
     body: JSON.stringify(body),
   });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  console.log("[bridge-post]", path, "status:", res.status, data);
   if (res.ok) return { ok: true };
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
-  return { ok: false, error: data.error };
+  return { ok: false, error: data.error as string | undefined };
 }
 
 async function withToken(
@@ -80,6 +81,10 @@ export function postClose(
       entryPrice: trade.entryPrice,
       exitPrice: trade.fill,
       leverage: trade.leverage,
+      // Attribution only — recorded on-chain for the history; never affects the
+      // server-recomputed PnL.
+      closedBy: trade.closedBy,
+      liquidated: trade.liquidated,
     }),
   );
 }
@@ -116,8 +121,12 @@ export async function postOpen(
       stopLoss: position.stopLoss ?? null,
     }),
   });
+  const data = (await res.json().catch(() => ({}))) as {
+    positionId?: string;
+    error?: string;
+  };
+  console.log("[bridge-post]", "/api/positions/open", "status:", res.status, data);
   if (!res.ok) return null;
-  const data = (await res.json().catch(() => ({}))) as { positionId?: string };
   return typeof data.positionId === "string" ? data.positionId : null;
 }
 

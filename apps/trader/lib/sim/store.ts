@@ -90,6 +90,22 @@ interface SimStore {
     owner: string,
     nowMs: number,
   ) => void;
+  /**
+   * Fill a freshly-opened, EMPTY vault with a trader's record fetched off-device
+   * — realized closes + equity anchors from the on-chain event log, open
+   * positions from the server ledger — so a new device shows the same cockpit.
+   * A no-op when the vault is missing or already carries local positions/trades
+   * (a returning device keeps what it has), so it never clobbers live state.
+   */
+  hydrateVault: (
+    vaultId: string,
+    data: {
+      trades: TradeRecord[];
+      equityCurve: EquityPoint[];
+      openPositions: Position[];
+    },
+    nowMs: number,
+  ) => void;
   submitOrder: (
     vaultId: string,
     intent: OrderIntent,
@@ -257,6 +273,8 @@ interface LiquidationResult {
 function closeLiquidations(
   positions: Position[],
   realizedTotal: number,
+  startingEquity: number,
+  lossFloor: number,
   nowMs: number,
 ): LiquidationResult {
   const survivors: Position[] = [];
@@ -305,6 +323,37 @@ function closeLiquidations(
       liquidated: true,
       closedBy: "liquidation",
     });
+  }
+
+  // Cap the booked loss at the firm's remaining drawdown: paper trading mimics a
+  // real prop desk, which force-settles the position the instant cumulative loss
+  // hits the max-drawdown (or daily-loss) floor — a trader can never lose more
+  // than the rules allow on one liquidation. Without this, a position whose mark
+  // gaps far past its liquidation books the full runaway loss (e.g. a 5x short
+  // riding from $71 to $168 books -$6.8k on $1k of margin). Clamp equity to the
+  // floor and fold the give-back back into the liquidation trades' realized PnL
+  // so every surface shows the same, sane number.
+  if (trades.length > 0) {
+    const survivorsCarry = survivors.reduce(
+      (sum, p) => sum + p.unrealizedPnl - p.entryFeeUsd + p.fundingPaid,
+      0,
+    );
+    const equity = startingEquity + running + survivorsCarry;
+    if (equity < lossFloor) {
+      const giveBack = Number((lossFloor - equity).toFixed(2));
+      const totalLoss = trades.reduce(
+        (sum, t) => sum + Math.min(0, t.realizedPnl),
+        0,
+      );
+      if (totalLoss < 0) {
+        for (const trade of trades) {
+          if (trade.realizedPnl >= 0) continue;
+          const share = (trade.realizedPnl / totalLoss) * giveBack;
+          trade.realizedPnl = Number((trade.realizedPnl + share).toFixed(2));
+        }
+      }
+      running = Number((running + giveBack).toFixed(2));
+    }
   }
 
   return { survivors, trades, realizedTotal: running };
@@ -439,7 +488,19 @@ function recompute(v: SimVault, prices: PriceTick[], nowMs: number): SimVault {
   // path as a manual close (realizedOnClose + taker fee), AT the liq price, and
   // is booked into realizedTotal so equity/rules see the loss. detectOutcome is
   // unchanged — the rules-based eval stays the pass/fail authority.
-  const liqClose = closeLiquidations(withLiq, realizedTotal, nowMs);
+  // The binding loss floor: a liquidation can never settle the account below the
+  // max-drawdown floor or the day's daily-loss floor — whichever is higher (hit
+  // first). closeLiquidations clamps the booked loss to it.
+  const drawdownFloor = v.startingEquity * (1 - v.tier.maxDrawdown);
+  const dailyFloor = dailyAnchorEquity - v.startingEquity * v.tier.dailyLoss;
+  const lossFloor = Math.max(drawdownFloor, dailyFloor);
+  const liqClose = closeLiquidations(
+    withLiq,
+    realizedTotal,
+    v.startingEquity,
+    lossFloor,
+    nowMs,
+  );
   const positions = liqClose.survivors;
   const trades = liqClose.trades.length
     ? [...liqClose.trades, ...v.trades]
@@ -635,6 +696,42 @@ export const useSimStore = create<SimStore>()(
           },
         }));
       },
+
+      hydrateVault: (vaultId, data, nowMs) =>
+        set((s) => {
+          const v = s.vaults[vaultId];
+          // Only fill a fresh, empty vault — never clobber locally-traded state.
+          if (!v || v.positions.length > 0 || v.trades.length > 0) return s;
+          if (data.trades.length === 0 && data.openPositions.length === 0) {
+            return s;
+          }
+
+          // Tie local realized equity to the chain's last `equity_after` so the
+          // engine's equity matches what the contract recorded; the open
+          // positions then add their unrealized PnL on the next tick.
+          const lastAnchor = data.equityCurve.at(-1);
+          const realizedTotal = lastAnchor
+            ? Number((lastAnchor.equity - v.startingEquity).toFixed(2))
+            : 0;
+          const equityCurve = [
+            { ts: v.startedAt, equity: v.startingEquity },
+            ...data.equityCurve,
+          ].slice(-MAX_CURVE_POINTS);
+
+          const hydrated: SimVault = {
+            ...v,
+            positions: data.openPositions,
+            trades: data.trades,
+            realizedTotal,
+            // Approximate "trades used"; the ENFORCED rule budgets come from
+            // on-chain state, not this counter.
+            intentCount: data.trades.length + data.openPositions.length,
+            equityCurve,
+          };
+          return {
+            vaults: { ...s.vaults, [vaultId]: recompute(hydrated, [], nowMs) },
+          };
+        }),
 
       resetEvaluation: (vaultId) =>
         set((s) => {

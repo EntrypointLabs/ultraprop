@@ -14,7 +14,7 @@ import {
   serverError,
 } from "@/app/api/_lib/auth";
 import { getDb } from "@/lib/db";
-import { logTrade } from "@/lib/sui/server";
+import { logTradeDetailed } from "@/lib/sui/server";
 
 export const runtime = "nodejs";
 
@@ -43,6 +43,23 @@ interface CloseBody {
    * ledger holds the row, the server uses ITS entry price and folds in fees,
    * closing the client-asserted-entry gap. */
   positionId?: string;
+  /** how the position closed — recorded on-chain for the trade history. Purely
+   * attributive: it never changes the validated PnL. */
+  closedBy?: "manual" | "tp" | "sl" | "liquidation";
+  liquidated?: boolean;
+}
+
+/** Maps the close attribution to the on-chain `close_reason` code. */
+function closeReasonCode(body: Partial<CloseBody>): number {
+  if (body.liquidated || body.closedBy === "liquidation") return 3;
+  if (body.closedBy === "tp") return 1;
+  if (body.closedBy === "sl") return 2;
+  return 0; // manual
+}
+
+/** Converts a USD/price float to the on-chain u64 fixed-point at 1e6. */
+function toBaseUnits(value: number): bigint {
+  return BigInt(Math.round(Math.max(0, value) * 1e6));
 }
 
 /** Max deviation of the claimed exit from the real venue mark before rejection. */
@@ -104,10 +121,15 @@ export async function POST(req: Request) {
     !isFiniteNumber(body.entryPrice) ||
     body.entryPrice <= 0 ||
     !isFiniteNumber(body.exitPrice) ||
-    body.exitPrice <= 0
+    body.exitPrice <= 0 ||
+    !isFiniteNumber(body.leverage) ||
+    body.leverage <= 0
   ) {
     return NextResponse.json(
-      { error: "`sizeUsd`, `entryPrice`, and `exitPrice` must be positive numbers." },
+      {
+        error:
+          "`sizeUsd`, `entryPrice`, `exitPrice`, and `leverage` must be positive numbers.",
+      },
       { status: 400 },
     );
   }
@@ -192,26 +214,41 @@ export async function POST(req: Request) {
   const pricePnl =
     ((sizeUsd * (body.exitPrice - entryPrice)) / entryPrice) * directional;
 
+  const entryFeeUsd = ledgerRow ? Number(ledgerRow.entryFeeUsd) : 0;
+  const fundingPaid = ledgerRow ? Number(ledgerRow.fundingPaid) : 0;
+
   let netPnl = pricePnl;
   if (ledgerRow) {
     const exitNotional = (sizeUsd / entryPrice) * body.exitPrice;
     const exitFee = applyFees(exitNotional, "taker");
-    netPnl =
-      pricePnl -
-      exitFee -
-      Number(ledgerRow.entryFeeUsd) +
-      Number(ledgerRow.fundingPaid);
+    netPnl = pricePnl - exitFee - entryFeeUsd + fundingPaid;
   }
   const isWin = netPnl >= 0;
   const pnl = BigInt(Math.round(Math.abs(netPnl) * 1e6));
+  const closeReason = body.liquidated
+    ? "liquidation"
+    : (body.closedBy ?? "manual");
 
   try {
-    const result = await logTrade({
+    // Record the FULL detail on-chain (via `TradeSettled`) so the realized
+    // history can be rebuilt on any device — the PnL stays the server-recomputed
+    // value; the extra fields are event-only attribution. Trusted entry/size come
+    // from the ledger when present, else the validated client inputs.
+    const result = await logTradeDetailed({
       accountId: body.accountId,
       isWin,
       pnl,
       venue,
       market,
+      side: body.side === "long" ? 0 : 1,
+      sizeUsd: toBaseUnits(sizeUsd),
+      leverage: toBaseUnits(body.leverage),
+      entryPrice: toBaseUnits(entryPrice),
+      exitPrice: toBaseUnits(body.exitPrice),
+      entryFee: toBaseUnits(entryFeeUsd),
+      fundingPaid: toBaseUnits(Math.abs(fundingPaid)),
+      fundingIsCredit: fundingPaid >= 0,
+      closeReason: closeReasonCode(body),
     });
     // The on-chain write committed — record the ledger bookkeeping best-effort so
     // a DB hiccup here can't turn a successful close into a client-visible error
@@ -223,7 +260,7 @@ export async function POST(req: Request) {
             id: ledgerRow.id,
             exitPrice: String(body.exitPrice),
             realizedPnl: String(netPnl),
-            closeReason: "manual",
+            closeReason,
             onChainDigest: result.digest,
           });
         }
