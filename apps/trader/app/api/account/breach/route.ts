@@ -26,6 +26,6 @@ export async function POST(req: Request) {
   try {
     return NextResponse.json(await registerBreach(accountId));
   } catch (error) {
-    return serverError(error, "We couldn't register the breach on-chain.");
+    return serverError(error, "We couldn't register the breach.");
   }
 }

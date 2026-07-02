@@ -103,7 +103,7 @@ export async function fetchEvalFee(
 
   const bytes = simulationReturnValues(
     result,
-    "Could not read tier pricing on-chain",
+    "Could not read tier pricing",
   )[0]?.bcs;
   if (!bytes) {
     throw new Error("Tier pricing inspection returned no value.");
@@ -141,7 +141,7 @@ export async function getAccountTier(
 
   const bytes = simulationReturnValues(
     result,
-    "Could not read account tier on-chain",
+    "Could not read account tier",
   )[0]?.bcs;
   const variant = bytes?.[0];
   if (variant === undefined) {
