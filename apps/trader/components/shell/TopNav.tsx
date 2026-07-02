@@ -32,11 +32,15 @@ export function TopNav() {
   const openLogin = useMockStore((s) => s.openLogin);
   const signedIn = session.status === "connected";
 
-  // Prefer the trader's claimed SuiNS username over the generated handle.
-  // Reactive: claiming updates this query, so the nav reflects the new name
-  // without a reload.
+  // Prefer the trader's claimed SuiNS username over the generated handle, shown
+  // as just the label (e.g. `gifted`) since the `.<parent>.sui` suffix is the
+  // same for everyone; the full name still shows on the profile page. Reactive:
+  // claiming updates this query, so the nav reflects the new name without a
+  // reload. A SuiNS label never contains a dot, so the leaf segment is the label.
   const { data: username } = useUsername(session.address ?? null);
-  const navName = username?.displayName ?? accountHandle(session.address ?? "");
+  const navName =
+    username?.displayName?.split(".")[0] ??
+    accountHandle(session.address ?? "");
 
   // Once the trader has paid for and opened their on-chain account, surface a
   // direct route to their cockpit so trading is one click from anywhere — no
