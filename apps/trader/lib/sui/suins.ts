@@ -260,7 +260,7 @@ export async function mintUsernameSubname(
   const nftId = await confirmOwnedSubnameNftId(owner, name);
   if (!nftId) {
     throw new SuiNsError(
-      "Your username was minted and is finalizing on-chain — it's already in your wallet. Refresh in a moment, or claim the same name again to finish.",
+      "Your username is already in your wallet and is being finalized. Refresh in a moment, or claim the same name again to finish.",
       "pending",
     );
   }

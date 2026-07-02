@@ -22,6 +22,6 @@ export async function POST(req: Request) {
   try {
     return NextResponse.json(await passEvaluation(accountId));
   } catch (error) {
-    return serverError(error, "We couldn't pass the evaluation on-chain.");
+    return serverError(error, "We couldn't record the evaluation result.");
   }
 }

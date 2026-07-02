@@ -168,7 +168,7 @@ export async function POST(req: Request) {
       );
     }
     return NextResponse.json(
-      { error: "We couldn't mint your username. Please try again." },
+      { error: "We couldn't claim your username. Please try again." },
       { status: 502 },
     );
   }
@@ -197,7 +197,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Your username was minted but we couldn't save it. It's in your wallet — refresh in a moment, and contact support if it doesn't appear.",
+          "Your username is in your wallet but we couldn't save it. Refresh in a moment, and contact support if it doesn't appear.",
         username: { displayName: minted.name, subnameNftId: minted.nftId },
         digest: minted.digest,
       },

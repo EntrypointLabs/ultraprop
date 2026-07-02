@@ -1024,10 +1024,10 @@ export function TradeIntentForm({
   else if (isOnchainBlocked)
     disabledReason =
       onchainStatus === 2
-        ? "Account failed evaluation — trading is closed"
-        : "Account suspended on-chain — trading is closed";
+        ? "Account failed evaluation; trading is closed"
+        : "Account suspended; trading is closed";
   else if (needsOnchainAccount)
-    disabledReason = "Finish on-chain account setup to trade";
+    disabledReason = "Finish account setup to trade";
   else if (isSizeInvalid) disabledReason = "Enter a position size";
   else if (isInsufficientMargin)
     disabledReason = `Insufficient margin — needs ${formatUsd(requiredMargin, { decimals: 0 })}, ${formatUsd(Math.max(0, freeMargin), { decimals: 0 })} free`;

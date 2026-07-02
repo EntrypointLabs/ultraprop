@@ -163,7 +163,7 @@ export function CreateAccountFlow() {
       <div className="auth-step-in">
         <AuthHeading
           title="Choose your evaluation"
-          subtitle="Pay your evaluation fee in test USDC to open your account. Every trade is recorded on-chain and can't be altered after the fact."
+          subtitle="Pay your evaluation fee in test USDC to open your account. Every trade is recorded and can't be altered after the fact."
         />
 
         <div className="flex flex-col gap-3" role="radiogroup" aria-label="Tier">

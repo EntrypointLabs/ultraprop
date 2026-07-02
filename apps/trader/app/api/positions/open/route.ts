@@ -176,6 +176,6 @@ export async function POST(req: Request) {
       entryFeeUsd: fill.feeUsd,
     });
   } catch (error) {
-    return serverError(error, "We couldn't record the open on-chain ledger.");
+    return serverError(error, "We couldn't record the position.");
   }
 }

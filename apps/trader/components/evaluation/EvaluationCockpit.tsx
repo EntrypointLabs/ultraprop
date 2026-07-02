@@ -211,10 +211,10 @@ function MarketStrip({
             Equity
             {equityIsVerified && (
               <span
-                title="Realized equity verified on-chain; live PnL overlaid"
+                title="Realized equity is verified; live P&L overlaid"
                 className="rounded-sm bg-brand/15 px-1 text-[9px] font-semibold uppercase leading-tight tracking-wide text-brand"
               >
-                on-chain
+                Verified
               </span>
             )}
           </span>
@@ -306,10 +306,10 @@ function MarketStrip({
                 Equity
                 {equityIsVerified && (
                   <span
-                    title="Realized equity verified on-chain; live PnL overlaid"
+                    title="Realized equity is verified; live P&L overlaid"
                     className="rounded-sm bg-brand/15 px-1 text-[9px] font-semibold uppercase leading-tight tracking-wide text-brand"
                   >
-                    on-chain
+                    Verified
                   </span>
                 )}
               </span>

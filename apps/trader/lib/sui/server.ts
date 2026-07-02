@@ -104,7 +104,7 @@ export async function adminOpenAccount(
     ) ?? (await getTradingAccountId(reader, owner, config.packageId));
   if (!accountId) {
     throw new Error(
-      "Account was created on-chain but its id could not be resolved.",
+      "Your account was created but its id could not be resolved.",
     );
   }
 

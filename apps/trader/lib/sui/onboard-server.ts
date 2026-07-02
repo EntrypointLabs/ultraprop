@@ -54,15 +54,15 @@ async function verifyPayment(params: {
       include: { balanceChanges: true, effects: true, transaction: true },
     });
   } catch {
-    throw new Error("We couldn't find your payment on-chain. Please retry.");
+    throw new Error("We couldn't find your payment. Please retry.");
   }
 
   if (result.$kind !== "Transaction") {
-    throw new Error("Your payment transaction did not succeed on-chain.");
+    throw new Error("Your payment transaction did not succeed.");
   }
   const tx = result.Transaction;
   if (!tx.status.success) {
-    throw new Error("Your payment transaction did not succeed on-chain.");
+    throw new Error("Your payment transaction did not succeed.");
   }
 
   const sender = tx.transaction?.sender;

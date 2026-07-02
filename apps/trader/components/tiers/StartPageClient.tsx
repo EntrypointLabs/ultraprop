@@ -26,7 +26,7 @@ export function StartPageClient() {
           <div>
             <p className="text-sm font-medium text-text">Sign in to start</p>
             <p className="text-xs text-text-muted mt-0.5">
-              Sign in to open or continue your on-chain evaluation account.
+              Sign in to open or continue your evaluation account.
             </p>
           </div>
           <Button

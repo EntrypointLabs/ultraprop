@@ -44,7 +44,7 @@ export function CohortSpotlight() {
           <Badge variant="genesis">Genesis</Badge>
         </div>
         <h2 className="text-xl font-bold tracking-tight text-text">
-          A closed-beta prop evaluation on-chain
+          A closed-beta prop evaluation
         </h2>
         <p className="mt-1 text-sm text-text-muted">
           {stats.members} invited traders. Every pass and fail is verifiable. No

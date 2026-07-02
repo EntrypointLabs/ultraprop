@@ -51,6 +51,6 @@ export async function POST(req: Request) {
     }
     return NextResponse.json(await reactivate({ accountId }));
   } catch (error) {
-    return serverError(error, "We couldn't re-enter the evaluation on-chain.");
+    return serverError(error, "We couldn't re-enter the evaluation.");
   }
 }

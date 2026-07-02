@@ -236,7 +236,7 @@ export async function POST(req: Request) {
     }
     return NextResponse.json(result);
   } catch (error) {
-    return serverError(error, "We couldn't record the trade on-chain.");
+    return serverError(error, "We couldn't record the trade.");
   }
 }
 

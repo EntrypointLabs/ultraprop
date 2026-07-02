@@ -41,7 +41,7 @@ function StartPromoCard() {
         </h3>
         <p className="mt-1.5 text-sm text-text-muted leading-relaxed">
           {resume
-            ? "Pick up where you left off. Your account, balance, and rule compliance are tracked on-chain."
+            ? "Pick up where you left off. Your account, balance, and rule compliance are tracked and independently verifiable."
             : "Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog against live market prices. Every rule is enforced automatically. Prove your edge."}
         </p>
         <Link href={href} className="mt-4 block">
