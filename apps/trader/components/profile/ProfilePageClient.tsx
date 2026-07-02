@@ -149,7 +149,7 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
                 <SettingRow
                   icon={Wallet}
                   label="Account"
-                  value={accountHandle(wallet)}
+                  value={profile.displayName ?? accountHandle(wallet)}
                 />
                 <SettingRow
                   icon={Mail}

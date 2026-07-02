@@ -12,6 +12,7 @@ import { accountHandle } from "@/lib/identity";
 import { useSession } from "@/lib/mock/hooks";
 import { useMockStore } from "@/lib/mock/store";
 import { useAccountSetup } from "@/lib/sui/useTradingAccount";
+import { useUsername } from "@/lib/sui/useUsername";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS: { href: string; label: string; external?: boolean }[] = [
@@ -30,6 +31,12 @@ export function TopNav() {
   const resetOnboarding = useMockStore((s) => s.resetOnboarding);
   const openLogin = useMockStore((s) => s.openLogin);
   const signedIn = session.status === "connected";
+
+  // Prefer the trader's claimed SuiNS username over the generated handle.
+  // Reactive: claiming updates this query, so the nav reflects the new name
+  // without a reload.
+  const { data: username } = useUsername(session.address ?? null);
+  const navName = username?.displayName ?? accountHandle(session.address ?? "");
 
   // Once the trader has paid for and opened their on-chain account, surface a
   // direct route to their cockpit so trading is one click from anywhere — no
@@ -125,8 +132,8 @@ export function TopNav() {
                 className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-border bg-surface-2 px-3 py-1.5 text-sm transition-colors hover:bg-surface-3"
               >
                 <Identicon address={session.address ?? ""} size={18} />
-                <span className="tabular hidden sm:inline">
-                  {accountHandle(session.address ?? "")}
+                <span className="tabular hidden max-w-[18ch] truncate sm:inline">
+                  {navName}
                 </span>
               </Link>
               <AccountMenu
