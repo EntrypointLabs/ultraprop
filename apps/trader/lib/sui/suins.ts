@@ -65,9 +65,15 @@ export function fullUsername(label: string): string {
   return `${label}.${parentName()}`;
 }
 
-let cachedClient: SuinsClient | null = null;
-function suinsClient(): SuinsClient {
-  if (cachedClient) return cachedClient;
+let cachedRpc: SuiJsonRpcClient | null = null;
+/**
+ * The JSON-RPC client all SuiNS reads go through. Its `getDynamicField` returns
+ * null for an unregistered name, whereas the gRPC client throws "not found",
+ * which would make every available name look like an error. Execution still runs
+ * on the gRPC client — building the PTB is client-agnostic.
+ */
+function jsonRpcClient(): SuiJsonRpcClient {
+  if (cachedRpc) return cachedRpc;
   const { network, rpcUrl } = publicSuiConfig();
   if (network !== "mainnet" && network !== "testnet") {
     throw new SuiNsError(
@@ -75,14 +81,18 @@ function suinsClient(): SuinsClient {
       "unavailable",
     );
   }
-  // SuiNS reads must go through a JSON-RPC client: its `getDynamicField` returns
-  // null for an unregistered name, whereas the gRPC client throws "not found",
-  // which would make every available name look like an error. Execution still
-  // runs on the gRPC client — building the PTB is client-agnostic.
-  const client = new SuiJsonRpcClient({
+  cachedRpc = new SuiJsonRpcClient({
     url: rpcUrl ?? getJsonRpcFullnodeUrl(network),
     network,
   });
+  return cachedRpc;
+}
+
+let cachedClient: SuinsClient | null = null;
+function suinsClient(): SuinsClient {
+  if (cachedClient) return cachedClient;
+  const client = jsonRpcClient();
+  const network = publicSuiConfig().network as "mainnet" | "testnet";
   cachedClient = new SuinsClient({ client, network });
   return cachedClient;
 }
@@ -120,23 +130,67 @@ function resolvesTo(record: NameRecord, owner: string): boolean {
 
 const READBACK_ATTEMPTS = 6;
 const READBACK_DELAY_MS = 600;
+const OWNED_SCAN_MAX_PAGES = 10;
+const SUBDOMAIN_REGISTRATION_SUFFIX =
+  "::subdomain_registration::SubDomainRegistration";
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** The `domain_name` of the `SuinsRegistration` a `SubDomainRegistration` wraps,
+ * read from a JSON-RPC object's parsed content, or undefined if it isn't one. */
+function wrappedDomainName(content: unknown): string | undefined {
+  const parsed = content as {
+    dataType?: string;
+    fields?: { nft?: { fields?: { domain_name?: unknown } } };
+  } | null;
+  if (parsed?.dataType !== "moveObject") return undefined;
+  const domainName = parsed.fields?.nft?.fields?.domain_name;
+  return typeof domainName === "string" ? domainName : undefined;
+}
+
 /**
- * Read back a name we just minted, tolerating replication lag. Execution runs on
- * the gRPC node but reads go through a separate JSON-RPC node (see `suinsClient`)
- * that can briefly report the fresh record as not-found. The mint already
- * succeeded, so we poll a few times before giving up. Returns the record once it
- * resolves to `owner`, or null if it never appears within the budget.
+ * The id of the `SubDomainRegistration` NFT `owner` holds for `name` — the object
+ * that actually sits in their wallet, which is what we store and link to. This is
+ * deliberately NOT the name record's `nftId`: that points at the inner, wrapped
+ * `SuinsRegistration`, which isn't independently viewable on an explorer. We find
+ * the wrapper by scanning the owner's objects for the one whose wrapped name
+ * matches. Returns null if it isn't there — including while a fresh mint is still
+ * propagating to the read node.
  */
-async function confirmMintedRecord(
-  name: string,
+async function findOwnedSubnameNftId(
   owner: string,
-): Promise<NameRecord | null> {
+  name: string,
+): Promise<string | null> {
+  const target = name.toLowerCase();
+  const client = jsonRpcClient();
+  let cursor: string | null | undefined;
+  for (let page = 0; page < OWNED_SCAN_MAX_PAGES; page++) {
+    const res = await client.getOwnedObjects({
+      owner: normalizeSuiAddress(owner),
+      cursor: cursor ?? null,
+      options: { showType: true, showContent: true },
+    });
+    for (const { data } of res.data) {
+      if (!data?.type?.endsWith(SUBDOMAIN_REGISTRATION_SUFFIX)) continue;
+      if (wrappedDomainName(data.content)?.toLowerCase() === target) {
+        return data.objectId;
+      }
+    }
+    if (!res.hasNextPage) break;
+    cursor = res.nextCursor;
+  }
+  return null;
+}
+
+/** Resolve the owner's `SubDomainRegistration` for `name`, polling through the
+ * read node's replication lag after a mint that definitely landed. */
+async function confirmOwnedSubnameNftId(
+  owner: string,
+  name: string,
+): Promise<string | null> {
   for (let attempt = 0; attempt < READBACK_ATTEMPTS; attempt++) {
     if (attempt > 0) await sleep(READBACK_DELAY_MS);
-    const record = await getRecordOrNull(name);
-    if (record && resolvesTo(record, owner)) return record;
+    const nftId = await findOwnedSubnameNftId(owner, name);
+    if (nftId) return nftId;
   }
   return null;
 }
@@ -185,7 +239,12 @@ export async function mintUsernameSubname(
   const existing = await getRecordOrNull(name);
   if (existing && existing.expirationTimestampMs >= Date.now()) {
     if (resolvesTo(existing, owner)) {
-      return { name, nftId: existing.nftId, digest: "" };
+      const nftId = await confirmOwnedSubnameNftId(owner, name);
+      if (nftId) return { name, nftId, digest: "" };
+      throw new SuiNsError(
+        "Your username is already minted to your wallet and is finalizing on-chain. Refresh in a moment, or claim the same name again to finish.",
+        "pending",
+      );
     }
     throw new SuiNsError("That username is taken. Try another.", "taken");
   }
@@ -213,15 +272,15 @@ export async function mintUsernameSubname(
   });
   const executed = expectExecuted(result, "Minting the username failed");
 
-  // The registry now points the name at its fresh NFT. Read the id back (rather
-  // than parsing effects) so we store exactly what resolves on-chain, polling
+  // The object now in the owner's wallet is the `SubDomainRegistration` NFT — that
+  // (not the name record's wrapped inner id) is what we store and link to. Poll
   // through the read node's replication lag since the mint definitely landed.
-  const minted = await confirmMintedRecord(name, owner);
-  if (!minted?.nftId) {
+  const nftId = await confirmOwnedSubnameNftId(owner, name);
+  if (!nftId) {
     throw new SuiNsError(
       "Your username was minted and is finalizing on-chain — it's already in your wallet. Refresh in a moment, or claim the same name again to finish.",
       "pending",
     );
   }
-  return { name, nftId: minted.nftId, digest: executed.digest };
+  return { name, nftId, digest: executed.digest };
 }
