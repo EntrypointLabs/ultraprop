@@ -1,18 +1,21 @@
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { PGlite } from "@electric-sql/pglite";
+import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Database } from "./client.js";
 import {
   accountExists,
   claimIdempotency,
+  claimRateLimit,
   closeOpenPosition,
   completeIdempotency,
   findOpenPositionByClientId,
+  getUsername,
   insertOpenPosition,
   settledTotals,
+  setUsername,
   upsertAccount,
 } from "./repo.js";
 import {
@@ -170,5 +173,47 @@ describe("ledger repo", () => {
     const totals = await settledTotals(db, "0xacc");
     expect(totals.count).toBe(2);
     expect(totals.realizedPnl).toBeCloseTo(750.25, 2);
+  });
+
+  it("setUsername records the subname + NFT and reads back — case-insensitive by owner", async () => {
+    expect(await getUsername(db, "0xowner")).toBeNull();
+
+    // A mixed-case owner still resolves to the stored lowercased address.
+    const updated = await setUsername(db, "0xOwner", {
+      displayName: "alice.ultraprop.sui",
+      subnameNftId: "0xnft",
+    });
+    expect(updated).toBe(1);
+    expect(await getUsername(db, "0xowner")).toEqual({
+      displayName: "alice.ultraprop.sui",
+      subnameNftId: "0xnft",
+    });
+
+    // Re-claiming a new label overwrites the prior one.
+    await setUsername(db, "0xowner", {
+      displayName: "alice2.ultraprop.sui",
+      subnameNftId: "0xnft2",
+    });
+    expect((await getUsername(db, "0xowner"))?.displayName).toBe(
+      "alice2.ultraprop.sui",
+    );
+  });
+
+  it("setUsername reports zero rows when the owner has no account", async () => {
+    expect(
+      await setUsername(db, "0xnobody", {
+        displayName: "ghost.ultraprop.sui",
+        subnameNftId: "0xg",
+      }),
+    ).toBe(0);
+  });
+
+  it("claimRateLimit: first claim in a window wins, repeats in it are limited", async () => {
+    expect(await claimRateLimit(db, "username-claim:user_1:100")).toBe(true);
+    // Same key (same window) collides → limited.
+    expect(await claimRateLimit(db, "username-claim:user_1:100")).toBe(false);
+    // A later window, or a different user, is a fresh key → allowed again.
+    expect(await claimRateLimit(db, "username-claim:user_1:101")).toBe(true);
+    expect(await claimRateLimit(db, "username-claim:user_2:100")).toBe(true);
   });
 });

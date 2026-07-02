@@ -22,18 +22,21 @@ import { SbtCard } from "@/components/profile/SbtCard";
 import { SettingRow, SettingsList } from "@/components/profile/SettingsList";
 import { StatGrid } from "@/components/profile/StatGrid";
 import { TradingAccountSection } from "@/components/profile/TradingAccountSection";
+import { UsernameSetting } from "@/components/profile/UsernameSetting";
 import { Tabs } from "@/components/ui/Tabs";
 import { suiWalletAddress } from "@/lib/auth";
 import { accountHandle } from "@/lib/identity";
 import { useProfile } from "@/lib/mock/hooks";
 import { useMockStore } from "@/lib/mock/store";
 import type { Profile, SbtLevel, SbtState } from "@/lib/mock/types";
+import { isUsernameClaimingEnabled, publicSuiConfig } from "@/lib/sui/config";
 import { statusFromCode } from "@/lib/sui/onchainRules";
 import { usdcToUsd } from "@/lib/sui/propfirm";
 import {
   useAccountSetup,
   useOnchainAccountSummaryFor,
 } from "@/lib/sui/useTradingAccount";
+import { useUsername } from "@/lib/sui/useUsername";
 
 interface ProfilePageClientProps {
   wallet: string;
@@ -55,6 +58,8 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
     ?.address;
 
   const baseProfile = useProfile(wallet);
+  const { data: username } = useUsername(wallet);
+  const claimedName = username?.displayName ?? null;
 
   // Overlay the wallet's verifiable on-chain account on top of the seeded
   // profile: realized P&L (equity − funded), pass/fail and tier from the live
@@ -64,7 +69,10 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
   const onchain = useOnchainAccountSummaryFor(wallet);
   const profile = React.useMemo<Profile>(() => {
     const summary = onchain.summary;
-    if (!summary) return baseProfile;
+    // A claimed SuiNS name (verified server-side) is the trader's username when
+    // set, overriding the seeded value; otherwise we fall through to the handle.
+    const displayName = claimedName ?? baseProfile.displayName;
+    if (!summary) return { ...baseProfile, displayName };
     const status = statusFromCode(summary.statusCode);
     const fundedUsd = usdcToUsd(summary.fundedSize);
     const realizedPnl = usdcToUsd(summary.equity) - fundedUsd;
@@ -89,13 +97,14 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
     };
     return {
       ...baseProfile,
+      displayName,
       shadowPnl: realizedPnl,
       passes: passed ? 1 : 0,
       fails: status === "failed" ? 1 : 0,
       highestTier: tierLabel,
       sbt,
     };
-  }, [baseProfile, onchain.summary, onchain.accountId, wallet]);
+  }, [baseProfile, claimedName, onchain.summary, onchain.accountId, wallet]);
 
   const tabs: ProfileTab[] = [
     { value: "overview", label: "Overview", icon: TrendingUp },
@@ -124,12 +133,23 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
         return (
           <div className="space-y-8">
             <TradingAccountSection />
+            {myAddress && isUsernameClaimingEnabled() && (
+              <ProfileSection title="Username">
+                <UsernameSetting
+                  suiAddress={myAddress}
+                  currentName={claimedName}
+                  currentNftId={username?.subnameNftId ?? null}
+                  parentName={publicSuiConfig().suinsParentName}
+                  handle={accountHandle(wallet)}
+                />
+              </ProfileSection>
+            )}
             <ProfileSection title="Wallet & email">
               <SettingsList>
                 <SettingRow
                   icon={Wallet}
                   label="Account"
-                  value={accountHandle(wallet)}
+                  value={profile.displayName ?? accountHandle(wallet)}
                 />
                 <SettingRow
                   icon={Mail}

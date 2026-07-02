@@ -41,6 +41,9 @@ export interface PublicSuiConfig {
    * here in the PAID onboarding path; the server verifies the payment landed on
    * it before admin-signing `open_account`. */
   evalFundsAddress: string;
+  /** The firm-owned SuiNS parent domain (e.g. `ultraprop.sui`). Users claim a
+   * subname under it as their username; empty disables username claiming. */
+  suinsParentName: string;
   defaultTier: TierName;
 }
 
@@ -73,13 +76,22 @@ export function publicSuiConfig(): PublicSuiConfig {
     graphqlUrl: clean(process.env.NEXT_PUBLIC_SUI_GRAPHQL_URL) || null,
     grpcUrl: clean(process.env.NEXT_PUBLIC_SUI_GRPC_URL) || null,
     packageId: clean(process.env.NEXT_PUBLIC_PROPFIRM_PACKAGE_ID),
-    accountRegistryId: clean(process.env.NEXT_PUBLIC_PROPFIRM_ACCOUNT_REGISTRY_ID),
-    accessRegistryId: clean(process.env.NEXT_PUBLIC_PROPFIRM_ACCESS_REGISTRY_ID),
+    accountRegistryId: clean(
+      process.env.NEXT_PUBLIC_PROPFIRM_ACCOUNT_REGISTRY_ID,
+    ),
+    accessRegistryId: clean(
+      process.env.NEXT_PUBLIC_PROPFIRM_ACCESS_REGISTRY_ID,
+    ),
     treasuryId: clean(process.env.NEXT_PUBLIC_PROPFIRM_TREASURY_ID),
     tierConfigId: clean(process.env.NEXT_PUBLIC_PROPFIRM_TIER_CONFIG_ID),
     usdcType: clean(process.env.NEXT_PUBLIC_PROPFIRM_USDC_TYPE),
     usdcFaucetId: clean(process.env.NEXT_PUBLIC_PROPFIRM_USDC_FAUCET_ID),
-    evalFundsAddress: clean(process.env.NEXT_PUBLIC_PROPFIRM_EVAL_FUNDS_ADDRESS),
+    evalFundsAddress: clean(
+      process.env.NEXT_PUBLIC_PROPFIRM_EVAL_FUNDS_ADDRESS,
+    ),
+    suinsParentName: clean(
+      process.env.NEXT_PUBLIC_SUINS_PARENT_NAME,
+    ).toLowerCase(),
     defaultTier: parseTier(
       clean(process.env.NEXT_PUBLIC_PROPFIRM_DEFAULT_TIER),
       "starter",
@@ -104,6 +116,19 @@ export function isOnboardingPaymentConfigured(): boolean {
   return (
     isSuiConfigured() &&
     Boolean(c.usdcType && c.usdcFaucetId && c.evalFundsAddress)
+  );
+}
+
+/**
+ * True once username claiming can work: a firm-owned SuiNS parent domain is set
+ * and the network is one SuiNS actually supports (mainnet/testnet only). Gates
+ * the username UI so it never appears where a subname could not be minted.
+ */
+export function isUsernameClaimingEnabled(): boolean {
+  const c = publicSuiConfig();
+  return (
+    (c.network === "mainnet" || c.network === "testnet") &&
+    Boolean(c.suinsParentName)
   );
 }
 

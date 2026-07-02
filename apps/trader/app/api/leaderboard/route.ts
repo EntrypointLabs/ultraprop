@@ -59,7 +59,7 @@ function rankByAxis(
     .map((row, i) => ({
       rank: i + 1,
       wallet: row.owner,
-      displayName: null,
+      displayName: row.displayName,
       tier: canonicalTier(row.tier),
       sbtLevel: tierLevel(row.tier),
       shadowPnl: row.shadowPnl,
