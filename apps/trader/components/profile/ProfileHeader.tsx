@@ -54,11 +54,7 @@ export function ProfileHeader({ profile, wallet }: ProfileHeaderProps) {
     }
   }
 
-  // The header shows just the claimed label (e.g. `gifted`), dropping the shared
-  // `.<parent>.sui` suffix every trader carries; the full SuiNS name still shows
-  // in the username card, the nav, and the leaderboard. A SuiNS label never
-  // contains a dot, so the leaf segment is the label.
-  const displayName = profile.displayName?.split(".")[0] ?? null;
+  const displayName = profile.displayName;
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

@@ -116,18 +116,6 @@ async function getRecordOrNull(name: string) {
   }
 }
 
-type NameRecord = NonNullable<Awaited<ReturnType<typeof getRecordOrNull>>>;
-
-/** Whether `record` is a live registration that resolves to `owner` — i.e. this
- * owner's name, not an expired or someone-else's one. */
-function resolvesTo(record: NameRecord, owner: string): boolean {
-  return (
-    Boolean(record.nftId) &&
-    record.expirationTimestampMs >= Date.now() &&
-    normalizeSuiAddress(record.targetAddress) === normalizeSuiAddress(owner)
-  );
-}
-
 const READBACK_ATTEMPTS = 6;
 const READBACK_DELAY_MS = 600;
 const OWNED_SCAN_MAX_PAGES = 10;
@@ -231,21 +219,15 @@ export async function mintUsernameSubname(
       "unavailable",
     );
   }
-  // A live registration is taken — unless it already resolves to this same owner.
-  // That's the state left when a prior mint landed on-chain but recording it
-  // failed (a DB write error, or the read-back never caught up): the NFT sits in
-  // the owner's wallet with the name pointing at them. Treat that as an idempotent
-  // success so re-claiming the same name just records it — no second mint, no gas.
+  // A live registration is taken — UNLESS the caller already holds its subname
+  // NFT, in which case it's theirs. Ownership is proven by holding the NFT, never
+  // by the record's target address (a mint can leave that unset). Returning the
+  // owned NFT id lets the claim record/repair it — idempotent, no second mint, no
+  // gas — which also backfills any row that stored the wrong (wrapped inner) id.
   const existing = await getRecordOrNull(name);
   if (existing && existing.expirationTimestampMs >= Date.now()) {
-    if (resolvesTo(existing, owner)) {
-      const nftId = await confirmOwnedSubnameNftId(owner, name);
-      if (nftId) return { name, nftId, digest: "" };
-      throw new SuiNsError(
-        "Your username is already in your wallet and is being finalized. Refresh in a moment, or claim the same name again to finish.",
-        "pending",
-      );
-    }
+    const ownedNftId = await confirmOwnedSubnameNftId(owner, name);
+    if (ownedNftId) return { name, nftId: ownedNftId, digest: "" };
     throw new SuiNsError("That username is taken. Try another.", "taken");
   }
 
