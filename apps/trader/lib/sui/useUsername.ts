@@ -115,10 +115,11 @@ export function useClaimUsername() {
         error?: string;
         username?: Username;
       };
-      if (!res.ok || !body.username) {
-        throw new Error(body.error ?? "We couldn't mint your username.");
-      }
-      return body.username;
+      // A username in the body is the only success. Everything else — including a
+      // 202 "minted, still finalizing on-chain" — carries a message to surface;
+      // re-claiming the same name then records it idempotently (no second mint).
+      if (res.ok && body.username) return body.username;
+      throw new Error(body.error ?? "We couldn't mint your username.");
     },
     onSuccess: (username, input) => {
       queryClient.setQueryData(usernameKey(input.suiAddress), username);

@@ -137,7 +137,7 @@ export function ProfilePageClient({ wallet }: ProfilePageClientProps) {
               <ProfileSection title="Username">
                 <UsernameSetting
                   suiAddress={myAddress}
-                  currentName={profile.displayName}
+                  currentName={claimedName}
                   currentNftId={username?.subnameNftId ?? null}
                   parentName={publicSuiConfig().suinsParentName}
                   handle={accountHandle(wallet)}

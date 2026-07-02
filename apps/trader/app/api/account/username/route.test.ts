@@ -15,7 +15,13 @@ const mocks = vi.hoisted(() => {
       this.status = status;
     }
   }
-  class SuiNsError extends Error {}
+  class SuiNsError extends Error {
+    kind: string;
+    constructor(message: string, kind = "invalid") {
+      super(message);
+      this.kind = kind;
+    }
+  }
   return {
     authenticatePrivyRequest: vi.fn(),
     isUsernameClaimingEnabled: vi.fn(),
@@ -138,6 +144,29 @@ describe("POST /api/account/username", () => {
       displayName: MINTED.name,
       subnameNftId: MINTED.nftId,
     });
+  });
+
+  it("maps a 'taken' SuiNsError from the mint to 409 without recording", async () => {
+    mocks.mintUsernameSubname.mockRejectedValue(
+      new mocks.SuiNsError("That username is taken. Try another.", "taken"),
+    );
+    const res = await POST(post({ suiAddress: "0xmine", label: "alice" }));
+    expect(res.status).toBe(409);
+    expect(mocks.setUsername).not.toHaveBeenCalled();
+  });
+
+  it("maps a 'pending' SuiNsError (minted, still propagating) to 202 — not a 'taken' retry", async () => {
+    mocks.mintUsernameSubname.mockRejectedValue(
+      new mocks.SuiNsError("finalizing on-chain", "pending"),
+    );
+    const res = await POST(post({ suiAddress: "0xmine", label: "alice" }));
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body.pending).toBe(true);
+    // Must NOT run the availability re-check that would mislabel the user's own
+    // fresh name as "taken".
+    expect(mocks.isUsernameAvailable).not.toHaveBeenCalled();
+    expect(mocks.setUsername).not.toHaveBeenCalled();
   });
 
   it("returns 503 when username claiming is disabled — before touching auth", async () => {

@@ -17,6 +17,22 @@ export const runtime = "nodejs";
  * claims once. */
 const CLAIM_WINDOW_MS = 15_000;
 
+/** HTTP status for a `SuiNsError`, keyed off its kind so a *successful-but-
+ * unconfirmed* mint (`pending`) is never mistaken for a real conflict (`taken`)
+ * that would push the user toward claiming a different name. */
+function statusForSuiNsError(kind: SuiNsError["kind"]): number {
+  switch (kind) {
+    case "taken":
+      return 409;
+    case "unavailable":
+      return 503;
+    case "pending":
+      return 202;
+    default:
+      return 400;
+  }
+}
+
 /** Public read: the username (minted subname + backing NFT) an owner has set, or
  * null. Drives the profile header for any wallet, not just the signed-in one. */
 export async function GET(req: NextRequest) {
@@ -127,10 +143,17 @@ export async function POST(req: Request) {
     minted = await mintUsernameSubname(suiAddress, label);
   } catch (error) {
     if (error instanceof SuiNsError) {
-      // "taken" is the one expected, retryable conflict; everything else is a
-      // failed mint the user can retry.
-      const status = /taken/i.test(error.message) ? 409 : 422;
-      return NextResponse.json({ error: error.message }, { status });
+      // `pending` means the mint LANDED on-chain — the NFT is in the wallet, the
+      // DB just hasn't recorded it yet. Flag it so the client shows "finalizing"
+      // rather than a failure, and skip the availability re-check below (which
+      // would report the user's own fresh name as "taken").
+      const body =
+        error.kind === "pending"
+          ? { pending: true, error: error.message }
+          : { error: error.message };
+      return NextResponse.json(body, {
+        status: statusForSuiNsError(error.kind),
+      });
     }
     console.error("[username] mint", error);
     // A concurrent claim (or a double-submit) can win the race between the

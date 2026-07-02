@@ -16,10 +16,20 @@ import { publicSuiConfig, serverSuiConfig } from "@/lib/sui/config";
  * minted NFT id are read straight from the SuiNS registry, never assumed.
  */
 
+/** Why a SuiNS operation can't proceed. Callers (the route) switch on this to
+ * pick an HTTP status instead of matching against the message text. */
+export type SuiNsErrorKind =
+  | "invalid" // the label failed validation
+  | "unavailable" // claiming isn't configured for this network / parent
+  | "taken" // the name is a live registration owned by someone else
+  | "pending"; // minted on-chain, but the read node hasn't caught up yet
+
 export class SuiNsError extends Error {
-  constructor(message: string) {
+  readonly kind: SuiNsErrorKind;
+  constructor(message: string, kind: SuiNsErrorKind = "invalid") {
     super(message);
     this.name = "SuiNsError";
+    this.kind = kind;
   }
 }
 
@@ -44,7 +54,9 @@ export function normalizeLabel(input: string): string {
 /** The configured parent domain, lowercased, or throw if usernames are off. */
 function parentName(): string {
   const name = publicSuiConfig().suinsParentName;
-  if (!name) throw new SuiNsError("Username claiming isn't available yet.");
+  if (!name) {
+    throw new SuiNsError("Username claiming isn't available yet.", "unavailable");
+  }
   return name;
 }
 
@@ -58,7 +70,10 @@ function suinsClient(): SuinsClient {
   if (cachedClient) return cachedClient;
   const { network, rpcUrl } = publicSuiConfig();
   if (network !== "mainnet" && network !== "testnet") {
-    throw new SuiNsError("SuiNS is only available on mainnet and testnet.");
+    throw new SuiNsError(
+      "SuiNS is only available on mainnet and testnet.",
+      "unavailable",
+    );
   }
   // SuiNS reads must go through a JSON-RPC client: its `getDynamicField` returns
   // null for an unregistered name, whereas the gRPC client throws "not found",
@@ -89,6 +104,41 @@ async function getRecordOrNull(name: string) {
     if (isNotFound(error)) return null;
     throw error;
   }
+}
+
+type NameRecord = NonNullable<Awaited<ReturnType<typeof getRecordOrNull>>>;
+
+/** Whether `record` is a live registration that resolves to `owner` — i.e. this
+ * owner's name, not an expired or someone-else's one. */
+function resolvesTo(record: NameRecord, owner: string): boolean {
+  return (
+    Boolean(record.nftId) &&
+    record.expirationTimestampMs >= Date.now() &&
+    normalizeSuiAddress(record.targetAddress) === normalizeSuiAddress(owner)
+  );
+}
+
+const READBACK_ATTEMPTS = 6;
+const READBACK_DELAY_MS = 600;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Read back a name we just minted, tolerating replication lag. Execution runs on
+ * the gRPC node but reads go through a separate JSON-RPC node (see `suinsClient`)
+ * that can briefly report the fresh record as not-found. The mint already
+ * succeeded, so we poll a few times before giving up. Returns the record once it
+ * resolves to `owner`, or null if it never appears within the budget.
+ */
+async function confirmMintedRecord(
+  name: string,
+  owner: string,
+): Promise<NameRecord | null> {
+  for (let attempt = 0; attempt < READBACK_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(READBACK_DELAY_MS);
+    const record = await getRecordOrNull(name);
+    if (record && resolvesTo(record, owner)) return record;
+  }
+  return null;
 }
 
 /** A name is free when it has no record, or an expired one (reclaimable). */
@@ -124,22 +174,20 @@ export async function mintUsernameSubname(
   if (!parent) {
     throw new SuiNsError(
       "Username claiming isn't available yet — the parent domain isn't registered.",
+      "unavailable",
     );
   }
   // A live registration is taken — unless it already resolves to this same owner.
-  // That's the state left when a prior mint succeeded on-chain but its DB write
-  // failed: the NFT sits in the owner's wallet with the name pointing at them.
-  // Treat that as an idempotent success so the claim re-records instead of
-  // dead-ending on "taken" for a name the caller already owns.
+  // That's the state left when a prior mint landed on-chain but recording it
+  // failed (a DB write error, or the read-back never caught up): the NFT sits in
+  // the owner's wallet with the name pointing at them. Treat that as an idempotent
+  // success so re-claiming the same name just records it — no second mint, no gas.
   const existing = await getRecordOrNull(name);
   if (existing && existing.expirationTimestampMs >= Date.now()) {
-    if (
-      existing.nftId &&
-      normalizeSuiAddress(existing.targetAddress) === normalizeSuiAddress(owner)
-    ) {
+    if (resolvesTo(existing, owner)) {
       return { name, nftId: existing.nftId, digest: "" };
     }
-    throw new SuiNsError("That username is taken. Try another.");
+    throw new SuiNsError("That username is taken. Try another.", "taken");
   }
 
   const keypair = loadAdminKeypair(serverSuiConfig().adminSecretKey);
@@ -165,12 +213,14 @@ export async function mintUsernameSubname(
   });
   const executed = expectExecuted(result, "Minting the username failed");
 
-  // The registry now points the name at its fresh NFT — read the id back rather
-  // than parsing effects, so we record exactly what resolves on-chain.
-  const minted = await suins.getNameRecord(name);
+  // The registry now points the name at its fresh NFT. Read the id back (rather
+  // than parsing effects) so we store exactly what resolves on-chain, polling
+  // through the read node's replication lag since the mint definitely landed.
+  const minted = await confirmMintedRecord(name, owner);
   if (!minted?.nftId) {
     throw new SuiNsError(
-      "The username was minted but its NFT id could not be resolved.",
+      "Your username was minted and is finalizing on-chain — it's already in your wallet. Refresh in a moment, or claim the same name again to finish.",
+      "pending",
     );
   }
   return { name, nftId: minted.nftId, digest: executed.digest };
