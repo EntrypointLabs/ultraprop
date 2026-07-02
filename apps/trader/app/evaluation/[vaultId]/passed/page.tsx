@@ -54,7 +54,7 @@ function PassedContent({ vaultId }: { vaultId: string }) {
       : vault.tier.id === "basic"
         ? "Pro"
         : null;
-  const tradeCount = vault.intentCount;
+  const tradeCount = vault.tradeCount;
 
   // Derive a simple profit-to-target ratio
   const targetGain = vault.startingEquity * vault.tier.profitTarget;

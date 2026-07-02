@@ -124,7 +124,7 @@ function InactiveContent({ vaultId }: { vaultId: string }) {
             />
             <StatTile
               label="Trades submitted"
-              value={<span className="tabular">{vault.intentCount}</span>}
+              value={<span className="tabular">{vault.tradeCount}</span>}
               delta={`of ${vault.tier.intentCap} trade limit`}
               deltaTone="muted"
             />
