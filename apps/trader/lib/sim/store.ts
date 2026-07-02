@@ -256,6 +256,8 @@ interface LiquidationResult {
 function closeLiquidations(
   positions: Position[],
   realizedTotal: number,
+  startingEquity: number,
+  lossFloor: number,
   nowMs: number,
 ): LiquidationResult {
   const survivors: Position[] = [];
@@ -304,6 +306,37 @@ function closeLiquidations(
       liquidated: true,
       closedBy: "liquidation",
     });
+  }
+
+  // Cap the booked loss at the firm's remaining drawdown: paper trading mimics a
+  // real prop desk, which force-settles the position the instant cumulative loss
+  // hits the max-drawdown (or daily-loss) floor — a trader can never lose more
+  // than the rules allow on one liquidation. Without this, a position whose mark
+  // gaps far past its liquidation books the full runaway loss (e.g. a 5x short
+  // riding from $71 to $168 books -$6.8k on $1k of margin). Clamp equity to the
+  // floor and fold the give-back back into the liquidation trades' realized PnL
+  // so every surface shows the same, sane number.
+  if (trades.length > 0) {
+    const survivorsCarry = survivors.reduce(
+      (sum, p) => sum + p.unrealizedPnl - p.entryFeeUsd + p.fundingPaid,
+      0,
+    );
+    const equity = startingEquity + running + survivorsCarry;
+    if (equity < lossFloor) {
+      const giveBack = Number((lossFloor - equity).toFixed(2));
+      const totalLoss = trades.reduce(
+        (sum, t) => sum + Math.min(0, t.realizedPnl),
+        0,
+      );
+      if (totalLoss < 0) {
+        for (const trade of trades) {
+          if (trade.realizedPnl >= 0) continue;
+          const share = (trade.realizedPnl / totalLoss) * giveBack;
+          trade.realizedPnl = Number((trade.realizedPnl + share).toFixed(2));
+        }
+      }
+      running = Number((running + giveBack).toFixed(2));
+    }
   }
 
   return { survivors, trades, realizedTotal: running };
@@ -438,7 +471,19 @@ function recompute(v: SimVault, prices: PriceTick[], nowMs: number): SimVault {
   // path as a manual close (realizedOnClose + taker fee), AT the liq price, and
   // is booked into realizedTotal so equity/rules see the loss. detectOutcome is
   // unchanged — the rules-based eval stays the pass/fail authority.
-  const liqClose = closeLiquidations(withLiq, realizedTotal, nowMs);
+  // The binding loss floor: a liquidation can never settle the account below the
+  // max-drawdown floor or the day's daily-loss floor — whichever is higher (hit
+  // first). closeLiquidations clamps the booked loss to it.
+  const drawdownFloor = v.startingEquity * (1 - v.tier.maxDrawdown);
+  const dailyFloor = dailyAnchorEquity - v.startingEquity * v.tier.dailyLoss;
+  const lossFloor = Math.max(drawdownFloor, dailyFloor);
+  const liqClose = closeLiquidations(
+    withLiq,
+    realizedTotal,
+    v.startingEquity,
+    lossFloor,
+    nowMs,
+  );
   const positions = liqClose.survivors;
   const trades = liqClose.trades.length
     ? [...liqClose.trades, ...v.trades]
