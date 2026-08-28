@@ -1,4 +1,5 @@
 import { Children } from "react";
+import Image from "next/image";
 import { external, links } from "@/lib/links";
 import { Logo } from "@/components/Logo";
 import { ParticleMesh } from "@/components/ParticleMesh";
@@ -10,6 +11,18 @@ const MARKETS = [
   ["SUI", "$3.927", "+3.04%"],
   ["HYPE", "$48.365", "+5.21%"],
 ] as const;
+
+type MarketSymbol = (typeof MARKETS)[number][0];
+
+// Checked-in PNG brand assets: Trust Wallet's maintained registry for
+// BTC/ETH/SOL/SUI and Hyperliquid's official brand kit for HYPE.
+const MARKET_ICON_SRC: Record<MarketSymbol, string> = {
+  BTC: "/token-icons/btc.png",
+  ETH: "/token-icons/eth.png",
+  SOL: "/token-icons/sol.png",
+  SUI: "/token-icons/sui.png",
+  HYPE: "/token-icons/hype.png",
+};
 
 const APP_LANES = [
   ["Trade", "LIVE PERPETUAL MARKETS"],
@@ -68,56 +81,16 @@ function BarChartIcon() {
   );
 }
 
-function MarketIcon({ symbol }: { symbol: (typeof MARKETS)[number][0] }) {
-  if (symbol === "BTC") {
-    return (
-      <svg aria-hidden viewBox="0 0 32 32">
-        <circle cx="16" cy="16" r="16" fill="#f7931a" />
-        <text x="16" y="22" fill="#fff" fontSize="18" fontWeight="700" textAnchor="middle">₿</text>
-      </svg>
-    );
-  }
-
-  if (symbol === "ETH") {
-    return (
-      <svg aria-hidden viewBox="0 0 32 32">
-        <circle cx="16" cy="16" r="16" fill="#627eea" />
-        <path fill="#fff" fillOpacity=".82" d="m16 4.6-7 11.6 7 4.1 7-4.1L16 4.6Z" />
-        <path fill="#fff" d="m16 21.7-7-4.1L16 27.4l7-9.8-7 4.1Z" />
-      </svg>
-    );
-  }
-
-  if (symbol === "SOL") {
-    return (
-      <svg aria-hidden viewBox="0 0 32 32">
-        <defs>
-          <linearGradient id="sol-token-gradient" x1="5" x2="27" y1="27" y2="5" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#9945ff" />
-            <stop offset="1" stopColor="#14f195" />
-          </linearGradient>
-        </defs>
-        <circle cx="16" cy="16" r="16" fill="#090a0b" />
-        <path fill="url(#sol-token-gradient)" d="M8.3 9.1c.2-.2.4-.3.7-.3h16.1c.4 0 .6.5.3.8l-2.8 2.8c-.2.2-.4.3-.7.3H5.8c-.4 0-.6-.5-.3-.8l2.8-2.8Zm0 10.2c.2-.2.4-.3.7-.3h16.1c.4 0 .6.5.3.8l-2.8 2.8c-.2.2-.4.3-.7.3H5.8c-.4 0-.6-.5-.3-.8l2.8-2.8Zm14.3-5.1c-.2-.2-.4-.3-.7-.3H5.8c-.4 0-.6.5-.3.8l2.8 2.8c.2.2.4.3.7.3h16.1c.4 0 .6-.5.3-.8l-2.8-2.8Z" />
-      </svg>
-    );
-  }
-
-  if (symbol === "SUI") {
-    return (
-      <svg aria-hidden viewBox="0 0 32 32">
-        <circle cx="16" cy="16" r="16" fill="#6fbcf0" />
-        <path fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 6.2s-7 8-7 12.3a7 7 0 0 0 14 0C23 14.2 16 6.2 16 6.2Z" />
-        <path fill="none" stroke="#fff" strokeLinecap="round" strokeWidth="2" d="M12.2 19.1c1.5 1.6 3.9 1.8 5.7.5.8-.6 1.4-1.4 1.7-2.3" />
-      </svg>
-    );
-  }
-
+function MarketIcon({ symbol }: { symbol: MarketSymbol }) {
   return (
-    <svg aria-hidden viewBox="0 0 32 32">
-      <circle cx="16" cy="16" r="16" fill="#071b19" />
-      <path fill="#50e3c2" d="M5.2 16.8c2.8-5.9 5.3-8.4 7.7-7.7 2.2.6 2.3 4.5 4.3 5.1 1.8.5 4.2-1.8 7.1-6.7 1.7 7.6 1.5 12.6-.7 15-2.1 2.2-4.4-.7-6.6-1.3-2.9-.8-5.4 2.2-7.6 1.2-1.8-.8-3.2-2.7-4.2-5.6Z" />
-    </svg>
+    <Image
+      alt=""
+      aria-hidden
+      className={`hl-market-icon hl-market-icon-${symbol.toLowerCase()}`}
+      height={40}
+      src={MARKET_ICON_SRC[symbol]}
+      width={40}
+    />
   );
 }
 
@@ -205,7 +178,7 @@ function MiniTerminal() {
             <li><CheckIcon /> Max drawdown</li>
             <li><CheckIcon /> Consistency</li>
           </ul>
-          <span className="hl-terminal-control">Close position</span>
+          <div className="hl-terminal-control">Close position</div>
         </aside>
       </div>
     </div>

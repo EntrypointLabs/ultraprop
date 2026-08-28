@@ -587,16 +587,24 @@ a,
 }
 
 .hl-market-strip i {
+  border-radius: 50%;
   display: block;
   font-style: normal;
   height: 34px;
+  overflow: hidden;
   width: 34px;
 }
 
-.hl-market-strip i svg {
+.hl-market-strip i img {
   display: block;
   height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
   width: 100%;
+}
+
+.hl-market-icon-hype {
+  transform: scale(1.12);
 }
 
 .hl-market-strip b {
@@ -906,14 +914,19 @@ a,
 }
 
 .hl-terminal-control {
+  align-items: center;
   background: var(--hl-red);
   border: 0;
   border-radius: 6px;
   color: white;
+  display: flex;
   font-size: 8px;
   font-weight: 700;
+  justify-content: center;
+  line-height: 1;
   margin-top: auto;
   min-height: 32px;
+  width: 100%;
 }
 
 .hl-app-lanes {
