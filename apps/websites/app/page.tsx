@@ -1,4 +1,5 @@
 import { Logo } from "@/components/Logo";
+import { HyperLanding } from "@/components/HyperLanding";
 import { SiteFooter } from "@/components/SiteFooter";
 import { external, links } from "@/lib/links";
 
@@ -7,9 +8,12 @@ import { external, links } from "@/lib/links";
 // pushed to a dark red duotone in CSS so it reads as a moody, branded scene.
 const BG_IMAGE = "/footer-backdrop.jpg";
 
-export default function Page() {
+function LegacyHomepage() {
   return (
-    <div className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-bg">
+    <div
+      id="legacy"
+      className="relative isolate flex min-h-dvh flex-col overflow-hidden bg-bg"
+    >
       {/* backdrop image */}
       <div
         aria-hidden
@@ -68,12 +72,12 @@ export default function Page() {
         </header>
 
         {/* centered statement */}
-        <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-center justify-center px-5 py-20 text-center sm:px-8">
-          <h1 className="hero-in hero-in-1 font-display text-balance text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-6xl">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-center justify-center px-5 py-20 text-center sm:px-8">
+          <h2 className="hero-in hero-in-1 font-display text-balance text-4xl font-normal leading-[1.1] sm:text-5xl lg:text-6xl">
             <span className="text-brand">Prove your edge.</span>
             <br />
             Earn a funded account.
-          </h1>
+          </h2>
           <p className="hero-in hero-in-2 mt-6 max-w-lg text-pretty text-text-muted">
             Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog
             in simulation against live market prices. Clear the evaluation to
@@ -88,10 +92,19 @@ export default function Page() {
               Start Trading
             </a>
           </div>
-        </main>
+        </div>
 
         <SiteFooter />
       </div>
+    </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <div>
+      <HyperLanding />
+      <LegacyHomepage />
     </div>
   );
 }

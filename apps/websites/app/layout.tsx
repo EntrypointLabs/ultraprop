@@ -1,5 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
+import {
+  Geist,
+  Hanken_Grotesk,
+  JetBrains_Mono,
+  Newsreader,
+} from "next/font/google";
 import "@/app/globals.css";
 
 const sans = Hanken_Grotesk({
@@ -21,6 +26,14 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono-face",
   weight: ["400", "500", "600"],
+  display: "swap",
+});
+
+const editorial = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-editorial-face",
+  weight: ["300", "400"],
+  style: "normal",
   display: "swap",
 });
 
@@ -68,7 +81,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${sans.variable} ${display.variable} ${mono.variable}`}
+      className={`dark ${sans.variable} ${display.variable} ${mono.variable} ${editorial.variable}`}
       style={{ colorScheme: "dark" }}
     >
       <body className="bg-bg text-text antialiased">{children}</body>
