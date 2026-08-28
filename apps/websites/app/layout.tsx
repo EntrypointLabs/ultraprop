@@ -67,10 +67,16 @@ export const metadata: Metadata = {
     site: "@ultraprop_xyz",
     images: ["https://ultraprop.xyz/og-image.png"],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Ultraprop",
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0c",
+  colorScheme: "light",
+  themeColor: "#f6f7f5",
 };
 
 export default function RootLayout({
