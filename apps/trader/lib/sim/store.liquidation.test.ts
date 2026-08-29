@@ -188,6 +188,34 @@ describe("recompute — liquidation force-close (MAJ-1)", () => {
     expect(v.realizedTotal).toBeCloseTo(v.trades[0].realizedPnl, 2);
   });
 
+  it("(d) caps a runaway liquidation at the binding loss floor — never books more than the remaining budget", () => {
+    // A 5x short whose mark gaps far past its liq would otherwise book a
+    // catastrophic loss (entry 100 → mark 300 ≈ -$2000 on a $1000 position).
+    // The firm force-settles at the binding floor instead: for a fresh starter
+    // day that's the daily-loss floor (max(drawdown 9000, daily 9500) = 9500).
+    const vaultId = seedVaultWith(
+      makePosition({ side: "short", marginMode: "isolated" }),
+    );
+    useSimStore.getState().tick(vaultId, [tickAt(ENTRY * 3)], NOW + 2000);
+    const v = useSimStore.getState().vaults[vaultId];
+
+    const drawdownFloor =
+      STARTER.shadowAllocation * (1 - STARTER.maxDrawdown);
+    const dailyFloor =
+      STARTER.shadowAllocation - STARTER.shadowAllocation * STARTER.dailyLoss;
+    const lossFloor = Math.max(drawdownFloor, dailyFloor);
+
+    expect(v.positions).toHaveLength(0);
+    expect(v.trades[0].liquidated).toBe(true);
+    // Equity floors at the binding floor — not the ~$8000 runaway.
+    expect(v.equity).toBeCloseTo(lossFloor, 2);
+    // realizedTotal and the trade's PnL reflect the capped loss, not the gap.
+    expect(v.realizedTotal).toBeCloseTo(v.equity - STARTER.shadowAllocation, 2);
+    expect(v.trades[0].realizedPnl).toBeGreaterThan(-600);
+    // The capped loss still breaches a floor, so the eval fails.
+    expect(v.status).toBe("failed");
+  });
+
   it("does not double-count: realizedTotal moves by exactly the liq trade's realizedPnl", () => {
     const vaultId = seedVaultWith(makePosition({ marginMode: "isolated" }));
     const before = useSimStore.getState().vaults[vaultId].realizedTotal;
