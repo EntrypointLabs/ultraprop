@@ -7,6 +7,8 @@ import {
 } from "next/font/google";
 import "@/app/globals.css";
 
+const PAGE_BACKGROUND = "#f6f7f5";
+
 const sans = Hanken_Grotesk({
   subsets: ["latin"],
   variable: "--font-sans-face",
@@ -76,7 +78,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: "light",
-  themeColor: "#f6f7f5",
+  themeColor: PAGE_BACKGROUND,
 };
 
 export default function RootLayout({
@@ -88,9 +90,14 @@ export default function RootLayout({
     <html
       lang="en"
       className={`dark ${sans.variable} ${display.variable} ${mono.variable} ${editorial.variable}`}
-      style={{ colorScheme: "light" }}
+      style={{ backgroundColor: PAGE_BACKGROUND, colorScheme: "light" }}
     >
-      <body className="bg-bg text-text antialiased">{children}</body>
+      <body
+        className="text-text antialiased"
+        style={{ backgroundColor: PAGE_BACKGROUND }}
+      >
+        {children}
+      </body>
     </html>
   );
 }
