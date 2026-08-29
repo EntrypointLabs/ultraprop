@@ -29,7 +29,7 @@ const APP_LANES = [
   ["Evaluations", "TRANSPARENT RULES"],
   ["Leaderboard", "VERIFIED PERFORMANCE"],
   ["Genesis points", "COHORT REWARDS"],
-  ["Trader profile", "PORTABLE RECORD"],
+  ["Trader profile", "PERFORMANCE HISTORY"],
 ] as const;
 
 const NEWS = [
@@ -282,10 +282,10 @@ export function HyperLanding() {
         </section>
 
         <section className="hl-stats" aria-label="Ultraprop platform details">
-          <div><b>3</b><span>MARKET VENUES</span></div>
+          <div><b>1</b><span>MARKET VENUE</span></div>
           <div><b>24 / 7</b><span>MARKET ACCESS</span></div>
           <div><b>LIVE</b><span>PRICE INPUTS</span></div>
-          <div><b>ONCHAIN</b><span>TRADER RECORD</span></div>
+          <div><b>VISIBLE</b><span>RULES &amp; LIMITS</span></div>
         </section>
 
         <section className="hl-product-rail" id="apps">
@@ -322,12 +322,13 @@ export function HyperLanding() {
 
           <div className="hl-builder" id="technology">
             <BuilderGraphic />
-            <span className="hl-eyebrow">VERIFIABLE CREDENTIALS</span>
-            <h2>Make your record portable</h2>
+            <span className="hl-eyebrow">CREDENTIAL ROADMAP</span>
+            <h2>Building toward portable records</h2>
             <p>
-              Every successful evaluation can become a public, on-chain record.
-              Traders keep the proof of how they performed while UltraProp
-              provides the live market inputs, rules, and enforcement.
+              UltraProp is building toward portable, on-chain evaluation
+              records. Today, traders can complete live-price simulations with
+              visible rules while the credential path is being wired into the
+              product.
             </p>
             <a className="hl-button neutral" href={links.docs} {...external}>
               Read the docs <ArrowIcon diagonal />
@@ -368,14 +369,16 @@ export function HyperLanding() {
             </p>
             <div className="hl-security-columns">
               <p>
-                Market prices come from supported on-chain venues. Before an
+                Market prices currently come through the Hyperliquid
+                integration. Before an
                 order is submitted, the expected simulated fill and price impact
                 are shown, so traders can see the model they are trading against.
               </p>
               <p>
                 Risk rules are enforced continuously. Daily loss, maximum
-                drawdown, and evaluation status are kept in view, while completed
-                records can be anchored onchain as verifiable credentials.
+                drawdown, and evaluation status are kept in view. A future
+                credential layer is planned to anchor completed evaluation
+                records onchain once the recording path is live.
               </p>
             </div>
           </div>
@@ -416,11 +419,11 @@ export function HyperLanding() {
               </details>
               <details>
                 <summary>Which markets can I trade?<ChevronIcon /></summary>
-                <p>UltraProp supports the perpetual catalog available through its Bluefin, DeepBook, and Hyperliquid market integrations.</p>
+                <p>UltraProp currently supports perpetual markets available through its Hyperliquid integration.</p>
               </details>
               <details>
-                <summary>What makes the record verifiable?<ChevronIcon /></summary>
-                <p>Evaluation outcomes can be recorded onchain, giving successful traders a portable credential tied to the rules and market inputs used.</p>
+                <summary>Will evaluation records be verifiable?<ChevronIcon /></summary>
+                <p>Portable on-chain evaluation records are planned. Today, evaluation results remain in the trading app while the recording path is completed.</p>
               </details>
             </div>
           </div>

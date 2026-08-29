@@ -79,9 +79,9 @@ function LegacyHomepage() {
             Earn a funded account.
           </h2>
           <p className="hero-in hero-in-2 mt-6 max-w-lg text-pretty text-text-muted">
-            Trade the full Bluefin, DeepBook &amp; Hyperliquid perpetual catalog
-            in simulation against live market prices. Clear the evaluation to
-            earn a funded account, your track record recorded on-chain.
+            Trade the Hyperliquid perpetual catalog in simulation against live
+            market prices. Clear the transparent evaluation rules to earn a
+            funded account.
           </p>
           <div className="hero-in hero-in-3 mt-9">
             <a
