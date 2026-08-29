@@ -11,6 +11,7 @@
     "build": "next build",
     "start": "next start -p 3002",
     "lint": "next lint",
+    "test": "node --test app/__tests__/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

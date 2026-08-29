@@ -22,16 +22,6 @@ export function ParticleMesh() {
     let pixelRatio = 1;
     let isVisible = true;
 
-    const resize = () => {
-      const bounds = canvas.getBoundingClientRect();
-      width = bounds.width;
-      height = bounds.height;
-      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.round(width * pixelRatio);
-      canvas.height = Math.round(height * pixelRatio);
-      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    };
-
     const draw = (now: number) => {
       frame = 0;
       const time = reduceMotion ? 0.8 : (now - start) / 5200;
@@ -77,6 +67,22 @@ export function ParticleMesh() {
       if (!reduceMotion && isVisible) frame = requestAnimationFrame(draw);
     };
 
+    const resize = () => {
+      if (frame) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      }
+
+      const bounds = canvas.getBoundingClientRect();
+      width = bounds.width;
+      height = bounds.height;
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * pixelRatio);
+      canvas.height = Math.round(height * pixelRatio);
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      draw(performance.now());
+    };
+
     const resizeObserver = new ResizeObserver(resize);
     const visibilityObserver = new IntersectionObserver(([entry]) => {
       isVisible = entry?.isIntersecting ?? true;
@@ -92,7 +98,6 @@ export function ParticleMesh() {
     resizeObserver.observe(canvas);
     visibilityObserver.observe(canvas);
     resize();
-    draw(start);
 
     return () => {
       resizeObserver.disconnect();

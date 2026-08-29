@@ -7,6 +7,8 @@ import {
 } from "next/font/google";
 import "@/app/globals.css";
 
+const PAGE_BACKGROUND = "#f6f7f5";
+
 const sans = Hanken_Grotesk({
   subsets: ["latin"],
   variable: "--font-sans-face",
@@ -41,11 +43,11 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://ultraprop.xyz"),
   title: "Ultraprop · the on-chain crypto prop firm",
   description:
-    "An on-chain proprietary trading firm. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices. Clear the evaluation to earn a funded account.",
+    "A crypto proprietary trading evaluation platform. Trade the Hyperliquid perpetual catalog in simulation against live market prices and clear transparent evaluation rules.",
   openGraph: {
     title: "Ultraprop · the on-chain crypto prop firm",
     description:
-      "An on-chain proprietary trading firm. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices. Clear the evaluation to earn a funded account.",
+      "A crypto proprietary trading evaluation platform. Trade the Hyperliquid perpetual catalog in simulation against live market prices and clear transparent evaluation rules.",
     url: "https://ultraprop.xyz",
     siteName: "Ultraprop",
     images: [
@@ -63,7 +65,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Ultraprop · the on-chain crypto prop firm",
     description:
-      "An on-chain proprietary trading firm. Trade the full Bluefin, DeepBook & Hyperliquid perpetual catalog in simulation against live market prices. Clear the evaluation to earn a funded account.",
+      "A crypto proprietary trading evaluation platform. Trade the Hyperliquid perpetual catalog in simulation against live market prices and clear transparent evaluation rules.",
     site: "@ultraprop_xyz",
     images: ["https://ultraprop.xyz/og-image.png"],
   },
@@ -76,7 +78,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   colorScheme: "light",
-  themeColor: "#f6f7f5",
+  themeColor: PAGE_BACKGROUND,
 };
 
 export default function RootLayout({
@@ -88,9 +90,14 @@ export default function RootLayout({
     <html
       lang="en"
       className={`dark ${sans.variable} ${display.variable} ${mono.variable} ${editorial.variable}`}
-      style={{ colorScheme: "dark" }}
+      style={{ backgroundColor: PAGE_BACKGROUND, colorScheme: "light" }}
     >
-      <body className="bg-bg text-text antialiased">{children}</body>
+      <body
+        className="text-text antialiased"
+        style={{ backgroundColor: PAGE_BACKGROUND }}
+      >
+        {children}
+      </body>
     </html>
   );
 }

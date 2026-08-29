@@ -60,9 +60,10 @@
   --font-mono: var(--font-mono-face), ui-monospace, "SFMono-Regular", monospace;
 }
 
-/* Layer B — dark-only canvas. The landing mirrors a deep, near-black surface. */
+/* Layer B — dark surface tokens used by the preserved legacy footer and pitch. */
 :root {
   color-scheme: dark;
+  --page-background: #f6f7f5;
 
   /* canvas */
   --bg: #0a0a0c;
@@ -95,7 +96,7 @@
 }
 
 html {
-  background-color: var(--bg);
+  background-color: var(--page-background);
   color: var(--text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -104,7 +105,7 @@ html {
 }
 
 body {
-  background-color: var(--bg);
+  background-color: var(--page-background);
   color: var(--text);
   min-height: 100dvh;
 }
