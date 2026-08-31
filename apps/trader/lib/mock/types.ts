@@ -255,8 +255,14 @@ export interface VaultState {
   triggerTrade: TradeRecord | null;
   /** for failed vaults: which rule was violated */
   violatedRule: RuleKind | null;
-  /** count of intents submitted */
+  /** count of intents submitted — every open AND close consumes one */
   intentCount: number;
+  /**
+   * Count of distinct trades — one per position opened. Unlike `intentCount`, a
+   * round trip (open + close) is a single trade, so this reads what a trader
+   * thinks of as "trades used"; `intentCount` stays the raw order-activity tally.
+   */
+  tradeCount: number;
 }
 
 export interface Session {

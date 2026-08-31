@@ -92,7 +92,7 @@ export function ActiveEvalCard({ vaultId }: ActiveEvalCardProps = {}) {
           <div>
             <CardLabel>Trades used</CardLabel>
             <div className="tabular mt-1 text-lg font-semibold text-text">
-              {vault.intentCount}
+              {vault.tradeCount}
               <span className="text-xs text-text-muted">
                 {" "}
                 / {tier.intentCap}

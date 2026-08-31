@@ -530,6 +530,7 @@ export function EvaluationCockpit({
           onClose={closePosition}
           onSetBracket={setBracket}
           onCancelBracket={cancelBracket}
+          onSelectMarket={onMarketChange}
         />
       )}
 

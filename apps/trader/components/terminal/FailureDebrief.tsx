@@ -240,7 +240,7 @@ export function FailureDebrief({
           />
           <StatTile
             label="Trades submitted"
-            value={<span className="tabular">{vault.intentCount}</span>}
+            value={<span className="tabular">{vault.tradeCount}</span>}
           />
         </CardContent>
       </Card>
